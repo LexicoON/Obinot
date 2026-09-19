@@ -186,7 +186,12 @@ fun ResultScreen(
     var newLabelInput by remember { mutableStateOf("") }
     var searchHighlightQuery by remember { mutableStateOf("") }
     var temporaryHighlight by remember { mutableStateOf("") }
-    var selectedFont by remember { mutableStateOf(FontFamily.SansSerif) }
+    val readingFontIndex by viewModel.readingFont.collectAsState()
+    val selectedFont: FontFamily = when (readingFontIndex) {
+        1 -> FontFamily.Serif
+        2 -> FontFamily.Monospace
+        else -> FontFamily.SansSerif
+    }
 
     var showHighlightDialog by remember { mutableStateOf(false) }
     var currentHighlightWord by remember { mutableStateOf("") }
@@ -462,17 +467,17 @@ fun ResultScreen(
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 SegmentedButton(
                     shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
-                    onClick = { selectedFont = FontFamily.SansSerif },
+                    onClick = { viewModel.saveReadingFont(0) },
                     selected = selectedFont == FontFamily.SansSerif
                 ) { Text(stringResource(R.string.result_font_sans)) }
                 SegmentedButton(
                     shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
-                    onClick = { selectedFont = FontFamily.Serif },
+                    onClick = { viewModel.saveReadingFont(1) },
                     selected = selectedFont == FontFamily.Serif
                 ) { Text(stringResource(R.string.result_font_serif)) }
                 SegmentedButton(
                     shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
-                    onClick = { selectedFont = FontFamily.Monospace },
+                    onClick = { viewModel.saveReadingFont(2) },
                     selected = selectedFont == FontFamily.Monospace
                 ) { Text(stringResource(R.string.result_font_mono)) }
             }

@@ -167,6 +167,51 @@ private fun resolveRectToPosition(
 // Assets
 // ============================================================
 
+/**
+ * Cache de assets a nivel de proceso.
+ *
+ * Los archivos de KaTeX y Mermaid son strings grandes (~1 MB total). Hoy se
+ * leen del APK cada vez que se abre una nota, aunque la nota no tenga ni una
+ * fórmula ni un diagrama. Este cache los lee UNA sola vez por proceso y los
+ * reutiliza durante toda la vida del proceso.
+ *
+ * Thread-safe: doble-checked locking. La primera llamada desde múltiples
+ * threads concurrentes dispara la carga una sola vez.
+ */
+private object MarkdownAssetCache {
+    @Volatile private var katexCache: KaTeXAssets? = null
+    @Volatile private var mermaidCache: MermaidAssets? = null
+    private val katexLock = Any()
+    private val mermaidLock = Any()
+
+    fun getKaTeX(context: android.content.Context): KaTeXAssets {
+        katexCache?.let { return it }
+        synchronized(katexLock) {
+            katexCache?.let { return it }
+            val assets = KaTeXAssets(
+                css = try { context.assets.open("katex/katex.min.css").bufferedReader().readText() } catch (e: Exception) { "" },
+                js = try { context.assets.open("katex/katex.min.js").bufferedReader().readText() } catch (e: Exception) { "" },
+                autoRender = try { context.assets.open("katex/auto-render.min.js").bufferedReader().readText() } catch (e: Exception) { "" },
+                mhchem = try { context.assets.open("katex/mhchem.min.js").bufferedReader().readText() } catch (e: Exception) { "" }
+            )
+            katexCache = assets
+            return assets
+        }
+    }
+
+    fun getMermaid(context: android.content.Context): MermaidAssets {
+        mermaidCache?.let { return it }
+        synchronized(mermaidLock) {
+            mermaidCache?.let { return it }
+            val assets = MermaidAssets(
+                js = try { context.assets.open("mermaid/mermaid.min.js").bufferedReader().readText() } catch (e: Exception) { "" }
+            )
+            mermaidCache = assets
+            return assets
+        }
+    }
+}
+
 data class KaTeXAssets(val css: String, val js: String, val autoRender: String, val mhchem: String) {
     val isReady get() = js.isNotEmpty() && mhchem.isNotEmpty()
 }
@@ -686,14 +731,14 @@ private fun estimateInlineMathSize(latex: String): Pair<Float, Float> {
             }
         }
     }
-    val width = (units * 0.55f).coerceIn(1.2f, 20f)
+    val width = (units * 0.4f).coerceIn(0.3f, 20f)
     val extraHeight = when {
-        latex.contains("\\frac") || latex.contains("\\dfrac") || latex.contains("\\tfrac") -> 0.6f
-        latex.contains("\\sum") || latex.contains("\\int") || latex.contains("\\prod") -> 0.5f
-        latex.contains("\\sqrt") -> 0.3f
+        latex.contains("\\frac") || latex.contains("\\dfrac") || latex.contains("\\tfrac") -> 0.5f
+        latex.contains("\\sum") || latex.contains("\\int") || latex.contains("\\prod") -> 0.4f
+        latex.contains("\\sqrt") -> 0.25f
         else -> 0f
     }
-    val height = 1.4f + extraHeight
+    val height = 1.15f + extraHeight
     return width to height
 }
 
@@ -783,7 +828,7 @@ html, body {
     background-color: transparent;
     color: ${hexColor};
     font-family: ${cssFont};
-    font-size: 16px;
+    font-size: 18px;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -791,7 +836,7 @@ html, body {
     height: 100%;
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
 }
 #math-content {
     display: inline-block;
@@ -982,16 +1027,19 @@ fun MarkdownText(
     var katexAssets by remember { mutableStateOf(KaTeXAssets("", "", "", "")) }
     var mermaidAssets by remember { mutableStateOf(MermaidAssets("")) }
 
-    LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            val css = try { context.assets.open("katex/katex.min.css").bufferedReader().readText() } catch (e: Exception) { "" }
-            val js = try { context.assets.open("katex/katex.min.js").bufferedReader().readText() } catch (e: Exception) { "" }
-            val ar = try { context.assets.open("katex/auto-render.min.js").bufferedReader().readText() } catch (e: Exception) { "" }
-            val mhchem = try { context.assets.open("katex/mhchem.min.js").bufferedReader().readText() } catch (e: Exception) { "" }
-            katexAssets = KaTeXAssets(css, js, ar, mhchem)
+    // Analizamos el texto una sola vez para saber qué assets hacen falta.
+    // Evitamos cargar ~1 MB de KaTeX + Mermaid cuando la nota es de texto simple.
+    val needsKatex = remember(text) { text.contains('$') }
+    val needsMermaid = remember(text) { text.contains("```mermaid", ignoreCase = true) }
 
-            val mermaidJs = try { context.assets.open("mermaid/mermaid.min.js").bufferedReader().readText() } catch (e: Exception) { "" }
-            mermaidAssets = MermaidAssets(mermaidJs)
+    LaunchedEffect(needsKatex, needsMermaid) {
+        withContext(Dispatchers.IO) {
+            if (needsKatex) {
+                katexAssets = MarkdownAssetCache.getKaTeX(context)
+            }
+            if (needsMermaid) {
+                mermaidAssets = MarkdownAssetCache.getMermaid(context)
+            }
         }
     }
 

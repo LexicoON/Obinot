@@ -122,6 +122,16 @@ class ResultViewModel(
             && (!autoEnabled || failed)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+        /**
+     * Preferencia global de fuente de lectura. 0 = Sans, 1 = Serif, 2 = Mono.
+     * Persistida en DataStore, sobrevive rotaciones y cierres de nota.
+     */
+    val readingFont: StateFlow<Int> = settingsRepository.readingFontFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0
+    )
+
     private val _explainResult = MutableStateFlow<String?>(null)
     val explainResult: StateFlow<String?> = _explainResult.asStateFlow()
 
@@ -198,6 +208,10 @@ class ResultViewModel(
             val provider = settingsRepository.aiProviderFlow.first()
             processTextAuto(currentNote, lang, task, format, currentMeta, provider)
         }
+    }
+
+    fun saveReadingFont(mode: Int) {
+        viewModelScope.launch { settingsRepository.saveReadingFont(mode) }
     }
 
     fun shareBinotFile(context: Context, onResult: (Uri?, String) -> Unit) {

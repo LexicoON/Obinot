@@ -53,6 +53,10 @@ class SettingsRepository(private val context: Context) {
         // --- D1b: AUTO-PROCESS TRANSCRIPTIONS ---
         // Default ON para no romper el comportamiento previo.
         val AUTO_PROCESS_KEY = booleanPreferencesKey("auto_process_enabled")
+
+        // --- F4b: READING FONT ---
+        // 0 = Sans (default), 1 = Serif, 2 = Mono.
+        val READING_FONT_KEY = intPreferencesKey("reading_font")
     }
 
     val userNameFlow: Flow<String> = context.dataStore.data.map { it[USER_NAME_KEY] ?: "" }
@@ -73,6 +77,7 @@ class SettingsRepository(private val context: Context) {
     val colorStyleFlow: Flow<Int> = context.dataStore.data.map { it[COLOR_STYLE_KEY] ?: 0 }
     val appLanguageFlow: Flow<String> = context.dataStore.data.map { it[APP_LANGUAGE_KEY] ?: "device" }
     val autoProcessFlow: Flow<Boolean> = context.dataStore.data.map { it[AUTO_PROCESS_KEY] ?: true }
+    val readingFontFlow: Flow<Int> = context.dataStore.data.map { it[READING_FONT_KEY] ?: 0 }
     // Default OFF: el picker nativo es beta y se opta explícitamente.
     val nativePickerFlow: Flow<Boolean> = context.dataStore.data.map { it[NATIVE_PICKER_KEY] ?: false }
 
@@ -151,5 +156,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun saveAutoProcess(enabled: Boolean) {
         context.dataStore.edit { it[AUTO_PROCESS_KEY] = enabled }
+    }
+
+    suspend fun saveReadingFont(mode: Int) {
+        context.dataStore.edit { it[READING_FONT_KEY] = mode.coerceIn(0, 2) }
     }
 }
