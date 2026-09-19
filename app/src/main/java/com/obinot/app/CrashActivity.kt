@@ -8,8 +8,8 @@ import android.os.Bundle
 import android.os.Process
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,10 +21,8 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -32,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
+import com.obinot.app.utils.CrashHandler
 import java.io.File
 import kotlin.system.exitProcess
 
@@ -55,10 +54,14 @@ class CrashActivity : ComponentActivity() {
             exitProcess(10)
         }
 
+        // Leer el log es I/O, pero es un archivo chico y estamos en un
+        // contexto post-crash: priorizamos simplicidad sobre performance.
         val crashFilePath = intent.getStringExtra(CrashHandler.EXTRA_CRASH_FILE)
-        val crashLog = remember {
-            crashFilePath?.let { path ->
-                try { File(path).readText() } catch (e: Exception) { null }
+        val crashLog = crashFilePath?.let { path ->
+            try {
+                File(path).readText()
+            } catch (e: Exception) {
+                null
             }
         }
 
@@ -67,8 +70,7 @@ class CrashActivity : ComponentActivity() {
             // DataStore + MaterialKolor, que podrían fallar en un contexto
             // post-crash.
             MaterialTheme(
-                colorScheme = if (androidx.compose.foundation.isSystemInDarkTheme())
-                    darkColorScheme() else lightColorScheme()
+                colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
             ) {
                 CrashScreen(
                     crashLog = crashLog,
