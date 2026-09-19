@@ -593,6 +593,52 @@ document.addEventListener("DOMContentLoaded", function() {
 // Markdown parser
 // ============================================================
 
+/**
+ * Divide una línea en segmentos alternando texto y math inline (`$$...$$`).
+ *
+ * Retorna `null` cuando la línea no tiene math inline con texto antes/después:
+ *   - Sin `$$...$$` → el caller la trata como NativeLine.
+ *   - Con un único `$$...$$` que cubre TODA la línea → el caller la trata como
+ *     MathBlock puro (comportamiento previo intacto).
+ *
+ * Los segmentos se devuelven con `lineIndex = -1`. El caller los re-inyecta
+ * con el `lineIndex` real de la línea original.
+ */
+private fun splitInlineMath(line: String): List<MarkdownItem>? {
+    val pattern = Regex("""\$\$(.+?)\$\$""")
+    val matches = pattern.findAll(line).toList()
+    if (matches.isEmpty()) return null
+
+    // Si la línea entera es un solo `$$...$$` sin texto antes ni después,
+    // no es inline: el caller lo maneja como MathBlock puro.
+    if (matches.size == 1) {
+        val match = matches[0]
+        val before = line.substring(0, match.range.first).trim()
+        val after = line.substring(match.range.last + 1).trim()
+        if (before.isEmpty() && after.isEmpty()) return null
+    }
+
+    val segments = mutableListOf<MarkdownItem>()
+    var cursor = 0
+    for (match in matches) {
+        if (match.range.first > cursor) {
+            val before = line.substring(cursor, match.range.first)
+            if (before.isNotBlank()) {
+                segments.add(MarkdownItem.NativeLine(before, -1))
+            }
+        }
+        segments.add(MarkdownItem.MathBlock("$$${match.groupValues[1]}$$", -1))
+        cursor = match.range.last + 1
+    }
+    if (cursor < line.length) {
+        val after = line.substring(cursor)
+        if (after.isNotBlank()) {
+            segments.add(MarkdownItem.NativeLine(after, -1))
+        }
+    }
+    return segments.ifEmpty { null }
+}
+
 private fun parseMarkdownItems(lines: List<String>): List<MarkdownItem> {
     val items = mutableListOf<MarkdownItem>()
     var i = 0
@@ -627,6 +673,24 @@ private fun parseMarkdownItems(lines: List<String>): List<MarkdownItem> {
             }
             if (i < lines.size) i++
             items.add(MarkdownItem.CodeBlock(code.toString(), language, startIndex))
+            continue
+        }
+
+        // Inline math: divide la línea en segmentos texto/math. Si retorna
+        // null (sin `$$...$$` con texto alrededor, o un solo `$$...$$` que
+        // cubre toda la línea), el flujo cae al MathBlock multilínea o al
+        // NativeLine de abajo.
+        val inlineSegments = splitInlineMath(line)
+        if (inlineSegments != null) {
+            inlineSegments.forEach { segment ->
+                when (segment) {
+                    is MarkdownItem.NativeLine -> items.add(MarkdownItem.NativeLine(segment.text, i))
+                    is MarkdownItem.MathBlock -> items.add(MarkdownItem.MathBlock(segment.rawText, i))
+                    // No debería pasar: splitInlineMath solo devuelve estos dos tipos.
+                    else -> items.add(segment)
+                }
+            }
+            i++
             continue
         }
 

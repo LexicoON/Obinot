@@ -564,4 +564,13 @@
     <string name="onboarding_no_key_title">Sin clave API</string>
     <string name="onboarding_no_key_body">Podés continuar sin una clave API y agregarla después en Ajustes. Las funciones de IA no funcionarán hasta entonces, pero grabar en modo Rápido y leer notas existentes seguirá funcionando.</string>
     <string name="onboarding_start_workspace_no_key">Continuar sin IA</string>
+
+    <!-- ============================================================ -->
+    <!-- D1b — Auto-process + Analyze manual                           -->
+    <!-- ============================================================ -->
+
+    <string name="settings_auto_process">Procesar transcripciones automáticamente</string>
+    <string name="settings_auto_process_desc">Procesa las notas con IA automáticamente cuando están listas. Si está apagado, podés procesar cada nota manualmente con el chip Analizar.</string>
+    <string name="result_analyze_chip">Analizar</string>
+
 </resources>

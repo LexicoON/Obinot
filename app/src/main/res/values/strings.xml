@@ -565,4 +565,12 @@
     <string name="onboarding_no_key_body">You can continue without an API key and add one later in Settings. AI features won\'t work until then, but recording in Fast mode and reading existing notes will still work.</string>
     <string name="onboarding_start_workspace_no_key">Continue without AI</string>
 
+    <!-- ============================================================ -->
+    <!-- D1b — Auto-process + Analyze manual                           -->
+    <!-- ============================================================ -->
+
+    <string name="settings_auto_process">Auto-process transcriptions</string>
+    <string name="settings_auto_process_desc">Automatically process notes with AI when they\'re ready. If off, you can process each note manually with the Analyze chip.</string>
+    <string name="result_analyze_chip">Analyze</string>
+
 </resources>

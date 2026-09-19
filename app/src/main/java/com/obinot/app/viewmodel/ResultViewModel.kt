@@ -93,6 +93,35 @@ class ResultViewModel(
         (customLabels + noteLabels).distinct().sorted()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /**
+     * Estado interno: true cuando el auto-procesamiento falló o está deshabilitado
+     * y la nota quedó sin summary. Alimenta la visibilidad del chip "Analyze".
+     */
+    private val _processingFailed = MutableStateFlow(false)
+
+    /**
+     * true cuando hay que mostrar el chip "Analyze" arriba del contenido.
+     * Combina:
+     *  - La nota no tiene summary todavía
+     *  - Tiene rawText válido (no pending, no marcador de transcripción del teléfono)
+     *  - No hay un procesamiento en curso
+     *  - O bien el toggle "Auto-process" está apagado, o bien el auto-procesamiento falló
+     */
+    val showAnalyzeChip: StateFlow<Boolean> = combine(
+        _processingFailed,
+        settingsRepository.autoProcessFlow,
+        _note,
+        _isLoading
+    ) { failed, autoEnabled, currentNote, loading ->
+        currentNote != null
+            && currentNote.summary == null
+            && currentNote.rawText.isNotBlank()
+            && currentNote.rawText != AudioRecorderManager.PENDING_TRANSCRIPTION
+            && !currentNote.rawText.startsWith(AudioRecorderManager.PHONE_TRANSCRIPTION_MARKER)
+            && !loading
+            && (!autoEnabled || failed)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     private val _explainResult = MutableStateFlow<String?>(null)
     val explainResult: StateFlow<String?> = _explainResult.asStateFlow()
 
@@ -107,6 +136,7 @@ class ResultViewModel(
         viewModelScope.launch {
             val fetchedNote = noteRepository.getNoteById(noteId)
             _note.value = fetchedNote
+            _processingFailed.value = false
 
             if (fetchedNote != null) {
                 val rawText = fetchedNote.rawText
@@ -133,9 +163,40 @@ class ResultViewModel(
             val currentMeta = "<!--BINOT_META:${lang}_${task}_${format}-->"
 
             if (noteToProcess.summary == null) {
+                val autoProcessEnabled = settingsRepository.autoProcessFlow.first()
+                if (!autoProcessEnabled) {
+                    // Auto-process apagado: no disparamos. Marcamos el estado
+                    // para que el chip "Analyze" aparezca en la UI.
+                    _processingFailed.value = true
+                    return@launch
+                }
                 val providerForProcessing = settingsRepository.aiProviderFlow.first()
                 processTextAuto(noteToProcess, lang, task, format, currentMeta, providerForProcessing)
             }
+        }
+    }
+
+    /**
+     * Dispara el procesamiento con IA de forma manual, ignorando el toggle
+     * "Auto-process transcriptions". Se llama desde el chip "Analyze" del
+     * ResultScreen. No hace nada si no hay texto que procesar, si ya hay un
+     * summary, o si el procesamiento ya está en curso.
+     */
+    fun analyzeManually() {
+        val currentNote = _note.value ?: return
+        if (currentNote.summary != null) return
+        if (currentNote.rawText.isBlank()) return
+        if (currentNote.rawText == AudioRecorderManager.PENDING_TRANSCRIPTION) return
+        if (currentNote.rawText.startsWith(AudioRecorderManager.PHONE_TRANSCRIPTION_MARKER)) return
+        if (_isLoading.value) return
+
+        viewModelScope.launch {
+            val lang = settingsRepository.aiLanguageFlow.first()
+            val task = settingsRepository.aiTaskFlow.first()
+            val format = settingsRepository.aiFormatFlow.first()
+            val currentMeta = "<!--BINOT_META:${lang}_${task}_${format}-->"
+            val provider = settingsRepository.aiProviderFlow.first()
+            processTextAuto(currentNote, lang, task, format, currentMeta, provider)
         }
     }
 
@@ -178,6 +239,7 @@ class ResultViewModel(
             timestamp = System.currentTimeMillis()
         )
         _note.value = updatedNote
+        _processingFailed.value = false
         viewModelScope.launch {
             noteRepository.update(updatedNote)
             checkAndTriggerAutoProcess(updatedNote)
@@ -201,6 +263,7 @@ class ResultViewModel(
             timestamp = System.currentTimeMillis()
         )
         _note.value = updated
+        _processingFailed.value = false
         viewModelScope.launch {
             noteRepository.update(updated)
             transcribeAudio()
@@ -231,6 +294,7 @@ class ResultViewModel(
                     timestamp = System.currentTimeMillis()
                 )
                 _note.value = updated
+                _processingFailed.value = false
                 noteRepository.update(updated)
 
                 launch(Dispatchers.Main) {
@@ -281,6 +345,7 @@ class ResultViewModel(
         if (currentNote.summary == null) return
         val updatedNote = currentNote.copy(summary = null, timestamp = System.currentTimeMillis())
         _note.value = updatedNote
+        _processingFailed.value = false
         viewModelScope.launch { noteRepository.update(updatedNote) }
     }
 
@@ -820,6 +885,7 @@ class ResultViewModel(
     private fun processTextAuto(currentNote: NoteEntity, language: String, task: Int, format: Int, metaTag: String, provider: Int) {
         _isLoading.value = true
         _error.value = null
+        _processingFailed.value = false
         _loadingMessage.value = appContext.getString(R.string.loading_ai_structuring)
 
         viewModelScope.launch(Dispatchers.IO) {
@@ -836,6 +902,7 @@ class ResultViewModel(
                 if (apiKey.isBlank()) {
                     launch(Dispatchers.Main) {
                         _error.value = appContext.getString(R.string.error_api_key_required_engine)
+                        _processingFailed.value = true
                         _isLoading.value = false
                     }
                     return@launch
@@ -955,12 +1022,14 @@ class ResultViewModel(
                         noteRepository.update(updatedNote)
                     } else {
                         _error.value = appContext.getString(R.string.error_ai_empty_text)
+                        _processingFailed.value = true
                     }
                     _isLoading.value = false
                 }
             } catch (e: Exception) {
                 launch(Dispatchers.Main) {
                     _error.value = handleExceptionError(e)
+                    _processingFailed.value = true
                     _isLoading.value = false
                 }
             }

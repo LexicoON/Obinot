@@ -147,6 +147,12 @@ class SettingsViewModel(
         initialValue = "device"
     )
 
+    val autoProcessEnabled: StateFlow<Boolean> = settingsRepository.autoProcessFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
     private val _updateState = MutableStateFlow(UpdateState.Idle)
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
 
@@ -221,6 +227,10 @@ class SettingsViewModel(
 
     fun saveAppLanguage(lang: String) {
         viewModelScope.launch { settingsRepository.saveAppLanguage(lang) }
+    }
+
+    fun saveAutoProcess(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.saveAutoProcess(enabled) }
     }
 
     fun applyAiPreferencesToAllNotes(onResult: (String) -> Unit) {

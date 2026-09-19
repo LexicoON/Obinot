@@ -153,6 +153,7 @@ fun ResultScreen(
     val playbackProgress by viewModel.playbackProgress.collectAsState()
     val allLabels by viewModel.allLabels.collectAsState()
     val labelColors by viewModel.labelColors.collectAsState()
+    val showAnalyzeChip by viewModel.showAnalyzeChip.collectAsState()
 
     val hasPhoneTranscription = remember(note?.rawText) {
         note?.rawText?.startsWith(AudioRecorderManager.PHONE_TRANSCRIPTION_MARKER) == true
@@ -564,6 +565,31 @@ fun ResultScreen(
                         }
                 ) {
                     Column(modifier = Modifier.fillMaxSize()) {
+                        if (showAnalyzeChip) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                            ) {
+                                BouncyChip(
+                                    onClick = { viewModel.analyzeManually() },
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AutoAwesome,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = stringResource(R.string.result_analyze_chip),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+
                         if (isLoading) {
                             val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
                             val alpha by infiniteTransition.animateFloat(
