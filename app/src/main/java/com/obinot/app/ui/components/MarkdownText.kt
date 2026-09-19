@@ -429,6 +429,20 @@ document.addEventListener("DOMContentLoaded", function() {
                         null
                     )
                 }
+            },
+            onRelease = { webView ->
+                // Sin este release, el WebView nativo queda vivo en memoria
+                // aunque el composable ya no esté en el árbol. Es un leak de
+                // ~2-5 MB por WebView que se acumula al abrir/cerrar notas.
+                try {
+                    webView.stopLoading()
+                    webView.loadUrl("about:blank")
+                    webView.clearHistory()
+                    webView.removeAllViews()
+                    webView.destroy()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         )
 
@@ -612,6 +626,17 @@ document.addEventListener("DOMContentLoaded", function() {
                         "UTF-8",
                         null
                     )
+                }
+            },
+            onRelease = { webView ->
+                try {
+                    webView.stopLoading()
+                    webView.loadUrl("about:blank")
+                    webView.clearHistory()
+                    webView.removeAllViews()
+                    webView.destroy()
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
             }
         )
@@ -910,6 +935,17 @@ document.addEventListener("DOMContentLoaded", function() {
                     "UTF-8",
                     null
                 )
+            }
+        },
+        onRelease = { webView ->
+            try {
+                webView.stopLoading()
+                webView.loadUrl("about:blank")
+                webView.clearHistory()
+                webView.removeAllViews()
+                webView.destroy()
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     )

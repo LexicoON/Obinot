@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color as AndroidColor
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -282,24 +283,47 @@ fun ResultScreen(
         showContent = true
     }
 
+    // Progreso del gesto de predictive back (0f = reposo, 1f = gesto completo).
+    // Se usa para escalar y desvanecer la pantalla mientras el usuario
+    // desliza desde el borde. Se resetea al soltar (cancelación o cierre).
+    var predictiveBackProgress by remember { mutableFloatStateOf(0f) }
+
     val closeNote: () -> Unit = {
         showContent = false
         onNavigateBack()
     }
 
-    BackHandler(enabled = true) {
-        if (isTextSelected || showCustomMenu) {
-            clearSelection()
-        } else if (showCancelConfirmDialog) {
-            showCancelConfirmDialog = false
-        } else if (showSidePanel && !isLandscape) {
-            showSidePanel = false
-        } else if (isEditMode) {
-            if (hasUnsavedChanges) showCancelConfirmDialog = true else isEditMode = false
-        } else if (isTitleFocused) {
-            focusManager.clearFocus()
-        } else {
+    // ¿Hay algún estado transitorio abierto que requiera un back "instantáneo"?
+    // En esos casos el gesto predictivo no tiene sentido — un diálogo o una
+    // selección de texto no se "previsualiza" deslizando.
+    val hasTransientState = isTextSelected || showCustomMenu || showCancelConfirmDialog ||
+        (showSidePanel && !isLandscape) || isEditMode || isTitleFocused
+
+    // BackHandler normal para estados transitorios. Instantáneo, sin animación.
+    BackHandler(enabled = hasTransientState) {
+        when {
+            isTextSelected || showCustomMenu -> clearSelection()
+            showCancelConfirmDialog -> showCancelConfirmDialog = false
+            showSidePanel && !isLandscape -> showSidePanel = false
+            isEditMode -> if (hasUnsavedChanges) showCancelConfirmDialog = true else isEditMode = false
+            isTitleFocused -> focusManager.clearFocus()
+        }
+    }
+
+    // PredictiveBackHandler para el estado base. Mientras el usuario desliza,
+    // `progress` emite valores de 0f a 1f. Aplicamos esa progresión al
+    // graphicsLayer del Scaffold para escalar y desvanecer la nota.
+    // Si el gesto se completa, `progress.collect` retorna y navegamos atrás.
+    // Si el usuario suelta a mitad, la coroutine se cancela y el `finally`
+    // resetea el progreso — la pantalla vuelve a la normalidad.
+    PredictiveBackHandler(enabled = !hasTransientState) { progress ->
+        try {
+            progress.collect { backEvent ->
+                predictiveBackProgress = backEvent.progress
+            }
             closeNote()
+        } finally {
+            predictiveBackProgress = 0f
         }
     }
 
@@ -686,6 +710,15 @@ fun ResultScreen(
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
             containerColor = MaterialTheme.colorScheme.surface,
             modifier = Modifier
+                .graphicsLayer {
+                    // Animación del predictive back: escala hacia abajo y
+                    // desvanece a medida que el usuario desliza desde el borde.
+                    val p = predictiveBackProgress
+                    val scale = 1f - p * 0.12f
+                    scaleX = scale
+                    scaleY = scale
+                    alpha = 1f - p * 0.5f
+                }
                 .sharedBounds(
                     sharedContentState = rememberSharedContentState(key = "note-$noteId"),
                     animatedVisibilityScope = animatedVisibilityScope,
