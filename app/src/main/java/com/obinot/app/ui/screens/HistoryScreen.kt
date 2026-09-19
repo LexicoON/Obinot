@@ -101,6 +101,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -112,6 +113,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.obinot.app.R
 import com.obinot.app.data.LabelEntity
 import com.obinot.app.data.NoteEntity
 import com.obinot.app.ui.components.BouncyButton
@@ -205,12 +207,13 @@ fun HistoryScreen(
         pinnedNotes.map { it.id } + unpinnedNotes.map { it.id }
     }
 
-    // Lista estática de opciones de sort. Recordarla evita alocar 3 Pairs en cada frame.
+    // Lista estática de opciones de sort. Guardamos el resource ID del label para
+    // que se resuelva en el momento de la composición (y respete cambios de locale).
     val sortOptions = remember {
         listOf(
-            Icons.Default.AccessTime to "Newest",
-            Icons.Default.History to "Oldest",
-            Icons.AutoMirrored.Filled.Sort to "A–Z"
+            Icons.Default.AccessTime to R.string.sort_newest,
+            Icons.Default.History to R.string.sort_oldest,
+            Icons.AutoMirrored.Filled.Sort to R.string.history_sort_alpha
         )
     }
 
@@ -228,12 +231,12 @@ fun HistoryScreen(
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
             coroutineScope.launch {
-                snackbarHostState.showSnackbar("Importing file...")
+                snackbarHostState.showSnackbar(context.getString(R.string.snackbar_importing))
                 val newId = onImportFile(it)
                 if (newId != null) {
                     onNoteClick(newId)
                 } else {
-                    snackbarHostState.showSnackbar("Failed to import file! Ensure the format is supported.")
+                    snackbarHostState.showSnackbar(context.getString(R.string.snackbar_import_failed))
                 }
             }
         }
@@ -295,10 +298,10 @@ fun HistoryScreen(
                     }
                     permission?.release()
                     val msg = when {
-                        failCount == 0 && successCount > 1 -> "Imported $successCount files!"
-                        failCount == 0 -> "Imported successfully!"
-                        successCount == 0 -> "Failed to import any files. Ensure format is supported."
-                        else -> "Imported $successCount, failed $failCount."
+                        failCount == 0 && successCount > 1 -> context.getString(R.string.record_imported_multiple, successCount)
+                        failCount == 0 -> context.getString(R.string.record_imported_success)
+                        successCount == 0 -> context.getString(R.string.record_imported_none)
+                        else -> context.getString(R.string.record_imported_partial, successCount, failCount)
                     }
                     snackbarHostState.showSnackbar(msg)
                     if (firstImportedId != null && uris.size == 1) {
@@ -336,13 +339,13 @@ fun HistoryScreen(
                         .verticalScroll(rememberScrollState())
                 ) {
                     Spacer(Modifier.height(24.dp))
-                    Text("Sort By", modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.history_sort_by), modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
 
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
                     ) {
-                        sortOptions.forEachIndexed { index, (icon, description) ->
+                        sortOptions.forEachIndexed { index, (icon, descriptionRes) ->
                             BouncyToggleButton(
                                 checked = sortMode == index,
                                 onCheckedChange = {
@@ -351,7 +354,7 @@ fun HistoryScreen(
                                 },
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Icon(icon, contentDescription = description, modifier = Modifier.size(18.dp))
+                                Icon(icon, contentDescription = stringResource(descriptionRes), modifier = Modifier.size(18.dp))
                             }
                         }
                     }
@@ -364,7 +367,7 @@ fun HistoryScreen(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)
                     ) {
                         Text(
-                            "Labels",
+                            stringResource(R.string.history_labels_header),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
@@ -372,20 +375,20 @@ fun HistoryScreen(
                         )
                         if (isMultiSelectLabelMode && selectedLabels.isNotEmpty()) {
                             BouncyIconButton(onClick = { showDeleteMultipleLabelsDialog = true }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete Selected Labels", tint = MaterialTheme.colorScheme.error)
+                                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.history_labels_delete_cd), tint = MaterialTheme.colorScheme.error)
                             }
                         }
                         BouncyIconButton(onClick = { viewModel.setMultiSelectLabelMode(!isMultiSelectLabelMode) }) {
                             Icon(
                                 Icons.Default.Checklist,
-                                contentDescription = "Toggle Multi-Select",
+                                contentDescription = stringResource(R.string.history_labels_multiselect_cd),
                                 tint = if (isMultiSelectLabelMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
 
                     NavigationDrawerItem(
-                        label = { Text("All Notes") },
+                        label = { Text(stringResource(R.string.history_all_notes)) },
                         selected = selectedLabels.isEmpty(),
                         onClick = {
                             viewModel.clearLabelFilter()
@@ -454,7 +457,7 @@ fun HistoryScreen(
                                 ) {
                                     Icon(
                                         Icons.Default.Edit,
-                                        contentDescription = "Edit label and color",
+                                        contentDescription = stringResource(R.string.history_label_edit_cd),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(18.dp)
                                     )
@@ -464,7 +467,7 @@ fun HistoryScreen(
                     }
 
                     NavigationDrawerItem(
-                        label = { Text("Create New Label") },
+                        label = { Text(stringResource(R.string.history_create_label)) },
                         icon = { Icon(Icons.Default.Add, null) },
                         selected = false,
                         onClick = {
@@ -480,7 +483,7 @@ fun HistoryScreen(
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                     NavigationDrawerItem(
-                        label = { Text("Trash", color = MaterialTheme.colorScheme.error) },
+                        label = { Text(stringResource(R.string.trash_title), color = MaterialTheme.colorScheme.error) },
                         icon = { Icon(Icons.Outlined.Delete, null, tint = MaterialTheme.colorScheme.error) },
                         selected = false,
                         onClick = {
@@ -505,15 +508,15 @@ fun HistoryScreen(
                         modifier = Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.displayCutout)
                     ) {
                         TopAppBar(
-                            title = { Text("${selectedNotes.size} Selected") },
+                            title = { Text(stringResource(R.string.history_selected_count, selectedNotes.size)) },
                             navigationIcon = {
                                 BouncyIconButton(onClick = { selectionMode = false; selectedNotes = emptySet() }) {
-                                    Icon(Icons.Default.Close, "Cancel")
+                                    Icon(Icons.Default.Close, stringResource(R.string.common_cancel))
                                 }
                             },
                             actions = {
                                 BouncyIconButton(onClick = { showSelectionMenu = true }) {
-                                    Icon(Icons.Default.MoreVert, contentDescription = "Options")
+                                    Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.common_options_cd))
                                 }
 
                                 SelectionDropdownMenu(
@@ -542,18 +545,18 @@ fun HistoryScreen(
                                         val noteToShare = noteId?.let { id -> notesById[id] }
                                         if (noteToShare != null) {
                                             coroutineScope.launch {
-                                                snackbarHostState.showSnackbar("Generating .binot file...")
+                                                snackbarHostState.showSnackbar(context.getString(R.string.snackbar_generating_binot))
                                                 val uri = ImportExportHelper.exportNoteToBinot(context, noteToShare, labelColors)
                                                 if (uri != null) {
                                                     val sendIntent = Intent(Intent.ACTION_SEND).apply {
                                                         type = "application/zip"
                                                         putExtra(Intent.EXTRA_STREAM, uri)
-                                                        putExtra(Intent.EXTRA_TEXT, "Binot Note: ${noteToShare.title}")
+                                                        putExtra(Intent.EXTRA_TEXT, context.getString(R.string.share_text_binot, noteToShare.title))
                                                         flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
                                                     }
-                                                    context.startActivity(Intent.createChooser(sendIntent, "Share .binot note via"))
+                                                    context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.share_chooser_title)))
                                                 } else {
-                                                    snackbarHostState.showSnackbar("Failed to generate file.")
+                                                    snackbarHostState.showSnackbar(context.getString(R.string.snackbar_generate_failed))
                                                 }
                                             }
                                         }
@@ -652,7 +655,7 @@ fun HistoryScreen(
                                 modifier = Modifier.padding(horizontal = if (isFabExpanded) 20.dp else 16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Audiotrack, contentDescription = "Import File")
+                                Icon(Icons.Default.Audiotrack, contentDescription = stringResource(R.string.history_fab_import))
                                 AnimatedVisibility(
                                     visible = isFabExpanded,
                                     enter = expandHorizontally(expandFrom = Alignment.Start, animationSpec = spring()) + fadeIn(animationSpec = spring()),
@@ -660,7 +663,7 @@ fun HistoryScreen(
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Spacer(modifier = Modifier.width(10.dp))
-                                        Text("Import File", style = MaterialTheme.typography.labelLarge)
+                                        Text(stringResource(R.string.history_fab_import), style = MaterialTheme.typography.labelLarge)
                                     }
                                 }
                             }
@@ -692,7 +695,7 @@ fun HistoryScreen(
                     if (notes.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text(
-                                text = if (searchQuery.isNotEmpty() || selectedLabels.isNotEmpty()) "No results found." else "No notes yet.\nStart recording or import audio!",
+                                text = if (searchQuery.isNotEmpty() || selectedLabels.isNotEmpty()) stringResource(R.string.history_no_results) else stringResource(R.string.history_no_notes),
                                 style = MaterialTheme.typography.titleLarge,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -716,7 +719,7 @@ fun HistoryScreen(
                             ) {
                                 if (pinnedNotes.isNotEmpty()) {
                                     item(span = StaggeredGridItemSpan.FullLine) {
-                                        Text("Pinned", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 4.dp))
+                                        Text(stringResource(R.string.history_section_pinned), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 4.dp))
                                     }
                                     staggeredItems(pinnedNotes, key = { it.id }) { note ->
                                         DismissibleNoteCard(
@@ -746,7 +749,7 @@ fun HistoryScreen(
 
                                 if (unpinnedNotes.isNotEmpty()) {
                                     item(span = StaggeredGridItemSpan.FullLine) {
-                                        Text("Collection", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp))
+                                        Text(stringResource(R.string.history_section_collection), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp))
                                     }
                                     staggeredItems(unpinnedNotes, key = { it.id }) { note ->
                                         DismissibleNoteCard(
@@ -808,13 +811,13 @@ fun HistoryScreen(
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                "Drop audio to import",
+                                stringResource(R.string.history_drop_to_import),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                "Audio files or .binot backups",
+                                stringResource(R.string.history_drop_subtitle),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )
@@ -831,12 +834,12 @@ fun HistoryScreen(
             onFileSelected = { uri ->
                 showNativePickerSheet = false
                 coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Importing file...")
+                    snackbarHostState.showSnackbar(context.getString(R.string.snackbar_importing))
                     val newId = onImportFile(uri)
                     if (newId != null) {
                         onNoteClick(newId)
                     } else {
-                        snackbarHostState.showSnackbar("Failed to import file! Ensure the format is supported.")
+                        snackbarHostState.showSnackbar(context.getString(R.string.snackbar_import_failed))
                     }
                 }
             }
@@ -846,17 +849,17 @@ fun HistoryScreen(
     if (showNewLabelDialog) {
         AlertDialog(
             onDismissRequest = { showNewLabelDialog = false },
-            title = { Text("Create New Label") },
+            title = { Text(stringResource(R.string.history_create_label)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     OutlinedTextField(
                         value = newLabelInput,
                         onValueChange = { newLabelInput = it },
-                        label = { Text("Label Name") },
+                        label = { Text(stringResource(R.string.history_label_name)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Text("Color", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.history_label_color), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                     LabelColorPicker(
                         selectedHex = newLabelColor,
                         onSelect = { newLabelColor = it }
@@ -873,26 +876,26 @@ fun HistoryScreen(
                             newLabelColor = LabelEntity.DEFAULT_COLOR
                         }
                     }
-                ) { Text("Create") }
+                ) { Text(stringResource(R.string.history_create)) }
             },
-            dismissButton = { TextButton(onClick = { showNewLabelDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showNewLabelDialog = false }) { Text(stringResource(R.string.common_cancel)) } }
         )
     }
 
     if (labelBeingManaged != null) {
         AlertDialog(
             onDismissRequest = { labelBeingManaged = null },
-            title = { Text("Edit Label") },
+            title = { Text(stringResource(R.string.history_edit_label)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     OutlinedTextField(
                         value = renameLabelInput,
                         onValueChange = { renameLabelInput = it },
-                        label = { Text("Label Name") },
+                        label = { Text(stringResource(R.string.history_label_name)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Text("Color", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.history_label_color), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                     LabelColorPicker(
                         selectedHex = renameLabelColor,
                         onSelect = { renameLabelColor = it }
@@ -907,7 +910,7 @@ fun HistoryScreen(
                     ) {
                         Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Delete Label")
+                        Text(stringResource(R.string.history_delete_label))
                     }
                 }
             },
@@ -925,10 +928,10 @@ fun HistoryScreen(
                         }
                         labelBeingManaged = null
                     }
-                ) { Text("Save") }
+                ) { Text(stringResource(R.string.history_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { labelBeingManaged = null }) { Text("Cancel") }
+                TextButton(onClick = { labelBeingManaged = null }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -936,16 +939,16 @@ fun HistoryScreen(
     if (showDeleteMultipleLabelsDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteMultipleLabelsDialog = false },
-            title = { Text("Delete Labels") },
-            text = { Text("${selectedLabels.size} label(s) will be removed from all notes. This can't be undone.") },
+            title = { Text(stringResource(R.string.history_delete_labels_title)) },
+            text = { Text(stringResource(R.string.history_delete_labels_body, selectedLabels.size)) },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.deleteMultipleLabels(selectedLabels)
                     showDeleteMultipleLabelsDialog = false
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.common_delete), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteMultipleLabelsDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showDeleteMultipleLabelsDialog = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -953,8 +956,8 @@ fun HistoryScreen(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Notes") },
-            text = { Text("Are you sure you want to delete ${selectedNotes.size} notes?") },
+            title = { Text(stringResource(R.string.history_delete_notes_title)) },
+            text = { Text(stringResource(R.string.history_delete_notes_body, selectedNotes.size)) },
             confirmButton = {
                 TextButton(onClick = {
                     val idsToDelete = selectedNotes
@@ -963,9 +966,14 @@ fun HistoryScreen(
                     selectionMode = false
                     selectedNotes = emptySet()
                     coroutineScope.launch {
+                        val msg = context.resources.getQuantityString(
+                            R.plurals.notes_moved_to_trash,
+                            idsToDelete.size,
+                            idsToDelete.size
+                        )
                         val result = snackbarHostState.showSnackbar(
-                            message = "${idsToDelete.size} note${if (idsToDelete.size > 1) "s" else ""} moved to Trash",
-                            actionLabel = "Undo",
+                            message = msg,
+                            actionLabel = context.getString(R.string.common_undo),
                             duration = SnackbarDuration.Short
                         )
                         if (result == SnackbarResult.ActionPerformed) {
@@ -974,9 +982,9 @@ fun HistoryScreen(
                             viewModel.clearRecentlyDeleted()
                         }
                     }
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.common_delete), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text(stringResource(R.string.common_cancel)) } }
         )
     }
 
@@ -1000,12 +1008,12 @@ fun HistoryScreen(
                     .padding(horizontal = 24.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.NewReleases, contentDescription = "Update", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+                    Icon(Icons.Default.NewReleases, contentDescription = stringResource(R.string.update_icon_cd), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text("New Update Available!", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.update_available_title), style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Version ${latestRelease!!.tag_name} is ready to download.", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                Text(stringResource(R.string.update_version_ready, latestRelease!!.tag_name), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Box(modifier = Modifier
@@ -1015,7 +1023,7 @@ fun HistoryScreen(
                     .nestedScroll(scrollWall)
                 ) {
                     MarkdownText(
-                        text = latestRelease!!.body ?: "Performance improvements and new features.",
+                        text = latestRelease!!.body ?: stringResource(R.string.update_default_body),
                         scrollState = updateScrollState,
                         highlightsInfo = null,
                         onSavedHighlightClick = { _, _, _, _, _ -> },
@@ -1027,9 +1035,9 @@ fun HistoryScreen(
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
-                Button(onClick = { val apkUrl = latestRelease!!.assets?.firstOrNull()?.browser_download_url ?: latestRelease!!.html_url; context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl))); viewModel.dismissUpdateNotification() }, modifier = Modifier.fillMaxWidth().height(50.dp)) { Text("Download Update (APK)") }
+                Button(onClick = { val apkUrl = latestRelease!!.assets?.firstOrNull()?.browser_download_url ?: latestRelease!!.html_url; context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl))); viewModel.dismissUpdateNotification() }, modifier = Modifier.fillMaxWidth().height(50.dp)) { Text(stringResource(R.string.update_download_button)) }
                 Spacer(modifier = Modifier.height(12.dp))
-                OutlinedButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(latestRelease!!.html_url))); viewModel.dismissUpdateNotification() }, modifier = Modifier.fillMaxWidth().height(50.dp)) { Text("View on GitHub") }
+                OutlinedButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(latestRelease!!.html_url))); viewModel.dismissUpdateNotification() }, modifier = Modifier.fillMaxWidth().height(50.dp)) { Text(stringResource(R.string.update_view_github)) }
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
@@ -1053,29 +1061,29 @@ private fun SelectionDropdownMenu(
         onDismissRequest = onDismissRequest
     ) {
         DropdownMenuItem(
-            text = { Text("Select All") },
+            text = { Text(stringResource(R.string.select_all)) },
             leadingIcon = { Icon(Icons.Default.SelectAll, contentDescription = null) },
             onClick = onSelectAll
         )
         DropdownMenuItem(
-            text = { Text(if (isAllPinned) "Unpin" else "Pin") },
+            text = { Text(if (isAllPinned) stringResource(R.string.unpin) else stringResource(R.string.pin)) },
             leadingIcon = { Icon(Icons.Default.PushPin, contentDescription = null) },
             onClick = onTogglePin
         )
         DropdownMenuItem(
-            text = { Text("Clone") },
+            text = { Text(stringResource(R.string.clone)) },
             leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
             onClick = onClone
         )
         if (selectedCount == 1) {
             DropdownMenuItem(
-                text = { Text("Share") },
+                text = { Text(stringResource(R.string.share)) },
                 leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
                 onClick = onShare
             )
         }
         DropdownMenuItem(
-            text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+            text = { Text(stringResource(R.string.common_delete), color = MaterialTheme.colorScheme.error) },
             leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
             onClick = onDelete
         )
@@ -1117,7 +1125,7 @@ private fun LabelColorPicker(
                 if (isSelected) {
                     Icon(
                         Icons.Default.Check,
-                        contentDescription = "Selected",
+                        contentDescription = stringResource(R.string.common_selected_cd),
                         tint = if (color.luminance() > 0.5f) Color(0xFF1A1A1A) else Color.White,
                         modifier = Modifier.size(20.dp)
                     )
@@ -1146,6 +1154,7 @@ fun DismissibleNoteCard(
     onSelect: () -> Unit,
     onLongSelect: () -> Unit
 ) {
+    val context = LocalContext.current
     val density = LocalDensity.current
     val maxOffsetPx = with(density) { 380.dp.toPx() }
     val thresholdPx = with(density) { 110.dp.toPx() }
@@ -1200,7 +1209,7 @@ fun DismissibleNoteCard(
             if (dragProgress > 0.05f && isActive) {
                 Icon(
                     Icons.Default.Delete,
-                    contentDescription = "Delete",
+                    contentDescription = stringResource(R.string.common_delete),
                     tint = MaterialTheme.colorScheme.onErrorContainer,
                     modifier = Modifier.scale(iconScale)
                 )
@@ -1248,8 +1257,8 @@ fun DismissibleNoteCard(
                                     viewModel.deleteMultiple(setOf(note.id))
                                     parentScope.launch {
                                         val result = snackbarHostState.showSnackbar(
-                                            message = "Note moved to Trash",
-                                            actionLabel = "Undo",
+                                            message = context.getString(R.string.snackbar_note_moved_to_trash),
+                                            actionLabel = context.getString(R.string.common_undo),
                                             duration = SnackbarDuration.Short
                                         )
                                         if (result == SnackbarResult.ActionPerformed) {
@@ -1332,7 +1341,7 @@ fun MorphingSearchBar(
             exit = shrinkHorizontally(animationSpec = spring()) + fadeOut(animationSpec = spring())
         ) {
             BouncyIconButton(onClick = onMenuClick) {
-                Icon(Icons.Default.Menu, "Menu", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Default.Menu, stringResource(R.string.history_menu_cd), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -1348,10 +1357,10 @@ fun MorphingSearchBar(
                     .padding(start = 16.dp, end = 16.dp, top = innerTopPadding, bottom = 12.dp)
                     .defaultMinSize(minHeight = 48.dp)
             ) {
-                Icon(Icons.Default.Search, "Search", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Default.Search, stringResource(R.string.common_search), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.width(12.dp))
                 Box(modifier = Modifier.weight(1f)) {
-                    if (query.isEmpty()) { Text("Search notes...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) }
+                    if (query.isEmpty()) { Text(stringResource(R.string.history_search_placeholder), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) }
                     BasicTextField(
                         value = query, onValueChange = onQueryChange,
                         textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
@@ -1361,7 +1370,7 @@ fun MorphingSearchBar(
                 }
                 if (isFocused || query.isNotEmpty()) {
                     Icon(
-                        imageVector = Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        imageVector = Icons.Default.Close, contentDescription = stringResource(R.string.history_close_cd), tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.clickable { onQueryChange(""); onClearFocus() }
                     )
                 }
@@ -1376,7 +1385,7 @@ fun MorphingSearchBar(
             BouncyIconButton(onClick = onToggleViewClick) {
                 Icon(
                     imageVector = if (isGridView) Icons.Outlined.ViewAgenda else Icons.Outlined.GridView,
-                    contentDescription = "Toggle View Mode",
+                    contentDescription = stringResource(R.string.history_toggle_view_cd),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -1478,7 +1487,7 @@ fun NoteCard(
                 )
             } else {
                 Text(
-                    text = "⏳ Waiting for AI transcription...",
+                    text = stringResource(R.string.history_waiting_ai),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                     modifier = Modifier.weight(1f, fill = false)

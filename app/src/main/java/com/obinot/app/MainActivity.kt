@@ -82,10 +82,9 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Aplicar idioma preferido ANTES de setContent para que la primera
-        // composición de Compose ya use el locale correcto. Si el usuario cambia
-        // el idioma después, AppCompat recrea la activity automáticamente.
-        applyAppLanguage()
+        // Aplicar idioma ANTES de setContent. Idempotente con el LaunchedEffect
+        // de BinotApp — acá solo cubrimos el arranque limpio.
+        applyAppLanguageBlocking()
 
         enableEdgeToEdge()
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -128,24 +127,30 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Aplica el idioma preferido (guardado en DataStore) al contexto de la app.
-     *
-     * - "device" → limpia la preferencia y sigue el idioma del sistema.
-     * - "en" / "es" → fuerza el idioma.
-     *
-     * `runBlocking` a propósito: la lectura de DataStore toma ~5-10ms y necesitamos
-     * el valor ANTES de setContent. Bloquear el main thread 10ms al arrancar es
-     * aceptable y mucho más simple que un preload asíncrono con estado intermedio.
-     */
-    private fun applyAppLanguage() {
+    private fun applyAppLanguageBlocking() {
         val settingsRepo = (application as BinotApplication).container.settingsRepository
         val lang = runBlocking { settingsRepo.appLanguageFlow.first() }
-        val localeList = when (lang) {
-            "en" -> LocaleListCompat.forLanguageTags("en")
-            "es" -> LocaleListCompat.forLanguageTags("es")
-            else -> LocaleListCompat.getEmptyLocaleList()
-        }
+        applyAppLanguageValue(lang)
+    }
+}
+
+/**
+ * Helper compartido entre MainActivity.applyAppLanguageBlocking() y el
+ * LaunchedEffect de BinotApp. Centraliza el mapeo código → LocaleListCompat
+ * para que no haya dos lugares con la misma lógica.
+ */
+private fun applyAppLanguageValue(lang: String) {
+    val localeList = when (lang) {
+        "en" -> LocaleListCompat.forLanguageTags("en")
+        "es" -> LocaleListCompat.forLanguageTags("es")
+        else -> LocaleListCompat.getEmptyLocaleList()
+    }
+
+    // Comparación por tag para evitar llamar setApplicationLocales de más.
+    // (Un set innecesario dispara recreate() y puede entrar en loop.)
+    val currentTag = AppCompatDelegate.getApplicationLocales().toLanguageTags()
+    val newTag = if (lang == "en" || lang == "es") lang else ""
+    if (currentTag != newTag) {
         AppCompatDelegate.setApplicationLocales(localeList)
     }
 }
@@ -159,9 +164,17 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
     val userName by settingsViewModel.userName.collectAsState()
 
     val isDataLoaded by settingsViewModel.isDataLoaded.collectAsState()
+    val appLanguage by settingsViewModel.appLanguage.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
+
+    // Aplica el idioma cada vez que cambia el flow. AppCompat recrea la activity
+    // automáticamente cuando el tag efectivamente cambia; con la guarda del
+    // helper (currentTag != newTag) no hay loops.
+    LaunchedEffect(appLanguage) {
+        applyAppLanguageValue(appLanguage)
+    }
 
     val incomingUri by mainActivity.incomingIntentUri.collectAsState()
     var isImportingFromExternal by remember { mutableStateOf(false) }
@@ -282,6 +295,7 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
             ) {
                 composable("onboarding") {
                     OnboardingScreen(
+                        settingsViewModel = settingsViewModel,
                         onComplete = { name, provider, key, task, format, compression ->
                             settingsViewModel.saveUserName(name)
                             settingsViewModel.saveAiProvider(provider)
