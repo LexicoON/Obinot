@@ -25,6 +25,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
@@ -55,6 +57,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextLinkStyles
@@ -66,6 +70,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.Dispatchers
@@ -200,7 +205,7 @@ fun ShimmerBox(modifier: Modifier = Modifier) {
 }
 
 // ============================================================
-// KaTeX WebView
+// KaTeX WebView (block)
 // ============================================================
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -591,93 +596,280 @@ document.addEventListener("DOMContentLoaded", function() {
 }
 
 // ============================================================
-// Markdown parser
+// Inline math — data & helpers
 // ============================================================
+
+private enum class InlineSegmentKind { TEXT, MATH }
+
+private data class InlineSegment(
+    val kind: InlineSegmentKind,
+    val text: String
+)
 
 /**
  * Divide una línea en segmentos alternando texto y math inline.
  *
- * Soporta dos sintaxis:
- *   - `$$...$$` → display math (KaTeX lo renderiza en modo display).
- *   - `$...$`   → inline math (KaTeX lo renderiza en modo inline).
+ * Detecta `$...$` y `$$...$$` embebidos en texto. Aplica validación mínima
+ * al dólar simple para evitar falsos positivos (precios como "$100").
  *
- * Retorna `null` cuando la línea no tiene math inline con texto antes/después:
- *   - Sin math → el caller la trata como NativeLine.
- *   - Con un único `$$...$$` que cubre TODA la línea → el caller la trata como
- *     MathBlock puro (comportamiento previo intacto).
- *
- * Reglas de validación para `$...$` (evitan falsos positivos con precios como
- * "$100" o "$1.50 y $2"):
- *   - Debe cerrar con `$` en la misma línea.
- *   - No puede empezar ni terminar con espacio (convención LaTeX).
- *   - No puede contener doble espacio.
+ * Los `$$...$$` se aceptan siempre. Los `$...$` deben cumplir:
+ *   - No empezar ni terminar con espacio.
+ *   - No contener doble espacio.
  *   - Longitud máxima de 80 caracteres.
- *
- * Los segmentos se devuelven con `lineIndex = -1`. El caller los re-inyecta
- * con el `lineIndex` real de la línea original.
  */
-private fun splitInlineMath(line: String): List<MarkdownItem>? {
-    // Regex unificado con dos alternativas:
-    //   Grupo 1: contenido de $$...$$ (dólar doble).
-    //   Grupo 2: contenido de $...$ (dólar simple).
-    // `(?!\$)` evita que el `$` de un `$$` matchee como dólar simple.
-    // `[^$\n]+?` impide que el contenido tenga otro `$` ni saltos de línea.
-    val pattern = Regex("""\$\$(.+?)\$\$|\$(?!\$)([^$\n]+?)\$(?!\$)""")
-
-    val segments = mutableListOf<MarkdownItem>()
+private fun splitInlineMathSegments(line: String): List<InlineSegment> {
+    val pattern = Regex("""\$\$([^$\n]+?)\$\$|(?<!\$)\$(?!\$)([^$\n]+?)\$(?!\$)""")
+    val segments = mutableListOf<InlineSegment>()
     var cursor = 0
 
     for (match in pattern.findAll(line)) {
         val isDouble = match.groups[1] != null
         val content = if (isDouble) match.groups[1]!!.value else match.groups[2]!!.value
 
-        // Validación: un dólar simple solo se acepta como math si cumple
-        // las reglas mínimas. Los dólares dobles siempre se aceptan.
-        val isValidSimple = !isDouble
-            && content.isNotBlank()
-            && !content.startsWith(" ")
-            && !content.endsWith(" ")
-            && content.length <= 80
-            && !content.contains("  ")
+        val valid = if (isDouble) {
+            content.isNotBlank()
+        } else {
+            content.isNotBlank()
+                && !content.startsWith(" ")
+                && !content.endsWith(" ")
+                && !content.contains("  ")
+                && content.length <= 80
+        }
+        if (!valid) continue
 
-        val isMath = isDouble || isValidSimple
-        if (!isMath) continue
-
-        // Texto entre el cursor y este match.
         if (match.range.first > cursor) {
             val before = line.substring(cursor, match.range.first)
-            if (before.isNotBlank()) {
-                segments.add(MarkdownItem.NativeLine(before, -1))
+            if (before.isNotEmpty()) {
+                segments.add(InlineSegment(InlineSegmentKind.TEXT, before))
             }
         }
-
-        val raw = if (isDouble) "$$$content$$" else "\$$content\$"
-        segments.add(MarkdownItem.MathBlock(raw, -1))
+        segments.add(InlineSegment(InlineSegmentKind.MATH, content))
         cursor = match.range.last + 1
     }
 
-    // Sin math válido: dejar que el caller trate la línea entera como NativeLine.
-    if (segments.none { it is MarkdownItem.MathBlock }) return null
-
-    // Caso especial: la línea entera es un único `$$...$$` sin texto alrededor.
-    // El caller tiene un bloque dedicado para math multilínea; dejamos que lo maneje.
-    if (segments.size == 1 && segments[0] is MarkdownItem.MathBlock) {
-        val mathItem = segments[0] as MarkdownItem.MathBlock
-        if (mathItem.rawText.startsWith("$$") && mathItem.rawText.endsWith("$$")) {
-            if (line.trim() == mathItem.rawText) return null
-        }
-    }
-
-    // Texto después del último match.
     if (cursor < line.length) {
         val after = line.substring(cursor)
-        if (after.isNotBlank()) {
-            segments.add(MarkdownItem.NativeLine(after, -1))
+        if (after.isNotEmpty()) {
+            segments.add(InlineSegment(InlineSegmentKind.TEXT, after))
         }
     }
 
-    return segments.ifEmpty { null }
+    return segments.ifEmpty { listOf(InlineSegment(InlineSegmentKind.TEXT, line)) }
 }
+
+/**
+ * Estima el ancho y alto de una fórmula inline en `em`.
+ *
+ * Heurística basada en la cantidad de "unidades" del LaTeX. No es perfecta,
+ * pero da un placeholder de tamaño razonable para que el `Text` calcule el
+ * layout sin tener que esperar al WebView.
+ *
+ * Si la fórmula real es más ancha que el placeholder, el CSS interno la
+ * escala con `transform: scale(...)` para encajar.
+ */
+private fun estimateInlineMathSize(latex: String): Pair<Float, Float> {
+    var units = 0
+    var i = 0
+    while (i < latex.length) {
+        val c = latex[i]
+        when {
+            c == '\\' -> {
+                i++
+                while (i < latex.length && latex[i].isLetter()) i++
+                units += 1
+            }
+            c.isWhitespace() -> i++
+            c == '{' || c == '}' -> i++
+            else -> {
+                units += 1
+                i++
+            }
+        }
+    }
+    val width = (units * 0.55f).coerceIn(1.2f, 20f)
+    val extraHeight = when {
+        latex.contains("\\frac") || latex.contains("\\dfrac") || latex.contains("\\tfrac") -> 0.6f
+        latex.contains("\\sum") || latex.contains("\\int") || latex.contains("\\prod") -> 0.5f
+        latex.contains("\\sqrt") -> 0.3f
+        else -> 0f
+    }
+    val height = 1.4f + extraHeight
+    return width to height
+}
+
+/**
+ * Procesa links/bold/italic dentro de un segmento de texto plano.
+ */
+private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlineFormatted(text: String) {
+    val pattern = Regex("\\[([^\\]]+)\\]\\(([^)]+)\\)|\\*\\*(.*?)\\*\\*|\\*(.*?)\\*|_(.*?)_")
+    var currentIndex = 0
+    for (match in pattern.findAll(text)) {
+        append(text.substring(currentIndex, match.range.first))
+        when {
+            match.groups[1] != null && match.groups[2] != null -> {
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append(match.groups[1]!!.value)
+                }
+            }
+            match.groups[3] != null -> {
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append(match.groups[3]!!.value)
+                }
+            }
+            match.groups[4] != null -> {
+                withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                    append(match.groups[4]!!.value)
+                }
+            }
+            match.groups[5] != null -> {
+                withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                    append(match.groups[5]!!.value)
+                }
+            }
+        }
+        currentIndex = match.range.last + 1
+    }
+    if (currentIndex < text.length) append(text.substring(currentIndex))
+}
+
+// ============================================================
+// Inline math — WebView compacto
+// ============================================================
+
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+fun KaTeXInlineWebView(
+    latex: String,
+    assets: KaTeXAssets,
+    textColor: Color,
+    fontFamily: FontFamily,
+    modifier: Modifier = Modifier
+) {
+    if (!assets.isReady) {
+        // Fallback: sin assets, mostramos el LaTeX crudo con un estilo math.
+        Text(
+            text = latex,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontFamily = FontFamily.Monospace
+            ),
+            color = textColor,
+            modifier = modifier
+        )
+        return
+    }
+
+    val hexColor = String.format("#%06X", 0xFFFFFF and textColor.toArgb())
+    val cssFont = when (fontFamily) {
+        FontFamily.Serif -> "serif"
+        FontFamily.Monospace -> "monospace"
+        else -> "sans-serif"
+    }
+
+    val patchedCss = remember(assets.css) {
+        assets.css.replace(Regex("""url\(['"]?(fonts/[^'"")]+)['"]?\)""")) { match ->
+            "url('file:///android_asset/katex/${match.groupValues[1]}')"
+        }
+    }
+
+    val htmlContent = remember(latex, hexColor, cssFont, patchedCss) {
+        """<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<style>
+${patchedCss}
+html, body {
+    background-color: transparent;
+    color: ${hexColor};
+    font-family: ${cssFont};
+    font-size: 16px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+}
+#math-content {
+    display: inline-block;
+    white-space: nowrap;
+}
+.katex { font-size: 1em !important; }
+.katex-display { margin: 0 !important; }
+</style>
+</head>
+<body>
+<div id="math-content">${'$'}${'$'}$latex${'$'}${'$'}</div>
+<script>${assets.js}</script>
+<script>${assets.autoRender}</script>
+<script>${assets.mhchem}</script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var el = document.getElementById('math-content');
+    if (typeof renderMathInElement !== 'undefined') {
+        renderMathInElement(el, {
+            delimiters: [
+                {left: "${'$'}${'$'}", right: "${'$'}${'$'}", display: false},
+                {left: "${'$'}", right: "${'$'}", display: false}
+            ],
+            throwOnError: false
+        });
+    }
+    var naturalWidth = el.scrollWidth;
+    var viewportWidth = document.documentElement.clientWidth;
+    if (naturalWidth > viewportWidth && viewportWidth > 0) {
+        var scale = viewportWidth / naturalWidth;
+        el.style.transformOrigin = 'left center';
+        el.style.transform = 'scale(' + scale + ')';
+    }
+});
+</script>
+</body>
+</html>""".trimIndent()
+    }
+
+    AndroidView(
+        modifier = modifier.fillMaxSize(),
+        factory = { ctx ->
+            android.webkit.WebView(ctx).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                isVerticalScrollBarEnabled = false
+                isHorizontalScrollBarEnabled = false
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.defaultTextEncodingName = "utf-8"
+                @Suppress("DEPRECATION")
+                settings.allowFileAccessFromFileURLs = true
+                webViewClient = android.webkit.WebViewClient()
+                webChromeClient = android.webkit.WebChromeClient()
+                tag = ""
+            }
+        },
+        update = { webView ->
+            if (webView.tag != htmlContent) {
+                webView.tag = htmlContent
+                webView.loadDataWithBaseURL(
+                    "file:///android_asset/katex/",
+                    htmlContent,
+                    "text/html",
+                    "UTF-8",
+                    null
+                )
+            }
+        }
+    )
+}
+
+// ============================================================
+// Markdown parser
+// ============================================================
 
 private fun parseMarkdownItems(lines: List<String>): List<MarkdownItem> {
     val items = mutableListOf<MarkdownItem>()
@@ -713,24 +905,6 @@ private fun parseMarkdownItems(lines: List<String>): List<MarkdownItem> {
             }
             if (i < lines.size) i++
             items.add(MarkdownItem.CodeBlock(code.toString(), language, startIndex))
-            continue
-        }
-
-        // Inline math: divide la línea en segmentos texto/math. Si retorna
-        // null (sin `$$...$$` con texto alrededor, o un solo `$$...$$` que
-        // cubre toda la línea), el flujo cae al MathBlock multilínea o al
-        // NativeLine de abajo.
-        val inlineSegments = splitInlineMath(line)
-        if (inlineSegments != null) {
-            inlineSegments.forEach { segment ->
-                when (segment) {
-                    is MarkdownItem.NativeLine -> items.add(MarkdownItem.NativeLine(segment.text, i))
-                    is MarkdownItem.MathBlock -> items.add(MarkdownItem.MathBlock(segment.rawText, i))
-                    // No debería pasar: splitInlineMath solo devuelve estos dos tipos.
-                    else -> items.add(segment)
-                }
-            }
-            i++
             continue
         }
 
@@ -787,19 +961,6 @@ private fun parseMarkdownItems(lines: List<String>): List<MarkdownItem> {
 
 // ============================================================
 // Main component
-//
-// Usamos Column + verticalScroll en vez de LazyColumn a propósito:
-// LazyColumn recicla items cuando salen del viewport, lo que destruye
-// los WebViews de KaTeX y Mermaid. Al volver a scrollear hacia ellos,
-// se reconstruyen desde cero (recargan HTML, re-parsean JS, re-renderizan
-// SVG), lo que produce lag perceptible en cada pasada.
-//
-// Con Column, todos los items se componen una vez y se mantienen vivos.
-// El costo es más memoria para notas con muchos diagramas, pero para el
-// caso típico (5-20 items por nota) el trade-off es claramente favorable.
-//
-// `linePositions` es opcional: si el caller lo pasa, se van llenando
-// los offsets Y de cada item para permitir scroll-to-line sin LazyListState.
 // ============================================================
 
 @Composable
@@ -892,9 +1053,6 @@ fun MarkdownText(
 
             Box(
                 modifier = Modifier.onGloballyPositioned { coords ->
-                    // positionInParent() en un Column con verticalScroll nos da
-                    // la posición dentro del contenido del scroll, que es
-                    // exactamente el offset al que hay que hacer animateScrollTo.
                     linePositions?.set(lineKey, coords.positionInParent().y.toInt())
                 }
             ) {
@@ -992,7 +1150,8 @@ fun MarkdownText(
                                     highlightBgColor = highlightBgColor,
                                     highlightTextColor = highlightTextColor,
                                     fontFamily = fontFamily,
-                                    lineRegistry = lineRegistry
+                                    lineRegistry = lineRegistry,
+                                    katexAssets = katexAssets
                                 )
                             }
 
@@ -1029,10 +1188,12 @@ fun MarkdownText(
                                         fontFamily = fontFamily,
                                         lineRegistry = lineRegistry,
                                         uriHandler = uriHandler,
+                                        katexAssets = katexAssets,
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
                             }
+
                             trimmedLine.startsWith("- ") || trimmedLine.startsWith("* ") -> {
                                 val paddingStart = 16.dp + (indentSpaces * 6).dp
                                 val prefixLen = indentSpaces + 2
@@ -1056,6 +1217,7 @@ fun MarkdownText(
                                         fontFamily = fontFamily,
                                         lineRegistry = lineRegistry,
                                         uriHandler = uriHandler,
+                                        katexAssets = katexAssets,
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
@@ -1089,6 +1251,7 @@ fun MarkdownText(
                                         fontFamily = fontFamily,
                                         lineRegistry = lineRegistry,
                                         uriHandler = uriHandler,
+                                        katexAssets = katexAssets,
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
@@ -1109,6 +1272,7 @@ fun MarkdownText(
                                 fontFamily = fontFamily,
                                 lineRegistry = lineRegistry,
                                 uriHandler = uriHandler,
+                                katexAssets = katexAssets,
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
                         }
@@ -1251,7 +1415,8 @@ private fun BlockQuoteLine(
     highlightBgColor: Color,
     highlightTextColor: Color,
     fontFamily: FontFamily,
-    lineRegistry: MutableMap<Int, LineLayoutInfo>
+    lineRegistry: MutableMap<Int, LineLayoutInfo>,
+    katexAssets: KaTeXAssets
 ) {
     val uriHandler = LocalUriHandler.current
     Row(
@@ -1281,13 +1446,14 @@ private fun BlockQuoteLine(
             fontFamily = fontFamily,
             lineRegistry = lineRegistry,
             uriHandler = uriHandler,
+            katexAssets = katexAssets,
             modifier = Modifier.weight(1f)
         )
     }
 }
 
 // ============================================================
-// Basic line renderer (with link support)
+// Basic line renderer (with link support + inline math dispatch)
 // ============================================================
 
 @Composable
@@ -1304,8 +1470,35 @@ fun BasicMarkdownLine(
     fontFamily: FontFamily,
     lineRegistry: MutableMap<Int, LineLayoutInfo>,
     uriHandler: androidx.compose.ui.platform.UriHandler,
+    katexAssets: KaTeXAssets = KaTeXAssets("", "", "", ""),
     modifier: Modifier = Modifier
 ) {
+    // Dispatch: si la línea tiene math inline, va por un path que usa
+    // InlineTextContent para embeber los WebViews de KaTeX dentro del texto.
+    // Si no, sigue el path original (más liviano).
+    val hasInlineMath = remember(text) {
+        Regex("""\$\$[^$\n]+?\$\$|(?<!\$)\$(?!\$)[^$\n]+?\$(?!\$)""").containsMatchIn(text)
+    }
+
+    if (hasInlineMath) {
+        InlineMathMarkdownLine(
+            text = text,
+            lineIndex = lineIndex,
+            prefixLen = prefixLen,
+            highlightQuery = highlightQuery,
+            lineHighlights = lineHighlights,
+            legacyHighlights = legacyHighlights,
+            onSavedHighlightClick = onSavedHighlightClick,
+            highlightBgColor = highlightBgColor,
+            highlightTextColor = highlightTextColor,
+            fontFamily = fontFamily,
+            lineRegistry = lineRegistry,
+            katexAssets = katexAssets,
+            modifier = modifier
+        )
+        return
+    }
+
     val annotatedString = remember(text, lineHighlights, legacyHighlights, highlightQuery, highlightBgColor, highlightTextColor) {
         buildAnnotatedString {
             val pattern = Regex("\\[([^\\]]+)\\]\\(([^)]+)\\)|\\*\\*(.*?)\\*\\*|\\*(.*?)\\*|_(.*?)_")
@@ -1461,6 +1654,112 @@ fun BasicMarkdownLine(
                             }
                     }
                 }
+            },
+        onTextLayout = { textLayoutResult = it }
+    )
+}
+
+// ============================================================
+// Inline math renderer
+// ============================================================
+
+@Composable
+private fun InlineMathMarkdownLine(
+    text: String,
+    lineIndex: Int,
+    prefixLen: Int,
+    highlightQuery: String,
+    lineHighlights: List<HighlightItem>,
+    legacyHighlights: List<HighlightItem>,
+    onSavedHighlightClick: (text: String, note: String, line: Int, start: Int, end: Int) -> Unit,
+    highlightBgColor: Color,
+    highlightTextColor: Color,
+    fontFamily: FontFamily,
+    lineRegistry: MutableMap<Int, LineLayoutInfo>,
+    katexAssets: KaTeXAssets,
+    modifier: Modifier = Modifier
+) {
+    val segments = remember(text) { splitInlineMathSegments(text) }
+    val textColor = MaterialTheme.colorScheme.onBackground
+
+    val inlineContent = remember(segments, katexAssets, textColor) {
+        buildMap {
+            segments.forEachIndexed { idx, seg ->
+                if (seg.kind == InlineSegmentKind.MATH) {
+                    val id = "inline_math_${lineIndex}_$idx"
+                    val (wEm, hEm) = estimateInlineMathSize(seg.text)
+                    put(id, InlineTextContent(
+                        placeholder = Placeholder(
+                            width = wEm.em,
+                            height = hEm.em,
+                            placeholderVerticalAlign = PlaceholderVerticalAlign.TextCenter
+                        )
+                    ) { _ ->
+                        KaTeXInlineWebView(
+                            latex = seg.text,
+                            assets = katexAssets,
+                            textColor = textColor,
+                            fontFamily = fontFamily
+                        )
+                    })
+                }
+            }
+        }
+    }
+
+    val annotatedString = remember(segments, lineHighlights, legacyHighlights, highlightQuery, highlightBgColor, highlightTextColor, textColor) {
+        buildAnnotatedString {
+            segments.forEachIndexed { idx, seg ->
+                when (seg.kind) {
+                    InlineSegmentKind.TEXT -> appendInlineFormatted(seg.text)
+                    InlineSegmentKind.MATH -> {
+                        val id = "inline_math_${lineIndex}_$idx"
+                        appendInlineContent(id, alternateText = seg.text)
+                    }
+                }
+            }
+
+            val plainString = this.toAnnotatedString().text
+            val plainLength = plainString.length
+
+            lineHighlights.forEach { item ->
+                val localStart = item.start - prefixLen
+                val localEnd = item.end - prefixLen
+                if (localStart in 0 until plainLength && localEnd in (localStart + 1)..plainLength) {
+                    addStyle(
+                        style = SpanStyle(background = highlightBgColor, color = highlightTextColor, fontWeight = FontWeight.SemiBold),
+                        start = localStart,
+                        end = localEnd
+                    )
+                }
+            }
+        }
+    }
+
+    var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+    var windowBounds by remember { mutableStateOf<Rect?>(null) }
+
+    LaunchedEffect(textLayoutResult, windowBounds, text) {
+        val layout = textLayoutResult
+        val bounds = windowBounds
+        if (layout != null && bounds != null) {
+            lineRegistry[lineIndex] = LineLayoutInfo(
+                layoutResult = layout,
+                boundsInWindow = bounds,
+                renderedText = text,
+                prefixLen = prefixLen
+            )
+        }
+    }
+
+    Text(
+        text = annotatedString,
+        inlineContent = inlineContent,
+        style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp, fontFamily = fontFamily),
+        color = textColor,
+        modifier = modifier
+            .onGloballyPositioned { coordinates ->
+                windowBounds = coordinates.boundsInWindow()
             },
         onTextLayout = { textLayoutResult = it }
     )
