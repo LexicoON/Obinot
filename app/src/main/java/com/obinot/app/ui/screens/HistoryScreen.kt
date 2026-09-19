@@ -2,6 +2,7 @@ package com.obinot.app.ui.screens
 
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color as AndroidColor
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -98,6 +99,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -154,6 +156,8 @@ fun HistoryScreen(
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val notes by viewModel.filteredNotes.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val latestRelease by viewModel.latestRelease.collectAsState()
@@ -704,7 +708,13 @@ fun HistoryScreen(
                     } else {
                         with(animatedVisibilityScope) {
                             LazyVerticalStaggeredGrid(
-                                columns = StaggeredGridCells.Fixed(if (isGridView) 2 else 1),
+                                columns = StaggeredGridCells.Fixed(
+                                    when {
+                                        !isGridView -> 1
+                                        isLandscape -> 3
+                                        else -> 2
+                                    }
+                                ),
                                 state = gridState,
                                 modifier = Modifier
                                     .fillMaxSize()

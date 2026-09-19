@@ -1,5 +1,7 @@
 package com.obinot.app.ui.screens
 
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -46,6 +48,8 @@ fun TrashScreen(
 ) {
     val trashedNotes by viewModel.trashedNotes.collectAsState()
     val haptics = LocalHapticFeedback.current
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     var selectedNotes by remember { mutableStateOf(setOf<Int>()) }
     var selectionMode by remember { mutableStateOf(false) }
     var showEmptyTrashDialog by remember { mutableStateOf(false) }
@@ -140,7 +144,7 @@ fun TrashScreen(
             }
         } else {
             LazyVerticalStaggeredGrid(
-                columns = StaggeredGridCells.Fixed(2),
+                columns = StaggeredGridCells.Fixed(if (isLandscape) 3 else 2),
                 modifier = Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalItemSpacing = 8.dp

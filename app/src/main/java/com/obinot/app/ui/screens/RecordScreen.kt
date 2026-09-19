@@ -4,6 +4,7 @@ package com.obinot.app.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -21,7 +22,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.staggeredgrid.LazyHorizontalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -51,6 +54,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
@@ -88,6 +92,8 @@ fun RecordScreen(
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     val isAppInLightMode = MaterialTheme.colorScheme.surface.luminance() > 0.5f
 
@@ -137,8 +143,6 @@ fun RecordScreen(
         hasPermission = granted
     }
 
-    // Cargar los greetings por hora desde recursos. Se hace una vez por cambio
-    // de contexto (rotación, locale) y se cachea con remember.
     val morningGreetings = remember(context) {
         listOf(
             context.getString(R.string.record_greeting_morning_1),
@@ -203,9 +207,6 @@ fun RecordScreen(
     val topInsets = WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
     val safeTopMargin = if (topInsets < 24.dp) 24.dp else topInsets
 
-    // En Accurate, el cartel depende del toggle "Live Transcript" de Settings:
-    // - ON:  hay recognizer corriendo, mostramos texto o "Listening..."
-    // - OFF: no hay recognizer, el cartel aclara que la IA transcribirá el audio.
     val listeningText = stringResource(R.string.record_listening)
     val recordingForAiText = stringResource(R.string.record_recording_for_ai)
     val waitingVoiceText = stringResource(R.string.record_waiting_voice)
@@ -218,9 +219,6 @@ fun RecordScreen(
 
     val scrollState = rememberScrollState()
 
-    // Drag & drop handler para audio y .binot. Se usa shouldStartDragAndDrop permisivo
-    // porque algunos file managers envían MIME vacío o application/octet-stream para
-    // archivos .binot, y rechazarlos en la entrada hace que el target nunca se active.
     val dragDropTarget = remember(context, coroutineScope, snackbarHostState, onImportFile) {
         object : DragAndDropTarget {
             override fun onStarted(event: DragAndDropEvent) {
@@ -283,9 +281,6 @@ fun RecordScreen(
                 .background(MaterialTheme.colorScheme.surfaceContainer)
                 .dragAndDropTarget(
                     shouldStartDragAndDrop = { event ->
-                        // Permisivo a propósito: aceptamos cualquier drag y filtramos
-                        // dentro de onDrop. Los file managers reales no siempre
-                        // reportan los MIME types correctos para .binot.
                         event.mimeTypes().isEmpty() ||
                         event.mimeTypes().any { mimeType ->
                             mimeType.startsWith("audio/") ||
@@ -299,523 +294,520 @@ fun RecordScreen(
         ) {
             M3ExpressiveBackground()
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(isExpanded) {
-                        if (isExpanded) {
-                            detectTapGestures(
-                                onTap = {
-                                    isTappedExpanded = false
-                                    isPressExpanded = false
-                                }
-                            )
-                        }
-                    },
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Spacer(modifier = Modifier.height(safeTopMargin + 24.dp))
-
-                BoxWithConstraints(
+            if (isLandscape) {
+                // ============================================================
+                // LANDSCAPE — dos columnas.
+                // Izquierda: flujo de grabación completo.
+                // Derecha: notas recientes en grid vertical.
+                // ============================================================
+                Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                ) {
-                    val availableHeight = maxHeight
-
-                    val stiffSpring = spring<Dp>(dampingRatio = 0.9f, stiffness = 400f)
-
-                    val boxHeight by animateDpAsState(
-                        targetValue = if (isExpanded) availableHeight else 160.dp,
-                        animationSpec = stiffSpring,
-                        label = "boxHeight"
-                    )
-                    val topAlpha by animateFloatAsState(
-                        targetValue = if (isExpanded) 0f else 1f,
-                        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-                        label = "topAlpha"
-                    )
-                    val cornerRadius by animateDpAsState(
-                        targetValue = if (isExpanded) 40.dp else 32.dp,
-                        animationSpec = stiffSpring,
-                        label = "cornerRadius"
-                    )
-                    val containerColor by animateColorAsState(
-                        targetValue = if (isExpanded) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
-                        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-                        label = "containerColor"
-                    )
-                    val contentColor by animateColorAsState(
-                        targetValue = if (isExpanded) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
-                        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-                        label = "contentColor"
-                    )
-
-                    val boxScale by animateFloatAsState(
-                        targetValue = if (isPressExpanded) 0.97f else 1f,
-                        animationSpec = spring(stiffness = Spring.StiffnessHigh),
-                        label = "boxScale"
-                    )
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(bottom = 176.dp)
-                            .alpha(topAlpha)
-                            .animateEnterExit(enter = slideInVertically { -50 } + fadeIn()),
-                        horizontalAlignment = Alignment.Start
-                    ) {
-                        Text(
-                            text = greetingText,
-                            style = MaterialTheme.typography.displaySmall,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            textAlign = TextAlign.Start,
-                            modifier = Modifier
-                                .padding(horizontal = 24.dp)
-                                .pointerInput(Unit) {
-                                    detectTapGestures(
-                                        onTap = {
-                                            greetingTapCount++
-                                            if (greetingTapCount > 4) {
-                                                greetingTapCount = 0
-                                                showEasterEggDialog = true
-                                                easterEggAnswer = ""
-                                            }
-                                        }
-                                    )
-                                }
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Surface(
-                            shape = CircleShape,
-                            color = when {
-                                isPaused -> MaterialTheme.colorScheme.tertiaryContainer
-                                isRecording -> MaterialTheme.colorScheme.primaryContainer
-                                else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-                            },
-                            modifier = Modifier.padding(start = 24.dp, bottom = 16.dp)
-                        ) {
-                            AnimatedContent(targetState = timeString, label = "timeAnimation") { time ->
-                                Text(
-                                    text = time,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = when {
-                                        isPaused -> MaterialTheme.colorScheme.onTertiaryContainer
-                                        isRecording -> MaterialTheme.colorScheme.onPrimaryContainer
-                                        else -> MaterialTheme.colorScheme.onSecondaryContainer
-                                    },
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.weight(1f))
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(160.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = isRecording || isPaused,
-                                enter = fadeIn(tween(400)) + scaleIn(initialScale = 0.8f, animationSpec = spring(dampingRatio = 0.8f)),
-                                exit = fadeOut(tween(200)) + scaleOut(targetScale = 0.8f)
-                            ) {
-                                AudioWaveform(
-                                    amplitude = amplitude,
-                                    modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)
-                                )
-                            }
-
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = !isRecording && !isPaused && visibleNotes.isNotEmpty(),
-                                enter = fadeIn(tween(400)) + slideInVertically(initialOffsetY = { 50 }),
-                                exit = fadeOut(tween(200)) + slideOutVertically(targetOffsetY = { 50 })
-                            ) {
-                                LazyHorizontalStaggeredGrid(
-                                    rows = StaggeredGridCells.Fixed(2),
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalItemSpacing = 12.dp,
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp)
-                                ) {
-                                    items(visibleNotes, key = { it.id }) { note ->
-                                        val displayTitle = if (note.title.isBlank()) stringResource(R.string.trash_empty_note) else note.title
-                                        val randomPadding = remember(note.id) { (note.id * 23 % 40).dp }
-
-                                        val noteInteraction = remember { MutableInteractionSource() }
-                                        val noteScale = remember { Animatable(1f) }
-                                        LaunchedEffect(noteInteraction) {
-                                            observeBouncyPress(
-                                                interactionSource = noteInteraction,
-                                                scale = noteScale,
-                                                pressedScale = 0.95f
-                                            )
-                                        }
-
-                                        with(sharedTransitionScope) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .graphicsLayer {
-                                                        scaleX = noteScale.value
-                                                        scaleY = noteScale.value
-                                                    }
-                                                    .sharedBounds(
-                                                        sharedContentState = rememberSharedContentState("record_note-${note.id}"),
-                                                        animatedVisibilityScope = animatedVisibilityScope,
-                                                        resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
-                                                        boundsTransform = { _, _ -> tween(300) }
-                                                    )
-                                                    .clip(RoundedCornerShape(32.dp))
-                                                    .background(MaterialTheme.colorScheme.surface)
-                                                    .clickable(
-                                                        interactionSource = noteInteraction,
-                                                        indication = null,
-                                                        onClick = { onNoteClick(note.id) }
-                                                    )
-                                                    .heightIn(min = 64.dp)
-                                                    .padding(
-                                                        horizontal = (32.dp + randomPadding),
-                                                        vertical = 22.dp
-                                                    ),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(
-                                                    text = displayTitle,
-                                                    style = MaterialTheme.typography.titleMedium,
-                                                    color = if (isAppInLightMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
-                                                    fontWeight = FontWeight.Bold,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.weight(0.5f))
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .height(boxHeight)
-                            .scale(boxScale)
-                            .padding(horizontal = 24.dp)
-                            .clip(RoundedCornerShape(cornerRadius))
-                            .background(containerColor)
-                            .pointerInput(Unit) {
-                                detectVerticalDragGestures { _, dragAmount ->
-                                    if (!isExpanded && dragAmount < -5) {
-                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        isTappedExpanded = true
-                                    }
-                                }
-                            }
-                            .pointerInput("tap", isTappedExpanded) {
-                                if (!isTappedExpanded) {
-                                    detectTapGestures(
-                                        onTap = {
-                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            isTappedExpanded = true
-                                        }
-                                    )
-                                }
-                            }
-                            .pointerInput("hold", isTappedExpanded) {
-                                if (!isTappedExpanded) {
-                                    detectTapGestures(
-                                        onPress = {
-                                            isPressExpanded = true
-                                            tryAwaitRelease()
-                                            isPressExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                            .padding(top = 8.dp, start = 24.dp, end = 24.dp, bottom = 24.dp)
-                    ) {
-                        LaunchedEffect(recognizedText, isExpanded) {
-                            if (recognizedText.isNotEmpty()) {
-                                scrollState.animateScrollTo(scrollState.maxValue)
-                            }
-                        }
-
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp)
-                                    .clickable(
-                                        enabled = isExpanded,
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null
-                                    ) {
-                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        .fillMaxSize()
+                        .pointerInput(isExpanded) {
+                            if (isExpanded) {
+                                detectTapGestures(
+                                    onTap = {
                                         isTappedExpanded = false
                                         isPressExpanded = false
                                     }
-                                    .pointerInput(isExpanded) {
-                                        if (isExpanded) {
-                                            detectVerticalDragGestures { _, dragAmount ->
-                                                if (dragAmount > 5) {
-                                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    isTappedExpanded = false
-                                                    isPressExpanded = false
-                                                }
-                                            }
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .width(32.dp)
-                                        .height(4.dp)
-                                        .clip(CircleShape)
-                                        .background(contentColor.copy(alpha = 0.3f))
                                 )
                             }
+                        }
+                ) {
+                    // --- Columna izquierda: grabación ---
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Spacer(modifier = Modifier.height(safeTopMargin + 16.dp))
 
-                            AnimatedVisibility(visible = isExpanded) {
-                                Column {
-                                    Text(
-                                        text = stringResource(R.string.record_live_transcription),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Bold
+                        RecordScreenGreetingBlock(
+                            greetingText = greetingText,
+                            timeString = timeString,
+                            isRecording = isRecording,
+                            isPaused = isPaused,
+                            onGreetingTap = {
+                                greetingTapCount++
+                                if (greetingTapCount > 4) {
+                                    greetingTapCount = 0
+                                    showEasterEggDialog = true
+                                    easterEggAnswer = ""
+                                }
+                            },
+                            horizontalPadding = 24.dp
+                        )
+
+                        Spacer(modifier = Modifier.weight(0.3f))
+
+                        // Botones de acción: reutilizamos el bloque existente
+                        RecordScreenActionButtons(
+                            isRecording = isRecording,
+                            isPaused = isPaused,
+                            hasPermission = hasPermission,
+                            recordMode = recordMode,
+                            aiProvider = aiProvider,
+                            onRequestPermission = { launcher.launch(Manifest.permission.RECORD_AUDIO) },
+                            onToggleRecording = {
+                                val isEmulator = Build.FINGERPRINT.contains("generic") || Build.MODEL.contains("Emulator")
+                                viewModel.toggleRecording(isEmulator, recordMode)
+                            },
+                            onPauseRecording = { viewModel.pauseRecording() },
+                            onResumeRecording = { viewModel.resumeRecording() },
+                            onStopRecording = {
+                                viewModel.stopRecordingInstant()
+                                coroutineScope.launch {
+                                    val saved = viewModel.saveNote(recordMode, aiProvider)
+                                    val savedMsg = context.getString(R.string.record_note_saved)
+                                    val noTextMsg = context.getString(R.string.record_no_text_to_save)
+                                    snackbarHostState.showSnackbar(
+                                        message = if (saved) savedMsg else noTextMsg,
+                                        duration = SnackbarDuration.Short
                                     )
-                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
+                            },
+                            onImportClick = { showAudioPicker = true }
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
+
+                    // --- Columna derecha: notas recientes ---
+                    Column(
+                        modifier = Modifier
+                            .weight(0.7f)
+                            .fillMaxHeight()
+                            .padding(end = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Spacer(modifier = Modifier.height(safeTopMargin + 16.dp))
+
+                        if (visibleNotes.isNotEmpty()) {
+                            LazyVerticalStaggeredGrid(
+                                columns = StaggeredGridCells.Fixed(1),
+                                modifier = Modifier.fillMaxSize(),
+                                verticalItemSpacing = 8.dp,
+                                contentPadding = PaddingValues(vertical = 4.dp)
+                            ) {
+                                items(visibleNotes, key = { it.id }) { note ->
+                                    val displayTitle = if (note.title.isBlank()) stringResource(R.string.trash_empty_note) else note.title
+
+                                    val noteInteraction = remember { MutableInteractionSource() }
+                                    val noteScale = remember { Animatable(1f) }
+                                    LaunchedEffect(noteInteraction) {
+                                        observeBouncyPress(
+                                            interactionSource = noteInteraction,
+                                            scale = noteScale,
+                                            pressedScale = 0.95f
+                                        )
+                                    }
+
+                                    with(sharedTransitionScope) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .graphicsLayer {
+                                                    scaleX = noteScale.value
+                                                    scaleY = noteScale.value
+                                                }
+                                                .sharedBounds(
+                                                    sharedContentState = rememberSharedContentState("record_note-${note.id}"),
+                                                    animatedVisibilityScope = animatedVisibilityScope,
+                                                    resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
+                                                    boundsTransform = { _, _ -> tween(300) }
+                                                )
+                                                .clip(RoundedCornerShape(20.dp))
+                                                .background(MaterialTheme.colorScheme.surface)
+                                                .clickable(
+                                                    interactionSource = noteInteraction,
+                                                    indication = null,
+                                                    onClick = { onNoteClick(note.id) }
+                                                )
+                                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                                            contentAlignment = Alignment.CenterStart
+                                        ) {
+                                            Text(
+                                                text = displayTitle,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = if (isAppInLightMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+                                item(span = StaggeredGridItemSpan.FullLine) {
+                                    Spacer(modifier = Modifier.height(16.dp))
                                 }
                             }
-
-                            AnimatedContent(
-                                targetState = displayLiveText,
-                                transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(150)) },
-                                label = "TranscriptionFade"
-                            ) { text ->
+                        } else {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text(
-                                    text = text,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = contentColor,
-                                    textAlign = TextAlign.Start,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .verticalScroll(scrollState, enabled = isExpanded)
+                                    text = stringResource(R.string.history_no_notes),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 24.dp)
                                 )
                             }
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                val isSplit = isRecording || isPaused
-                val totalAreaWidth = 280.dp
-                val importButtonSize = 64.dp
-                val gapBetweenButtons = 12.dp
-
-                Box(
+            } else {
+                // ============================================================
+                // PORTRAIT — comportamiento original intacto.
+                // ============================================================
+                Column(
                     modifier = Modifier
-                        .widthIn(min = totalAreaWidth)
-                        .height(80.dp)
-                        .animateEnterExit(enter = scaleIn(initialScale = 0.5f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy))),
-                    contentAlignment = Alignment.Center
-                ) {
-                    var isLeftPressed by remember { mutableStateOf(false) }
-                    var isStopPressed by remember { mutableStateOf(false) }
-                    var isImportPressed by remember { mutableStateOf(false) }
-
-                    val leftTargetWidth = when {
-                        isStopPressed && isSplit -> 88.dp
-                        isLeftPressed && isSplit -> 152.dp
-                        isLeftPressed            -> totalAreaWidth + 56.dp
-                        isSplit                  -> 120.dp
-                        else                     -> totalAreaWidth
-                    }
-                    val rightTargetWidth = when {
-                        !isSplit                  -> 0.dp
-                        isStopPressed              -> 152.dp
-                        isLeftPressed               -> 88.dp
-                        else                        -> 120.dp
-                    }
-                    val gapTarget = if (isSplit) 16.dp else 0.dp
-
-                    val leftButtonWidth by animateDpAsState(targetValue = leftTargetWidth, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium), label = "leftWidth")
-                    val rightButtonWidth by animateDpAsState(targetValue = rightTargetWidth, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium), label = "rightWidth")
-                    val rightButtonAlpha by animateFloatAsState(targetValue = if (isSplit) 1f else 0f, animationSpec = spring(stiffness = Spring.StiffnessMedium), label = "rightAlpha")
-                    val gapWidth by animateDpAsState(targetValue = gapTarget, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium), label = "gap")
-                    val leftIconScale by animateFloatAsState(targetValue = if (isLeftPressed && !isSplit) 1.12f else 1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium), label = "leftIconScale")
-                    val importAlpha by animateFloatAsState(targetValue = if (isSplit) 0f else 1f, animationSpec = spring(stiffness = Spring.StiffnessMedium), label = "importAlpha")
-                    val importScale by animateFloatAsState(targetValue = if (isImportPressed) 0.90f else 1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium), label = "importScale")
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(if (isSplit) gapWidth else gapBetweenButtons),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.wrapContentWidth()
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .width(leftButtonWidth)
-                                .height(80.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    when {
-                                        isSplit && !isPaused -> MaterialTheme.colorScheme.secondaryContainer
-                                        isSplit && isPaused  -> MaterialTheme.colorScheme.primaryContainer
-                                        else                 -> MaterialTheme.colorScheme.primary
+                        .fillMaxSize()
+                        .pointerInput(isExpanded) {
+                            if (isExpanded) {
+                                detectTapGestures(
+                                    onTap = {
+                                        isTappedExpanded = false
+                                        isPressExpanded = false
                                     }
                                 )
-                                .pointerInput(isSplit, isPaused) {
-                                    detectTapGestures(
-                                        onPress = {
-                                            isLeftPressed = true
-                                            tryAwaitRelease()
-                                            isLeftPressed = false
-                                            when {
-                                                !isSplit -> {
-                                                    if (!hasPermission) {
-                                                        launcher.launch(Manifest.permission.RECORD_AUDIO)
-                                                    } else {
-                                                        val isEmulator = Build.FINGERPRINT.contains("generic") || Build.MODEL.contains("Emulator")
-                                                        viewModel.toggleRecording(isEmulator, recordMode)
-                                                    }
-                                                }
-                                                isPaused -> viewModel.resumeRecording()
-                                                else     -> viewModel.pauseRecording()
-                                            }
-                                        }
-                                    )
-                                },
-                            contentAlignment = Alignment.Center
+                            }
+                        },
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Spacer(modifier = Modifier.height(safeTopMargin + 24.dp))
+
+                    BoxWithConstraints(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) {
+                        val availableHeight = maxHeight
+
+                        val stiffSpring = spring<Dp>(dampingRatio = 0.9f, stiffness = 400f)
+
+                        val boxHeight by animateDpAsState(
+                            targetValue = if (isExpanded) availableHeight else 160.dp,
+                            animationSpec = stiffSpring,
+                            label = "boxHeight"
+                        )
+                        val topAlpha by animateFloatAsState(
+                            targetValue = if (isExpanded) 0f else 1f,
+                            animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                            label = "topAlpha"
+                        )
+                        val cornerRadius by animateDpAsState(
+                            targetValue = if (isExpanded) 40.dp else 32.dp,
+                            animationSpec = stiffSpring,
+                            label = "cornerRadius"
+                        )
+                        val containerColor by animateColorAsState(
+                            targetValue = if (isExpanded) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+                            animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                            label = "containerColor"
+                        )
+                        val contentColor by animateColorAsState(
+                            targetValue = if (isExpanded) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+                            animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                            label = "contentColor"
+                        )
+
+                        val boxScale by animateFloatAsState(
+                            targetValue = if (isPressExpanded) 0.97f else 1f,
+                            animationSpec = spring(stiffness = Spring.StiffnessHigh),
+                            label = "boxScale"
+                        )
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(bottom = 176.dp)
+                                .alpha(topAlpha)
+                                .animateEnterExit(enter = slideInVertically { -50 } + fadeIn()),
+                            horizontalAlignment = Alignment.Start
                         ) {
-                            val pauseCd = stringResource(R.string.record_pause_cd)
-                            val resumeCd = stringResource(R.string.record_resume_cd)
-                            val recordCd = stringResource(R.string.record_record_cd)
-                            val recordLabel = stringResource(R.string.record_record_button)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = when {
-                                        isSplit && isPaused -> Icons.Default.PlayArrow
-                                        isSplit            -> Icons.Default.Pause
-                                        else               -> Icons.Default.Mic
-                                    },
-                                    contentDescription = when {
-                                        isSplit && isPaused -> resumeCd
-                                        isSplit            -> pauseCd
-                                        else               -> recordCd
-                                    },
-                                    tint = when {
-                                        isSplit && !isPaused -> MaterialTheme.colorScheme.onSecondaryContainer
-                                        isSplit && isPaused  -> MaterialTheme.colorScheme.onPrimaryContainer
-                                        else                 -> MaterialTheme.colorScheme.onPrimary
-                                    },
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .scale(leftIconScale)
-                                )
-                                if (!isSplit) {
-                                    Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = greetingText,
+                                style = MaterialTheme.typography.displaySmall,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                textAlign = TextAlign.Start,
+                                modifier = Modifier
+                                    .padding(horizontal = 24.dp)
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onTap = {
+                                                greetingTapCount++
+                                                if (greetingTapCount > 4) {
+                                                    greetingTapCount = 0
+                                                    showEasterEggDialog = true
+                                                    easterEggAnswer = ""
+                                                }
+                                            }
+                                        )
+                                    }
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Surface(
+                                shape = CircleShape,
+                                color = when {
+                                    isPaused -> MaterialTheme.colorScheme.tertiaryContainer
+                                    isRecording -> MaterialTheme.colorScheme.primaryContainer
+                                    else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                                },
+                                modifier = Modifier.padding(start = 24.dp, bottom = 16.dp)
+                            ) {
+                                AnimatedContent(targetState = timeString, label = "timeAnimation") { time ->
                                     Text(
-                                        text = recordLabel,
-                                        color = MaterialTheme.colorScheme.onPrimary,
-                                        style = MaterialTheme.typography.titleMedium
+                                        text = time,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = when {
+                                            isPaused -> MaterialTheme.colorScheme.onTertiaryContainer
+                                            isRecording -> MaterialTheme.colorScheme.onPrimaryContainer
+                                            else -> MaterialTheme.colorScheme.onSecondaryContainer
+                                        },
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                                     )
                                 }
                             }
-                        }
 
-                        if (rightButtonWidth > 0.dp) {
+                            Spacer(modifier = Modifier.weight(1f))
+
                             Box(
                                 modifier = Modifier
-                                    .width(rightButtonWidth)
-                                    .height(80.dp)
-                                    .alpha(rightButtonAlpha)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.tertiary)
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onPress = {
-                                                isStopPressed = true
-                                                tryAwaitRelease()
-                                                isStopPressed = false
+                                    .fillMaxWidth()
+                                    .height(160.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = isRecording || isPaused,
+                                    enter = fadeIn(tween(400)) + scaleIn(initialScale = 0.8f, animationSpec = spring(dampingRatio = 0.8f)),
+                                    exit = fadeOut(tween(200)) + scaleOut(targetScale = 0.8f)
+                                ) {
+                                    AudioWaveform(
+                                        amplitude = amplitude,
+                                        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)
+                                    )
+                                }
 
-                                                viewModel.stopRecordingInstant()
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = !isRecording && !isPaused && visibleNotes.isNotEmpty(),
+                                    enter = fadeIn(tween(400)) + slideInVertically(initialOffsetY = { 50 }),
+                                    exit = fadeOut(tween(200)) + slideOutVertically(targetOffsetY = { 50 })
+                                ) {
+                                    LazyHorizontalStaggeredGrid(
+                                        rows = StaggeredGridCells.Fixed(2),
+                                        modifier = Modifier.fillMaxSize(),
+                                        horizontalItemSpacing = 12.dp,
+                                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                                        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp)
+                                    ) {
+                                        items(visibleNotes, key = { it.id }) { note ->
+                                            val displayTitle = if (note.title.isBlank()) stringResource(R.string.trash_empty_note) else note.title
+                                            val randomPadding = remember(note.id) { (note.id * 23 % 40).dp }
 
-                                                coroutineScope.launch {
-                                                    val saved = viewModel.saveNote(recordMode, aiProvider)
-                                                    val savedMsg = context.getString(R.string.record_note_saved)
-                                                    val noTextMsg = context.getString(R.string.record_no_text_to_save)
-                                                    snackbarHostState.showSnackbar(
-                                                        message = if (saved) savedMsg else noTextMsg,
-                                                        duration = SnackbarDuration.Short
+                                            val noteInteraction = remember { MutableInteractionSource() }
+                                            val noteScale = remember { Animatable(1f) }
+                                            LaunchedEffect(noteInteraction) {
+                                                observeBouncyPress(
+                                                    interactionSource = noteInteraction,
+                                                    scale = noteScale,
+                                                    pressedScale = 0.95f
+                                                )
+                                            }
+
+                                            with(sharedTransitionScope) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .graphicsLayer {
+                                                            scaleX = noteScale.value
+                                                            scaleY = noteScale.value
+                                                        }
+                                                        .sharedBounds(
+                                                            sharedContentState = rememberSharedContentState("record_note-${note.id}"),
+                                                            animatedVisibilityScope = animatedVisibilityScope,
+                                                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
+                                                            boundsTransform = { _, _ -> tween(300) }
+                                                        )
+                                                        .clip(RoundedCornerShape(32.dp))
+                                                        .background(MaterialTheme.colorScheme.surface)
+                                                        .clickable(
+                                                            interactionSource = noteInteraction,
+                                                            indication = null,
+                                                            onClick = { onNoteClick(note.id) }
+                                                        )
+                                                        .heightIn(min = 64.dp)
+                                                        .padding(
+                                                            horizontal = (32.dp + randomPadding),
+                                                            vertical = 22.dp
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = displayTitle,
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                        color = if (isAppInLightMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+                                                        fontWeight = FontWeight.Bold,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
                                                     )
                                                 }
                                             }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.weight(0.5f))
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .height(boxHeight)
+                                .scale(boxScale)
+                                .padding(horizontal = 24.dp)
+                                .clip(RoundedCornerShape(cornerRadius))
+                                .background(containerColor)
+                                .pointerInput(Unit) {
+                                    detectVerticalDragGestures { _, dragAmount ->
+                                        if (!isExpanded && dragAmount < -5) {
+                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            isTappedExpanded = true
+                                        }
+                                    }
+                                }
+                                .pointerInput("tap", isTappedExpanded) {
+                                    if (!isTappedExpanded) {
+                                        detectTapGestures(
+                                            onTap = {
+                                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                isTappedExpanded = true
+                                            }
                                         )
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (isStopPressed && recordMode == 1) {
-                                    LoadingIndicator(
-                                        color = MaterialTheme.colorScheme.onTertiary,
-                                        modifier = Modifier.size(24.dp)
+                                    }
+                                }
+                                .pointerInput("hold", isTappedExpanded) {
+                                    if (!isTappedExpanded) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                isPressExpanded = true
+                                                tryAwaitRelease()
+                                                isPressExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                                .padding(top = 8.dp, start = 24.dp, end = 24.dp, bottom = 24.dp)
+                        ) {
+                            LaunchedEffect(recognizedText, isExpanded) {
+                                if (recognizedText.isNotEmpty()) {
+                                    scrollState.animateScrollTo(scrollState.maxValue)
+                                }
+                            }
+
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp)
+                                        .clickable(
+                                            enabled = isExpanded,
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
+                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            isTappedExpanded = false
+                                            isPressExpanded = false
+                                        }
+                                        .pointerInput(isExpanded) {
+                                            if (isExpanded) {
+                                                detectVerticalDragGestures { _, dragAmount ->
+                                                    if (dragAmount > 5) {
+                                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        isTappedExpanded = false
+                                                        isPressExpanded = false
+                                                    }
+                                                }
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(32.dp)
+                                            .height(4.dp)
+                                            .clip(CircleShape)
+                                            .background(contentColor.copy(alpha = 0.3f))
                                     )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Default.Stop,
-                                        contentDescription = stringResource(R.string.record_stop_cd),
-                                        tint = MaterialTheme.colorScheme.onTertiary,
-                                        modifier = Modifier.size(32.dp)
+                                }
+
+                                AnimatedVisibility(visible = isExpanded) {
+                                    Column {
+                                        Text(
+                                            text = stringResource(R.string.record_live_transcription),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                    }
+                                }
+
+                                AnimatedContent(
+                                    targetState = displayLiveText,
+                                    transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(150)) },
+                                    label = "TranscriptionFade"
+                                ) { text ->
+                                    Text(
+                                        text = text,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = contentColor,
+                                        textAlign = TextAlign.Start,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .verticalScroll(scrollState, enabled = isExpanded)
                                     )
                                 }
                             }
                         }
+                    }
 
-                        if (!isSplit) {
-                            Box(
-                                modifier = Modifier
-                                    .size(importButtonSize)
-                                    .graphicsLayer {
-                                        scaleX = importScale
-                                        scaleY = importScale
-                                        alpha = importAlpha
-                                    }
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.secondaryContainer)
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onPress = {
-                                                isImportPressed = true
-                                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                tryAwaitRelease()
-                                                isImportPressed = false
-                                                showAudioPicker = true
-                                            }
-                                        )
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Audiotrack,
-                                    contentDescription = stringResource(R.string.record_import_audio_cd),
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.size(28.dp)
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    RecordScreenActionButtons(
+                        isRecording = isRecording,
+                        isPaused = isPaused,
+                        hasPermission = hasPermission,
+                        recordMode = recordMode,
+                        aiProvider = aiProvider,
+                        onRequestPermission = { launcher.launch(Manifest.permission.RECORD_AUDIO) },
+                        onToggleRecording = {
+                            val isEmulator = Build.FINGERPRINT.contains("generic") || Build.MODEL.contains("Emulator")
+                            viewModel.toggleRecording(isEmulator, recordMode)
+                        },
+                        onPauseRecording = { viewModel.pauseRecording() },
+                        onResumeRecording = { viewModel.resumeRecording() },
+                        onStopRecording = {
+                            viewModel.stopRecordingInstant()
+                            coroutineScope.launch {
+                                val saved = viewModel.saveNote(recordMode, aiProvider)
+                                val savedMsg = context.getString(R.string.record_note_saved)
+                                val noTextMsg = context.getString(R.string.record_no_text_to_save)
+                                snackbarHostState.showSnackbar(
+                                    message = if (saved) savedMsg else noTextMsg,
+                                    duration = SnackbarDuration.Short
                                 )
                             }
-                        }
-                    }
-                }
+                        },
+                        onImportClick = { showAudioPicker = true }
+                    )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
             }
 
-            // Overlay de import (para import activado desde picker O drag & drop)
+            // Overlay de import (aplica en ambos layouts)
             if (isImporting) {
                 Box(
                     modifier = Modifier
@@ -838,7 +830,7 @@ fun RecordScreen(
                 }
             }
 
-            // Overlay de drag hover
+            // Overlay de drag hover (aplica en ambos layouts)
             if (isDragHovering) {
                 Box(
                     modifier = Modifier
@@ -877,7 +869,7 @@ fun RecordScreen(
         }
     }
 
-    // SAF fallback: se usa cuando el picker nativo (beta) está apagado.
+    // SAF fallback
     val safAudioLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -1021,6 +1013,258 @@ fun RecordScreen(
                 }
             }
         )
+    }
+}
+
+/**
+ * Bloque de saludo + timer. Se usa en landscape y en portrait.
+ */
+@Composable
+private fun RecordScreenGreetingBlock(
+    greetingText: androidx.compose.ui.text.AnnotatedString,
+    timeString: String,
+    isRecording: Boolean,
+    isPaused: Boolean,
+    onGreetingTap: () -> Unit,
+    horizontalPadding: Dp = 24.dp
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = greetingText,
+            style = MaterialTheme.typography.displaySmall,
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Start,
+            modifier = Modifier
+                .padding(horizontal = horizontalPadding)
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = { onGreetingTap() })
+                }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Surface(
+            shape = CircleShape,
+            color = when {
+                isPaused -> MaterialTheme.colorScheme.tertiaryContainer
+                isRecording -> MaterialTheme.colorScheme.primaryContainer
+                else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+            },
+            modifier = Modifier.padding(start = horizontalPadding, bottom = 16.dp)
+        ) {
+            AnimatedContent(targetState = timeString, label = "timeAnimation") { time ->
+                Text(
+                    text = time,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = when {
+                        isPaused -> MaterialTheme.colorScheme.onTertiaryContainer
+                        isRecording -> MaterialTheme.colorScheme.onPrimaryContainer
+                        else -> MaterialTheme.colorScheme.onSecondaryContainer
+                    },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Bloque de botones de acción (record/pause/resume/stop/import).
+ * Se usa en landscape y en portrait.
+ */
+@Composable
+private fun RecordScreenActionButtons(
+    isRecording: Boolean,
+    isPaused: Boolean,
+    hasPermission: Boolean,
+    recordMode: Int,
+    aiProvider: Int,
+    onRequestPermission: () -> Unit,
+    onToggleRecording: () -> Unit,
+    onPauseRecording: () -> Unit,
+    onResumeRecording: () -> Unit,
+    onStopRecording: () -> Unit,
+    onImportClick: () -> Unit
+) {
+    val haptics = LocalHapticFeedback.current
+    val isSplit = isRecording || isPaused
+    val totalAreaWidth = 280.dp
+    val importButtonSize = 64.dp
+    val gapBetweenButtons = 12.dp
+
+    Box(
+        modifier = Modifier
+            .widthIn(min = totalAreaWidth)
+            .height(80.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        var isLeftPressed by remember { mutableStateOf(false) }
+        var isStopPressed by remember { mutableStateOf(false) }
+        var isImportPressed by remember { mutableStateOf(false) }
+
+        val leftTargetWidth = when {
+            isStopPressed && isSplit -> 88.dp
+            isLeftPressed && isSplit -> 152.dp
+            isLeftPressed            -> totalAreaWidth + 56.dp
+            isSplit                  -> 120.dp
+            else                     -> totalAreaWidth
+        }
+        val rightTargetWidth = when {
+            !isSplit                  -> 0.dp
+            isStopPressed              -> 152.dp
+            isLeftPressed               -> 88.dp
+            else                        -> 120.dp
+        }
+        val gapTarget = if (isSplit) 16.dp else 0.dp
+
+        val leftButtonWidth by animateDpAsState(targetValue = leftTargetWidth, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium), label = "leftWidth")
+        val rightButtonWidth by animateDpAsState(targetValue = rightTargetWidth, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium), label = "rightWidth")
+        val rightButtonAlpha by animateFloatAsState(targetValue = if (isSplit) 1f else 0f, animationSpec = spring(stiffness = Spring.StiffnessMedium), label = "rightAlpha")
+        val gapWidth by animateDpAsState(targetValue = gapTarget, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium), label = "gap")
+        val leftIconScale by animateFloatAsState(targetValue = if (isLeftPressed && !isSplit) 1.12f else 1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium), label = "leftIconScale")
+        val importAlpha by animateFloatAsState(targetValue = if (isSplit) 0f else 1f, animationSpec = spring(stiffness = Spring.StiffnessMedium), label = "importAlpha")
+        val importScale by animateFloatAsState(targetValue = if (isImportPressed) 0.90f else 1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium), label = "importScale")
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(if (isSplit) gapWidth else gapBetweenButtons),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.wrapContentWidth()
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(leftButtonWidth)
+                    .height(80.dp)
+                    .clip(CircleShape)
+                    .background(
+                        when {
+                            isSplit && !isPaused -> MaterialTheme.colorScheme.secondaryContainer
+                            isSplit && isPaused  -> MaterialTheme.colorScheme.primaryContainer
+                            else                 -> MaterialTheme.colorScheme.primary
+                        }
+                    )
+                    .pointerInput(isSplit, isPaused) {
+                        detectTapGestures(
+                            onPress = {
+                                isLeftPressed = true
+                                tryAwaitRelease()
+                                isLeftPressed = false
+                                when {
+                                    !isSplit -> {
+                                        if (!hasPermission) onRequestPermission()
+                                        else onToggleRecording()
+                                    }
+                                    isPaused -> onResumeRecording()
+                                    else     -> onPauseRecording()
+                                }
+                            }
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                val pauseCd = stringResource(R.string.record_pause_cd)
+                val resumeCd = stringResource(R.string.record_resume_cd)
+                val recordCd = stringResource(R.string.record_record_cd)
+                val recordLabel = stringResource(R.string.record_record_button)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = when {
+                            isSplit && isPaused -> Icons.Default.PlayArrow
+                            isSplit            -> Icons.Default.Pause
+                            else               -> Icons.Default.Mic
+                        },
+                        contentDescription = when {
+                            isSplit && isPaused -> resumeCd
+                            isSplit            -> pauseCd
+                            else               -> recordCd
+                        },
+                        tint = when {
+                            isSplit && !isPaused -> MaterialTheme.colorScheme.onSecondaryContainer
+                            isSplit && isPaused  -> MaterialTheme.colorScheme.onPrimaryContainer
+                            else                 -> MaterialTheme.colorScheme.onPrimary
+                        },
+                        modifier = Modifier
+                            .size(32.dp)
+                            .scale(leftIconScale)
+                    )
+                    if (!isSplit) {
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = recordLabel,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                }
+            }
+
+            if (rightButtonWidth > 0.dp) {
+                Box(
+                    modifier = Modifier
+                        .width(rightButtonWidth)
+                        .height(80.dp)
+                        .alpha(rightButtonAlpha)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.tertiary)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onPress = {
+                                    isStopPressed = true
+                                    tryAwaitRelease()
+                                    isStopPressed = false
+                                    onStopRecording()
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isStopPressed && recordMode == 1) {
+                        LoadingIndicator(
+                            color = MaterialTheme.colorScheme.onTertiary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Stop,
+                            contentDescription = stringResource(R.string.record_stop_cd),
+                            tint = MaterialTheme.colorScheme.onTertiary,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                }
+            }
+
+            if (!isSplit) {
+                Box(
+                    modifier = Modifier
+                        .size(importButtonSize)
+                        .graphicsLayer {
+                            scaleX = importScale
+                            scaleY = importScale
+                            alpha = importAlpha
+                        }
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onPress = {
+                                    isImportPressed = true
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    tryAwaitRelease()
+                                    isImportPressed = false
+                                    onImportClick()
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Audiotrack,
+                        contentDescription = stringResource(R.string.record_import_audio_cd),
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+        }
     }
 }
 
