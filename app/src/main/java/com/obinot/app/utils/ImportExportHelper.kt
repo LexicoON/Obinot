@@ -145,6 +145,56 @@ object ImportExportHelper {
     }
 
     /**
+     * Exporta una nota a un archivo .md (Markdown puro).
+     *
+     * Estructura:
+     *   # {title}
+     *
+     *   {summary sin el meta tag BINOT_META}
+     *
+     * Si la nota no tiene summary, se exporta el rawText en su lugar.
+     * El meta tag `<!--BINOT_META:...-->` nunca se incluye.
+     */
+    suspend fun exportNoteToMarkdown(
+        context: Context,
+        note: NoteEntity
+    ): Uri? = withContext(Dispatchers.IO) {
+        try {
+            val cacheDir = File(context.cacheDir, "shared_notes").apply { mkdirs() }
+            val safeTitle = note.title.ifBlank { "Obinot_Note" }.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+            val fileName = "${safeTitle}.md"
+            val outFile = File(cacheDir, fileName)
+
+            val cleanSummary = note.summary
+                ?.replace(Regex("<!--BINOT_META:.*?-->"), "")
+                ?.trimEnd()
+
+            val body = when {
+                !cleanSummary.isNullOrBlank() -> cleanSummary
+                note.rawText.isNotBlank() -> note.rawText
+                else -> ""
+            }
+
+            val title = note.title.ifBlank { "Untitled" }
+
+            val content = buildString {
+                append("# ")
+                append(title)
+                append("\n\n")
+                append(body)
+                append("\n")
+            }
+
+            outFile.writeText(content, Charsets.UTF_8)
+
+            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", outFile)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    /**
      * Escribe un archivo al ZIP con método STORED (sin compresión — el audio ya
      * viene comprimido y DEFLATE solo gastaría CPU sin ganar tamaño).
      *

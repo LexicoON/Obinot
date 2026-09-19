@@ -16,6 +16,25 @@ interface NoteDao {
     fun getTrashedNotes(): Flow<List<NoteEntity>>
 
     /**
+     * Búsqueda Full-Text sobre title/rawText/summary.
+     *
+     * El `query` debe venir sanitizado (ver `sanitizeFtsQuery` en HistoryViewModel):
+     * tokens separados por espacios, con `*` al final para prefix matching, sin
+     * caracteres especiales de FTS. Si el query está vacío o mal formado, SQLite
+     * puede fallar al parsearlo — por eso el sanitizado es responsabilidad del caller.
+     *
+     * El JOIN con `notes_fts` es sobre `docid` (que coincide con el rowid de `notes`).
+     * La proyección `notes.*` es necesaria para que Room arme la NoteEntity completa.
+     */
+    @Query(
+        "SELECT notes.* FROM notes " +
+        "INNER JOIN notes_fts ON notes.id = notes_fts.docid " +
+        "WHERE notes.isTrashed = 0 AND notes_fts MATCH :query " +
+        "ORDER BY notes.isPinned DESC, notes.timestamp DESC"
+    )
+    fun searchNotes(query: String): Flow<List<NoteEntity>>
+
+    /**
      * Notas recientes para el carrusel de RecordScreen.
      *
      * Antes RecordViewModel hacía getAllNotesSync() cada 1.5s y filtraba/ordenaba

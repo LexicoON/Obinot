@@ -4,6 +4,9 @@ class NoteRepository(private val noteDao: NoteDao) {
     val allNotes = noteDao.getAllNotes()
     val trashedNotes = noteDao.getTrashedNotes()
 
+    /** Búsqueda Full-Text. El `query` debe venir sanitizado (ver HistoryViewModel). */
+    fun searchNotes(query: String) = noteDao.searchNotes(query)
+
     /** Flow de las últimas notas (sin la system note), para el carrusel de RecordScreen. */
     fun getRecentNotes(limit: Int = 16) = noteDao.getRecentNotes(limit)
 

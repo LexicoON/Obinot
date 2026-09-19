@@ -573,4 +573,14 @@
     <string name="settings_auto_process_desc">Procesa las notas con IA automáticamente cuando están listas. Si está apagado, podés procesar cada nota manualmente con el chip Analizar.</string>
     <string name="result_analyze_chip">Analizar</string>
 
+    <!-- ============================================================ -->
+    <!-- D3 — Export Markdown + Checkboxes                             -->
+    <!-- ============================================================ -->
+
+    <string name="result_export_markdown">Exportar como Markdown</string>
+    <string name="result_export_markdown_success">Archivo Markdown listo</string>
+    <string name="result_export_markdown_failed">No se pudo exportar Markdown</string>
+    <string name="result_share_text_markdown">Nota Obinot (Markdown): %1$s</string>
+    <string name="result_share_markdown_chooser">Compartir archivo Markdown vía</string>
+
 </resources>

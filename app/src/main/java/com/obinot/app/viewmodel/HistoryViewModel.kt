@@ -12,11 +12,13 @@ import com.obinot.app.data.NoteEntity
 import com.obinot.app.data.NoteRepository
 import com.obinot.app.data.RetrofitClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -53,11 +55,6 @@ class HistoryViewModel(
 
     /**
      * Catálogo de labels únicos del sistema (custom + los que aparecen en notas).
-     *
-     * Antes: repository.allNotes.map { notes -> ... } cargaba TODAS las entidades
-     * (rawText, summary, highlightsInfo) y las recorría para extraer los labels.
-     * Ahora: combine de dos queries livianas — la system note (1 fila) y la
-     * proyección de la columna label (strings planos). Sin cargar entidades.
      */
     val uniqueLabels: StateFlow<List<String>> = combine(
         repository.getAllLabelStrings(),
@@ -74,42 +71,54 @@ class HistoryViewModel(
         (customLabels + noteLabels).distinct().sorted()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /**
+     * Lista filtrada de notas.
+     *
+     * Usa FTS4 cuando hay query, y `allNotes` cuando está vacía. El `flatMapLatest`
+     * cancela la suscripción anterior cada vez que cambia la query, así no se acumulan
+     * flows activos.
+     *
+     * El filtro por labels y el sort se aplican en Kotlin (in-memory) porque la
+     * lista ya viene acotada por la DB. Mantener la API del ViewModel estable: los
+     * consumers siguen viendo `filteredNotes: StateFlow<List<NoteEntity>>`.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
     val filteredNotes: StateFlow<List<NoteEntity>> = combine(
-        repository.allNotes, _searchQuery, _selectedLabels, _sortMode
-    ) { notes, query, labels, sort ->
+        _searchQuery,
+        _selectedLabels,
+        _sortMode
+    ) { query, labels, sort -> Triple(query, labels, sort) }
+        .flatMapLatest { (query, labels, sort) ->
+            val ftsQuery = sanitizeFtsQuery(query)
+            val sourceFlow = if (ftsQuery.isEmpty()) {
+                repository.allNotes
+            } else {
+                repository.searchNotes(ftsQuery)
+            }
+            sourceFlow.map { notes ->
+                val realNotes = notes.filter { it.title != "[[BINOT_SYSTEM_LABELS]]" }
 
-        val realNotes = notes.filter { it.title != "[[BINOT_SYSTEM_LABELS]]" }
+                val labelFiltered = if (labels.isEmpty()) realNotes else realNotes.filter { note ->
+                    val noteLabels = note.label?.split("|")?.map { it.trim() }?.toSet() ?: emptySet()
+                    labels.all { it in noteLabels }
+                }
 
-        val labelFilteredNotes = if (labels.isEmpty()) realNotes else realNotes.filter { note ->
-            val noteLabels = note.label?.split("|")?.map { it.trim() }?.toSet() ?: emptySet()
-            labels.all { it in noteLabels }
-        }
-
-        val searchedNotes = if (query.isBlank()) {
-            labelFilteredNotes
-        } else {
-            labelFilteredNotes.filter {
-                it.title.contains(query, ignoreCase = true) ||
-                it.rawText.contains(query, ignoreCase = true) ||
-                (it.summary?.contains(query, ignoreCase = true) == true)
+                when (sort) {
+                    1 -> labelFiltered.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenBy { it.timestamp })
+                    2 -> labelFiltered.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenBy { it.title.lowercase() })
+                    else -> labelFiltered.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenByDescending { it.timestamp })
+                }
             }
         }
-
-        when (sort) {
-            1 -> searchedNotes.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenBy { it.timestamp })
-            2 -> searchedNotes.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenBy { it.title.lowercase() })
-            else -> searchedNotes.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenByDescending { it.timestamp })
-        }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     init {
         // Sincroniza el catálogo de labels con los labels existentes en notas.
-        // INSERT OR IGNORE, así que es idempotente. Si un label se crea desde el sistema
-        // viejo (system note), acá se le asigna color default automáticamente.
+        // INSERT OR IGNORE, así que es idempotente.
         viewModelScope.launch(Dispatchers.IO) {
             uniqueLabels.collect { labels ->
                 if (labels.isNotEmpty()) {
@@ -127,14 +136,12 @@ class HistoryViewModel(
     // Label color API
     // ============================================================
 
-    /** Asigna un color a un label existente. */
     fun setLabelColor(label: String, colorHex: String) {
         viewModelScope.launch(Dispatchers.IO) {
             labelRepository.updateColor(label.trim(), colorHex)
         }
     }
 
-    /** Devuelve el color asignado a un label, o DEFAULT_COLOR si no existe. */
     fun getLabelColor(label: String): String {
         return labelColors.value[label] ?: LabelEntity.DEFAULT_COLOR
     }
@@ -179,7 +186,7 @@ class HistoryViewModel(
     }
 
     // ============================================================
-    // Label CRUD (sincronizado con LabelRepository)
+    // Label CRUD
     // ============================================================
 
     fun createIndependentLabel(label: String, colorHex: String = LabelEntity.DEFAULT_COLOR) {
@@ -189,7 +196,6 @@ class HistoryViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val sysNote = repository.getSystemNoteSync()
 
-            // 1. Actualizar/crear la nota sintética
             if (sysNote != null) {
                 val existingLabels = sysNote.rawText.split("|").map { it.trim() }.filter { it.isNotBlank() }.toMutableSet()
                 if (!existingLabels.contains(cleanLabel)) {
@@ -209,7 +215,6 @@ class HistoryViewModel(
                 repository.insert(newSysNote)
             }
 
-            // 2. Crear la entrada en el catálogo con su color
             labelRepository.createLabel(cleanLabel, colorHex)
         }
     }
@@ -222,7 +227,6 @@ class HistoryViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val notes = repository.getAllNotesSync()
 
-            // 1. Actualizar todas las notas que usan el label viejo
             notes.filter { it.title != "[[BINOT_SYSTEM_LABELS]]" }.forEach { note ->
                 val labels = note.label?.split("|")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
                 if (labels.contains(cleanOld)) {
@@ -234,7 +238,6 @@ class HistoryViewModel(
                 }
             }
 
-            // 2. Actualizar la nota sintética
             val sysNote = notes.find { it.title == "[[BINOT_SYSTEM_LABELS]]" }
             if (sysNote != null) {
                 val existingLabels = sysNote.rawText.split("|").map { it.trim() }.filter { it.isNotBlank() }.toMutableSet()
@@ -247,19 +250,14 @@ class HistoryViewModel(
                 }
             }
 
-            // 3. Renombrar en el catálogo de colores.
-            // Importante: como LabelEntity tiene name como PK, renombrar equivale a
-            // borrar el viejo y crear el nuevo. Preservamos el color.
             val oldEntity = labelRepository.getLabel(cleanOld)
             if (oldEntity != null) {
                 labelRepository.deleteLabel(cleanOld)
                 labelRepository.createLabel(cleanNew, oldEntity.colorHex)
             } else {
-                // Si no existía en el catálogo, lo creamos con color default
                 labelRepository.createLabel(cleanNew)
             }
 
-            // 4. Actualizar filtro activo si corresponde
             if (cleanOld in _selectedLabels.value) {
                 _selectedLabels.value = (_selectedLabels.value - cleanOld) + cleanNew
             }
@@ -273,7 +271,6 @@ class HistoryViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val notes = repository.getAllNotesSync()
 
-            // 1. Quitar el label de todas las notas
             notes.filter { it.title != "[[BINOT_SYSTEM_LABELS]]" }.forEach { note ->
                 val labels = note.label?.split("|")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
                 if (labels.contains(cleanLabel)) {
@@ -286,7 +283,6 @@ class HistoryViewModel(
                 }
             }
 
-            // 2. Quitar de la nota sintética
             val sysNote = notes.find { it.title == "[[BINOT_SYSTEM_LABELS]]" }
             if (sysNote != null) {
                 val existingLabels = sysNote.rawText.split("|").map { it.trim() }.filter { it.isNotBlank() }.toMutableSet()
@@ -302,10 +298,8 @@ class HistoryViewModel(
                 }
             }
 
-            // 3. Borrar del catálogo de colores
             labelRepository.deleteLabel(cleanLabel)
 
-            // 4. Quitar del filtro activo
             if (cleanLabel in _selectedLabels.value) {
                 _selectedLabels.value = _selectedLabels.value - cleanLabel
             }
@@ -450,4 +444,30 @@ class HistoryViewModel(
                 }
             }
     }
+}
+
+/**
+ * Sanitiza el input del usuario para que sea un query válido de FTS4.
+ *
+ * Reglas:
+ *  - Split por cualquier cosa que no sea letra/número/underscore.
+ *  - Cada token se convierte en `token*` para prefix matching (así "meet" matchea "meeting").
+ *  - Se descartan tokens vacíos.
+ *
+ * Ejemplos:
+ *  - "hello world"  → "hello* world*"
+ *  - "reunión, lunes!" → "reunión* lunes*"
+ *  - "a-b"          → "a* b*"
+ *  - "!!!"          → "" (el caller lo trata como query vacío → allNotes)
+ *
+ * Si el resultado es vacío, el ViewModel cae al flow `allNotes` (mismo comportamiento
+ * que con query en blanco).
+ */
+private fun sanitizeFtsQuery(input: String): String {
+    val trimmed = input.trim()
+    if (trimmed.isEmpty()) return ""
+    return trimmed
+        .split(Regex("[^\\p{L}\\p{N}_]+"))
+        .filter { it.isNotBlank() }
+        .joinToString(" ") { "$it*" }
 }

@@ -22,16 +22,13 @@ class AppContainer(private val application: Application) {
     val database: AppDatabase by lazy {
         Room.databaseBuilder(application, AppDatabase::class.java, "binot_db")
         .addMigrations(
-            AppDatabase.MIGRATION_3_4, // Jembatan migrasi buat fitur Trash
-            AppDatabase.MIGRATION_4_5, // Jembatan migrasi buat originalRawText
-            AppDatabase.MIGRATION_5_6, // Jembatan migrasi buat highlightsInfo
-            AppDatabase.MIGRATION_6_7, // Jembatan migrasi buat catálogo de labels con color
-            AppDatabase.MIGRATION_7_8  // Jembatan migrasi buat índices compuestos
+            AppDatabase.MIGRATION_3_4,
+            AppDatabase.MIGRATION_4_5,
+            AppDatabase.MIGRATION_5_6,
+            AppDatabase.MIGRATION_6_7,
+            AppDatabase.MIGRATION_7_8,
+            AppDatabase.MIGRATION_8_9
         )
-        // dropAllTables = true mantiene el comportamiento viejo: si ninguna
-        // migración matchea la versión actual, resetea toda la DB en lugar de
-        // tirar excepción. El default del nuevo overload es false, que haría
-        // que la app crashee — por eso hay que pasarlo explícito.
         .fallbackToDestructiveMigration(dropAllTables = true)
         .build()
     }

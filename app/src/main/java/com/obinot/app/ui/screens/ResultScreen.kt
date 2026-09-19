@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -733,6 +734,7 @@ fun ResultScreen(
                                             },
                                             onResolveSelection = { resolver -> resolveMarkdownSelection = resolver },
                                             highlightQuery = temporaryHighlight,
+                                            onCheckboxToggle = { lineIndex -> viewModel.toggleCheckbox(lineIndex) },
                                             fontFamily = selectedFont,
                                             linePositions = markdownLinePositions,
                                             modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
@@ -1559,6 +1561,32 @@ fun ResultScreen(
                             Icon(Icons.Default.Share, contentDescription = stringResource(R.string.result_share_binot), tint = MaterialTheme.colorScheme.onSurface)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(stringResource(R.string.result_share_binot), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    item {
+                        BouncyCapsule(
+                            onClick = {
+                                viewModel.exportMarkdownFile(context) { uri, msg ->
+                                    if (uri != null) {
+                                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/markdown"
+                                            putExtra(Intent.EXTRA_STREAM, uri)
+                                            putExtra(Intent.EXTRA_TEXT, context.getString(R.string.result_share_text_markdown, note!!.title))
+                                            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                        }
+                                        context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.result_share_markdown_chooser)))
+                                    } else {
+                                        coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
+                                    }
+                                }
+                                showSidePanel = false
+                            },
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Icon(Icons.Default.Description, contentDescription = stringResource(R.string.result_export_markdown), tint = MaterialTheme.colorScheme.onSurface)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.result_export_markdown), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

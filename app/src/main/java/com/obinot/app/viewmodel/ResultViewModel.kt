@@ -223,6 +223,36 @@ class ResultViewModel(
         }
     }
 
+    /**
+     * Genera un archivo .md con el título + summary de la nota, y lo deja en
+     * cache/shared_notes para ser compartido por FileProvider.
+     *
+     * Si la nota no tiene summary, exporta el rawText en su lugar.
+     */
+    fun exportMarkdownFile(context: Context, onResult: (Uri?, String) -> Unit) {
+        val currentNote = _note.value
+        if (currentNote == null) {
+            onResult(null, context.getString(R.string.error_note_empty))
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            _isLoading.value = true
+            _loadingMessage.value = context.getString(R.string.loading_generating_binot)
+            val uri = ImportExportHelper.exportNoteToMarkdown(context, currentNote)
+            _isLoading.value = false
+
+            if (uri != null) {
+                launch(Dispatchers.Main) {
+                    onResult(uri, context.getString(R.string.result_export_markdown_success))
+                }
+            } else {
+                launch(Dispatchers.Main) {
+                    onResult(null, context.getString(R.string.result_export_markdown_failed))
+                }
+            }
+        }
+    }
+
     fun updateTitle(newTitle: String) {
         val currentNote = _note.value ?: return
         val updatedNote = currentNote.copy(title = newTitle, timestamp = System.currentTimeMillis())
@@ -349,6 +379,45 @@ class ResultViewModel(
         viewModelScope.launch { noteRepository.update(updatedNote) }
     }
 
+    /**
+     * Invierte el estado de un checkbox en el summary.
+     *
+     * El `lineIndex` corresponde a la línea dentro del **summary limpio** (sin
+     * el meta tag BINOT_META), que es lo que `MarkdownText` ve. Reconstruimos
+     * el summary completo con el meta tag preservado al final.
+     */
+    fun toggleCheckbox(lineIndex: Int) {
+        val currentNote = _note.value ?: return
+        val originalSummary = currentNote.summary ?: return
+
+        val metaTag = Regex("<!--BINOT_META:.*?-->").find(originalSummary)?.value
+        val cleanSummary = originalSummary
+            .replace(Regex("<!--BINOT_META:.*?-->"), "")
+            .trimEnd()
+
+        val lines = cleanSummary.split("\n").toMutableList()
+        if (lineIndex !in lines.indices) return
+
+        val line = lines[lineIndex]
+        val trimmed = line.trimStart()
+        val indent = line.substring(0, line.length - trimmed.length)
+
+        val newTrimmed = when {
+            trimmed.startsWith("- [ ]") -> "- [x]" + trimmed.removePrefix("- [ ]")
+            trimmed.startsWith("- [x]") -> "- [ ]" + trimmed.removePrefix("- [x]")
+            trimmed.startsWith("- [X]") -> "- [ ]" + trimmed.removePrefix("- [X]")
+            else -> return
+        }
+        lines[lineIndex] = indent + newTrimmed
+
+        val newClean = lines.joinToString("\n")
+        val newSummary = if (metaTag != null) "$newClean\n\n$metaTag" else newClean
+
+        val updated = currentNote.copy(summary = newSummary, timestamp = System.currentTimeMillis())
+        _note.value = updated
+        viewModelScope.launch { noteRepository.update(updated) }
+    }
+    
     fun toggleAudio() {
         val path = _note.value?.audioPath ?: return
         val file = File(path)

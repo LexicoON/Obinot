@@ -6,8 +6,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [NoteEntity::class, LabelEntity::class],
-    version = 8,
+    entities = [NoteEntity::class, LabelEntity::class, NoteFtsEntity::class],
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -67,6 +67,65 @@ abstract class AppDatabase : RoomDatabase() {
                     "`index_notes_title` " +
                     "ON `notes` (`title`)"
                 )
+            }
+        }
+
+        /**
+         * 8 → 9: agrega FTS4 sobre title/rawText/summary.
+         *
+         * Los nombres de los triggers y la estructura del CREATE VIRTUAL TABLE
+         * deben coincidir EXACTAMENTE con lo que Room genera automáticamente para
+         * `NoteFtsEntity` (annotation @Fts4(contentEntity = NoteEntity::class)).
+         *
+         * Los 4 triggers son la convención de Room:
+         *   - room_fts_content_sync_<ftsTable>_BEFORE_UPDATE
+         *   - room_fts_content_sync_<ftsTable>_BEFORE_DELETE
+         *   - room_fts_content_sync_<ftsTable>_AFTER_UPDATE
+         *   - room_fts_content_sync_<ftsTable>_AFTER_INSERT
+         *
+         * Si renombrás algo acá, la validación de schema al abrir la DB va a
+         * fallar con "Migration didn't properly handle: notes_fts".
+         */
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 1) Crear la tabla virtual FTS4 con external content.
+                db.execSQL(
+                    "CREATE VIRTUAL TABLE IF NOT EXISTS `notes_fts` " +
+                    "USING FTS4(`title` TEXT NOT NULL, `rawText` TEXT NOT NULL, `summary` TEXT, " +
+                    "content=`notes`)"
+                )
+
+                // 2) Triggers de sincronización (los 4 que Room genera).
+                db.execSQL(
+                    "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_notes_fts_BEFORE_UPDATE " +
+                    "BEFORE UPDATE ON `notes` BEGIN " +
+                    "DELETE FROM `notes_fts` WHERE `docid`=OLD.`rowid`; " +
+                    "END"
+                )
+                db.execSQL(
+                    "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_notes_fts_BEFORE_DELETE " +
+                    "BEFORE DELETE ON `notes` BEGIN " +
+                    "DELETE FROM `notes_fts` WHERE `docid`=OLD.`rowid`; " +
+                    "END"
+                )
+                db.execSQL(
+                    "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_notes_fts_AFTER_UPDATE " +
+                    "AFTER UPDATE ON `notes` BEGIN " +
+                    "INSERT INTO `notes_fts`(`docid`, `title`, `rawText`, `summary`) " +
+                    "VALUES (NEW.`rowid`, NEW.`title`, NEW.`rawText`, NEW.`summary`); " +
+                    "END"
+                )
+                db.execSQL(
+                    "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_notes_fts_AFTER_INSERT " +
+                    "AFTER INSERT ON `notes` BEGIN " +
+                    "INSERT INTO `notes_fts`(`docid`, `title`, `rawText`, `summary`) " +
+                    "VALUES (NEW.`rowid`, NEW.`title`, NEW.`rawText`, NEW.`summary`); " +
+                    "END"
+                )
+
+                // 3) Poblar el índice con las filas existentes. El comando 'rebuild'
+                // lee desde la tabla content (notes) y reconstruye el índice FTS.
+                db.execSQL("INSERT INTO `notes_fts`(`notes_fts`) VALUES('rebuild')")
             }
         }
     }

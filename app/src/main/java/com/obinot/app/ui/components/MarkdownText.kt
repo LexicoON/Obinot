@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -594,48 +595,87 @@ document.addEventListener("DOMContentLoaded", function() {
 // ============================================================
 
 /**
- * Divide una línea en segmentos alternando texto y math inline (`$$...$$`).
+ * Divide una línea en segmentos alternando texto y math inline.
+ *
+ * Soporta dos sintaxis:
+ *   - `$$...$$` → display math (KaTeX lo renderiza en modo display).
+ *   - `$...$`   → inline math (KaTeX lo renderiza en modo inline).
  *
  * Retorna `null` cuando la línea no tiene math inline con texto antes/después:
- *   - Sin `$$...$$` → el caller la trata como NativeLine.
+ *   - Sin math → el caller la trata como NativeLine.
  *   - Con un único `$$...$$` que cubre TODA la línea → el caller la trata como
  *     MathBlock puro (comportamiento previo intacto).
+ *
+ * Reglas de validación para `$...$` (evitan falsos positivos con precios como
+ * "$100" o "$1.50 y $2"):
+ *   - Debe cerrar con `$` en la misma línea.
+ *   - No puede empezar ni terminar con espacio (convención LaTeX).
+ *   - No puede contener doble espacio.
+ *   - Longitud máxima de 80 caracteres.
  *
  * Los segmentos se devuelven con `lineIndex = -1`. El caller los re-inyecta
  * con el `lineIndex` real de la línea original.
  */
 private fun splitInlineMath(line: String): List<MarkdownItem>? {
-    val pattern = Regex("""\$\$(.+?)\$\$""")
-    val matches = pattern.findAll(line).toList()
-    if (matches.isEmpty()) return null
-
-    // Si la línea entera es un solo `$$...$$` sin texto antes ni después,
-    // no es inline: el caller lo maneja como MathBlock puro.
-    if (matches.size == 1) {
-        val match = matches[0]
-        val before = line.substring(0, match.range.first).trim()
-        val after = line.substring(match.range.last + 1).trim()
-        if (before.isEmpty() && after.isEmpty()) return null
-    }
+    // Regex unificado con dos alternativas:
+    //   Grupo 1: contenido de $$...$$ (dólar doble).
+    //   Grupo 2: contenido de $...$ (dólar simple).
+    // `(?!\$)` evita que el `$` de un `$$` matchee como dólar simple.
+    // `[^$\n]+?` impide que el contenido tenga otro `$` ni saltos de línea.
+    val pattern = Regex("""\$\$(.+?)\$\$|\$(?!\$)([^$\n]+?)\$(?!\$)""")
 
     val segments = mutableListOf<MarkdownItem>()
     var cursor = 0
-    for (match in matches) {
+
+    for (match in pattern.findAll(line)) {
+        val isDouble = match.groups[1] != null
+        val content = if (isDouble) match.groups[1]!!.value else match.groups[2]!!.value
+
+        // Validación: un dólar simple solo se acepta como math si cumple
+        // las reglas mínimas. Los dólares dobles siempre se aceptan.
+        val isValidSimple = !isDouble
+            && content.isNotBlank()
+            && !content.startsWith(" ")
+            && !content.endsWith(" ")
+            && content.length <= 80
+            && !content.contains("  ")
+
+        val isMath = isDouble || isValidSimple
+        if (!isMath) continue
+
+        // Texto entre el cursor y este match.
         if (match.range.first > cursor) {
             val before = line.substring(cursor, match.range.first)
             if (before.isNotBlank()) {
                 segments.add(MarkdownItem.NativeLine(before, -1))
             }
         }
-        segments.add(MarkdownItem.MathBlock("$$${match.groupValues[1]}$$", -1))
+
+        val raw = if (isDouble) "$$$content$$" else "\$$content\$"
+        segments.add(MarkdownItem.MathBlock(raw, -1))
         cursor = match.range.last + 1
     }
+
+    // Sin math válido: dejar que el caller trate la línea entera como NativeLine.
+    if (segments.none { it is MarkdownItem.MathBlock }) return null
+
+    // Caso especial: la línea entera es un único `$$...$$` sin texto alrededor.
+    // El caller tiene un bloque dedicado para math multilínea; dejamos que lo maneje.
+    if (segments.size == 1 && segments[0] is MarkdownItem.MathBlock) {
+        val mathItem = segments[0] as MarkdownItem.MathBlock
+        if (mathItem.rawText.startsWith("$$") && mathItem.rawText.endsWith("$$")) {
+            if (line.trim() == mathItem.rawText) return null
+        }
+    }
+
+    // Texto después del último match.
     if (cursor < line.length) {
         val after = line.substring(cursor)
         if (after.isNotBlank()) {
             segments.add(MarkdownItem.NativeLine(after, -1))
         }
     }
+
     return segments.ifEmpty { null }
 }
 
@@ -770,6 +810,7 @@ fun MarkdownText(
     onSavedHighlightClick: (text: String, note: String, line: Int, start: Int, end: Int) -> Unit = { _, _, _, _, _ -> },
     onResolveSelection: (resolver: (Rect, String) -> Triple<Int, Int, Int>?) -> Unit = {},
     highlightQuery: String = "",
+    onCheckboxToggle: (Int) -> Unit = {},
     fontFamily: FontFamily = FontFamily.SansSerif,
     linePositions: SnapshotStateMap<Int, Int>? = null,
     modifier: Modifier = Modifier
@@ -955,6 +996,43 @@ fun MarkdownText(
                                 )
                             }
 
+                            trimmedLine.startsWith("- [ ]") ||
+                            trimmedLine.startsWith("- [x]") ||
+                            trimmedLine.startsWith("- [X]") -> {
+                                val isChecked = trimmedLine.startsWith("- [x]") || trimmedLine.startsWith("- [X]")
+                                val checklistContent = trimmedLine
+                                    .removePrefix("- [ ]")
+                                    .removePrefix("- [x]")
+                                    .removePrefix("- [X]")
+                                    .trimStart()
+                                val paddingStart = 8.dp + (indentSpaces * 6).dp
+                                Row(
+                                    modifier = Modifier.padding(start = paddingStart, top = 2.dp, bottom = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Checkbox(
+                                        checked = isChecked,
+                                        onCheckedChange = { onCheckboxToggle(lineIndex) },
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    BasicMarkdownLine(
+                                        text = checklistContent,
+                                        lineIndex = lineIndex,
+                                        prefixLen = 0,
+                                        highlightQuery = highlightQuery,
+                                        lineHighlights = lineHighlights,
+                                        legacyHighlights = legacyHighlights,
+                                        onSavedHighlightClick = onSavedHighlightClick,
+                                        highlightBgColor = highlightBgColor,
+                                        highlightTextColor = highlightTextColor,
+                                        fontFamily = fontFamily,
+                                        lineRegistry = lineRegistry,
+                                        uriHandler = uriHandler,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
                             trimmedLine.startsWith("- ") || trimmedLine.startsWith("* ") -> {
                                 val paddingStart = 16.dp + (indentSpaces * 6).dp
                                 val prefixLen = indentSpaces + 2

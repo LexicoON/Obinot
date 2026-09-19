@@ -573,4 +573,14 @@
     <string name="settings_auto_process_desc">Automatically process notes with AI when they\'re ready. If off, you can process each note manually with the Analyze chip.</string>
     <string name="result_analyze_chip">Analyze</string>
 
+    <!-- ============================================================ -->
+    <!-- D3 — Export Markdown + Checkboxes                             -->
+    <!-- ============================================================ -->
+
+    <string name="result_export_markdown">Export as Markdown</string>
+    <string name="result_export_markdown_success">Markdown file ready</string>
+    <string name="result_export_markdown_failed">Failed to export Markdown</string>
+    <string name="result_share_text_markdown">Obinot Note (Markdown): %1$s</string>
+    <string name="result_share_markdown_chooser">Share Markdown file via</string>
+
 </resources>
