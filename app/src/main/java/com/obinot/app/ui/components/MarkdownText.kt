@@ -1111,6 +1111,20 @@ fun MarkdownText(
 
     val highlightBgColor = MaterialTheme.colorScheme.tertiaryContainer
     val highlightTextColor = MaterialTheme.colorScheme.onTertiaryContainer
+
+    // Defer de la creación de WebViews. Chromium tarda ~500ms en inicializar
+    // el primer WebView del proceso y eso bloquea el main thread. Si los
+    // montamos durante la animación de apertura de la nota, los frames de la
+    // animación se skipean y la app se siente trabada.
+    //
+    // Estrategia: los primeros 200ms mostramos un skeleton vacío (mismo tamaño,
+    // sin WebView). Cuando termina la animación, montamos los WebViews reales.
+    var webViewsReady by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(200)
+        webViewsReady = true
+    }
+
     val lineRegistry = remember { mutableMapOf<Int, LineLayoutInfo>() }
     val webViewHeightCache = remember { androidx.compose.runtime.snapshots.SnapshotStateMap<String, Int>() }
     val isDarkTheme = isSystemInDarkTheme()
@@ -1145,24 +1159,43 @@ fun MarkdownText(
             ) {
                 when (item) {
                     is MarkdownItem.MathBlock -> {
-                        KaTeXWebView(
-                            mathContent = item.rawText,
-                            assets = katexAssets,
-                            textColor = MaterialTheme.colorScheme.onBackground,
-                            fontFamily = fontFamily,
-                            heightCache = webViewHeightCache,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
+                        if (webViewsReady) {
+                            KaTeXWebView(
+                                mathContent = item.rawText,
+                                assets = katexAssets,
+                                textColor = MaterialTheme.colorScheme.onBackground,
+                                fontFamily = fontFamily,
+                                heightCache = webViewHeightCache,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        } else {
+                            // Skeleton con altura razonable para que el layout no salte.
+                            ShimmerBox(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(80.dp)
+                                    .padding(bottom = 8.dp)
+                            )
+                        }
                     }
 
                     is MarkdownItem.MermaidBlock -> {
-                        MermaidWebView(
-                            mermaidContent = item.rawText,
-                            assets = mermaidAssets,
-                            isDarkTheme = isDarkTheme,
-                            heightCache = webViewHeightCache,
-                            modifier = Modifier.padding(bottom = 16.dp)
-                        )
+                        if (webViewsReady) {
+                            MermaidWebView(
+                                mermaidContent = item.rawText,
+                                assets = mermaidAssets,
+                                isDarkTheme = isDarkTheme,
+                                heightCache = webViewHeightCache,
+                                modifier = Modifier.padding(bottom = 16.dp)
+                            )
+                        } else {
+                            ShimmerBox(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                                    .padding(bottom = 16.dp)
+                            )
+                        }
                     }
 
                     is MarkdownItem.CodeBlock -> {
@@ -1276,6 +1309,7 @@ fun MarkdownText(
                                         lineRegistry = lineRegistry,
                                         uriHandler = uriHandler,
                                         katexAssets = katexAssets,
+                                        webViewsReady = webViewsReady,
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
@@ -1305,6 +1339,7 @@ fun MarkdownText(
                                         lineRegistry = lineRegistry,
                                         uriHandler = uriHandler,
                                         katexAssets = katexAssets,
+                                        webViewsReady = webViewsReady,
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
@@ -1339,6 +1374,7 @@ fun MarkdownText(
                                         lineRegistry = lineRegistry,
                                         uriHandler = uriHandler,
                                         katexAssets = katexAssets,
+                                        webViewsReady = webViewsReady,
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
@@ -1360,6 +1396,7 @@ fun MarkdownText(
                                 lineRegistry = lineRegistry,
                                 uriHandler = uriHandler,
                                 katexAssets = katexAssets,
+                                webViewsReady = webViewsReady,
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
                         }
@@ -1503,7 +1540,8 @@ private fun BlockQuoteLine(
     highlightTextColor: Color,
     fontFamily: FontFamily,
     lineRegistry: MutableMap<Int, LineLayoutInfo>,
-    katexAssets: KaTeXAssets
+    katexAssets: KaTeXAssets,
+    webViewsReady: Boolean
 ) {
     val uriHandler = LocalUriHandler.current
     Row(
@@ -1534,6 +1572,7 @@ private fun BlockQuoteLine(
             lineRegistry = lineRegistry,
             uriHandler = uriHandler,
             katexAssets = katexAssets,
+            webViewsReady = webViewsReady,
             modifier = Modifier.weight(1f)
         )
     }
@@ -1558,6 +1597,7 @@ fun BasicMarkdownLine(
     lineRegistry: MutableMap<Int, LineLayoutInfo>,
     uriHandler: androidx.compose.ui.platform.UriHandler,
     katexAssets: KaTeXAssets = KaTeXAssets("", "", "", ""),
+    webViewsReady: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     // Dispatch: si la línea tiene math inline, va por un path que usa
@@ -1581,6 +1621,7 @@ fun BasicMarkdownLine(
             fontFamily = fontFamily,
             lineRegistry = lineRegistry,
             katexAssets = katexAssets,
+            webViewsReady = webViewsReady,
             modifier = modifier
         )
         return
@@ -1764,6 +1805,7 @@ private fun InlineMathMarkdownLine(
     fontFamily: FontFamily,
     lineRegistry: MutableMap<Int, LineLayoutInfo>,
     katexAssets: KaTeXAssets,
+    webViewsReady: Boolean,
     modifier: Modifier = Modifier
 ) {
     val segments = remember(text) { splitInlineMathSegments(text) }
@@ -1782,12 +1824,17 @@ private fun InlineMathMarkdownLine(
                             placeholderVerticalAlign = PlaceholderVerticalAlign.TextCenter
                         )
                     ) { _ ->
-                        KaTeXInlineWebView(
-                            latex = seg.text,
-                            assets = katexAssets,
-                            textColor = textColor,
-                            fontFamily = fontFamily
-                        )
+                        if (webViewsReady) {
+                            KaTeXInlineWebView(
+                                latex = seg.text,
+                                assets = katexAssets,
+                                textColor = textColor,
+                                fontFamily = fontFamily
+                            )
+                        } else {
+                            // Placeholder vacío: solo mantiene el espacio reservado.
+                            Box(modifier = Modifier.fillMaxSize())
+                        }
                     })
                 }
             }
