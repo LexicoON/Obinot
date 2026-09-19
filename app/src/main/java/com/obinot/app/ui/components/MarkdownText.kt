@@ -1271,7 +1271,8 @@ fun MarkdownText(
                                     highlightTextColor = highlightTextColor,
                                     fontFamily = fontFamily,
                                     lineRegistry = lineRegistry,
-                                    katexAssets = katexAssets
+                                    katexAssets = katexAssets,
+                                    webViewsReady = webViewsReady
                                 )
                             }
 
