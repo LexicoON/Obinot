@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.obinot.app.R
 import com.obinot.app.data.Content
 import com.obinot.app.data.FileData
 import com.obinot.app.data.GenerateContentRequest
@@ -77,13 +78,6 @@ class ResultViewModel(
         .map { labels -> labels.associate { it.name to it.colorHex } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
-    /**
-     * Catálogo de labels visibles para esta nota.
-     *
-     * Antes: cargaba TODAS las entidades (rawText, summary, highlightsInfo) y las
-     * recorría para extraer labels. Ahora: combine de dos queries livianas — la
-     * system note (1 fila) y la proyección de la columna label (strings planos).
-     */
     val allLabels: StateFlow<List<String>> = combine(
         noteRepository.getAllLabelStrings(),
         noteRepository.getSystemNote()
@@ -120,19 +114,11 @@ class ResultViewModel(
                 val isPending = rawText.isBlank() || rawText == AudioRecorderManager.PENDING_TRANSCRIPTION
 
                 when {
-                    // Modo Accurate con texto del teléfono: NO auto-transcribir.
-                    // El usuario decide con el botón "Re-analyze" del banner.
                     hasPhoneMarker -> { /* nada — la UI maneja */ }
-
-                    // Pendiente de transcripción y hay audio: disparar IA automáticamente.
                     isPending && fetchedNote.audioPath != null -> transcribeAudio()
-
-                    // Pendiente sin audio: error real.
                     isPending && fetchedNote.audioPath == null -> {
-                        _error.value = "Failed: Audio file not found. Raw text is pending but no audio path exists."
+                        _error.value = appContext.getString(R.string.error_audio_not_found_pending)
                     }
-
-                    // Texto normal: procesar si summary es null.
                     rawText.isNotBlank() -> checkAndTriggerAutoProcess(fetchedNote)
                 }
             }
@@ -156,7 +142,7 @@ class ResultViewModel(
     fun shareBinotFile(context: Context, onResult: (Uri?, String) -> Unit) {
         val currentNote = _note.value
         if (currentNote == null) {
-            onResult(null, "Note is empty!")
+            onResult(null, context.getString(R.string.error_note_empty))
             return
         }
         // Capturamos el mapa de colores ANTES de salir del hilo principal para
@@ -164,14 +150,14 @@ class ResultViewModel(
         val colorsSnapshot = labelColors.value
         viewModelScope.launch(Dispatchers.IO) {
             _isLoading.value = true
-            _loadingMessage.value = "Generating secure .binot package..."
+            _loadingMessage.value = context.getString(R.string.loading_generating_binot)
             val uri = ImportExportHelper.exportNoteToBinot(context, currentNote, colorsSnapshot)
             _isLoading.value = false
 
             if (uri != null) {
-                launch(Dispatchers.Main) { onResult(uri, "File ready!") }
+                launch(Dispatchers.Main) { onResult(uri, context.getString(R.string.error_file_ready)) }
             } else {
-                launch(Dispatchers.Main) { onResult(null, "Failed to generate .binot file") }
+                launch(Dispatchers.Main) { onResult(null, context.getString(R.string.error_generate_binot_failed)) }
             }
         }
     }
@@ -198,14 +184,6 @@ class ResultViewModel(
         }
     }
 
-    /**
-     * Fuerza el re-análisis del audio con la IA, ignorando la transcripción
-     * previa del teléfono. Borra el marcador, setea el estado a pending y
-     * dispara la transcripción con IA.
-     *
-     * Es lo que llama el botón "Re-analyze with AI" del banner cuando la nota
-     * tiene la marca [PHONE_TRANSCRIPTION].
-     */
     fun reanalyzeWithAI() {
         val currentNote = _note.value ?: return
         val hasMarker = currentNote.rawText.startsWith(AudioRecorderManager.PHONE_TRANSCRIPTION_MARKER)
@@ -213,7 +191,7 @@ class ResultViewModel(
         if (!hasMarker && !isPending) return
 
         if (currentNote.audioPath == null) {
-            _error.value = "No audio file to re-analyze."
+            _error.value = appContext.getString(R.string.error_no_audio_to_reanalyze)
             return
         }
 
@@ -229,11 +207,6 @@ class ResultViewModel(
         }
     }
 
-    /**
-     * Reemplaza el audio de la nota actual con un nuevo archivo.
-     * Copia el contenido al directorio interno, resetea el summary y dispara
-     * el re-procesamiento (transcripción + análisis).
-     */
     fun replaceAudio(context: Context, newAudioUri: Uri, onResult: (Boolean) -> Unit) {
         val currentNote = _note.value
         if (currentNote == null) {
@@ -290,8 +263,6 @@ class ResultViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             noteRepository.update(updatedNote)
             if (label.isNotBlank()) {
-                // Antes: getAllNotesSync() (full scan) solo para encontrar la system note.
-                // Ahora: query puntual con índice.
                 val sysNote = noteRepository.getSystemNoteSync()
                 if (sysNote != null) {
                     val labels = sysNote.rawText.split("|").filter { it.isNotBlank() }.toMutableSet()
@@ -302,7 +273,6 @@ class ResultViewModel(
                 }
                 labelRepository.createLabel(label)
             }
-            // allLabels es reactivo desde O2 — no hace falta recargar a mano.
         }
     }
 
@@ -318,7 +288,7 @@ class ResultViewModel(
         val path = _note.value?.audioPath ?: return
         val file = File(path)
         if (!file.exists()) {
-            _error.value = "Original audio file not found or corrupted."
+            _error.value = appContext.getString(R.string.error_audio_not_found_pending)
             return
         }
 
@@ -335,7 +305,7 @@ class ResultViewModel(
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                _error.value = "Failed to play audio. File is corrupted or not a valid media file."
+                _error.value = appContext.getString(R.string.processing_failed, e.message ?: "")
                 mediaPlayer?.release()
                 mediaPlayer = null
                 return
@@ -378,7 +348,7 @@ class ResultViewModel(
     fun exportAudio(context: Context, uri: Uri, onResult: (String) -> Unit) {
         val path = _note.value?.audioPath
         if (path == null || !File(path).exists()) {
-            onResult("Audio file not found!")
+            onResult(context.getString(R.string.error_no_audio_to_reanalyze))
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
@@ -387,9 +357,9 @@ class ResultViewModel(
                 context.contentResolver.openOutputStream(uri)?.use { output ->
                     sourceFile.inputStream().use { input -> input.copyTo(output) }
                 }
-                launch(Dispatchers.Main) { onResult("Audio exported successfully!") }
+                launch(Dispatchers.Main) { onResult(context.getString(R.string.error_file_ready)) }
             } catch (e: Exception) {
-                launch(Dispatchers.Main) { onResult("Failed to export audio: ${e.message}") }
+                launch(Dispatchers.Main) { onResult(context.getString(R.string.processing_failed, e.message ?: "")) }
             }
         }
     }
@@ -437,7 +407,7 @@ class ResultViewModel(
 
                 if (apiKey.isBlank()) {
                     launch(Dispatchers.Main) {
-                        _explainResult.value = "API Key is missing. Please set it in Settings."
+                        _explainResult.value = appContext.getString(R.string.error_api_key_missing)
                         _isExplaining.value = false
                     }
                     return@launch
@@ -490,7 +460,7 @@ class ResultViewModel(
                 }
 
                 launch(Dispatchers.Main) {
-                    _explainResult.value = resultText?.trim() ?: "Failed to generate explanation. Empty response."
+                    _explainResult.value = resultText?.trim() ?: appContext.getString(R.string.error_explain_failed)
                     _isExplaining.value = false
                 }
             } catch (e: Exception) {
@@ -588,7 +558,7 @@ class ResultViewModel(
 
             if ((provider == 1 && groqKey.isBlank()) || (provider == 0 && geminiKey.isBlank()) || (provider == 2 && geminiKey.isBlank() && groqKey.isBlank())) {
                 launch(Dispatchers.Main) {
-                    _error.value = "API Key is required to transcribe accurate audio. Please set it in Settings."
+                    _error.value = appContext.getString(R.string.error_api_key_required_transcribe)
                     _isLoading.value = false
                 }
                 return@launch
@@ -598,15 +568,11 @@ class ResultViewModel(
             var compressedFile: File? = null
             try {
                 val originalFile = File(audioPath)
-                if (!originalFile.exists()) throw Exception("Audio file missing from device storage.")
+                if (!originalFile.exists()) throw Exception(appContext.getString(R.string.error_audio_not_found_pending))
 
                 var transcript: String? = null
                 var fileToUpload = originalFile
 
-                // FIX: antes, en Mix cualquier archivo > 20 MB se mandaba directo a Gemini,
-                // así que la compresión NUNCA se ejecutaba en Mix. Ahora, si Auto Compression
-                // está activa y el bitrate necesario es aceptable, Mix se queda en Groq y
-                // comprime; solo cae a Gemini si comprimir arruinaría el audio o falla.
                 val compressionModeForRouting = settingsRepository.autoCompressionModeFlow.first()
                 var effectiveProvider: Int = if (provider == 2) {
                     val fits = originalFile.length() <= 20 * 1024 * 1024
@@ -625,10 +591,10 @@ class ResultViewModel(
                         val durationMs = getAudioDurationMs(originalFile)
                         val targetBitrate = AudioCompressor.calculateTargetBitrate(durationMs, targetSizeMB)
                         if (targetBitrate != null) {
-                            launch(Dispatchers.Main) { _loadingMessage.value = "Compressing audio..." }
+                            launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_compressing) }
                             val tempFile = File(appContext.cacheDir, "compressed_${System.currentTimeMillis()}.mp4")
                             when (val result = AudioCompressor.compress(originalFile, tempFile, targetBitrate) { percent ->
-                                launch(Dispatchers.Main) { _loadingMessage.value = "Compressing audio... $percent%" }
+                                launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_compressing_pct, percent) }
                             }) {
                                 is AudioCompressor.Result.Success -> {
                                     fileToUpload = result.outputFile
@@ -639,7 +605,7 @@ class ResultViewModel(
                                         effectiveProvider = 0
                                     } else {
                                         launch(Dispatchers.Main) {
-                                            _error.value = "Audio is too long for Groq. Switch to Gemini or enable Auto Compression."
+                                            _error.value = appContext.getString(R.string.error_audio_too_long_groq)
                                             _isLoading.value = false
                                         }
                                         return@launch
@@ -650,7 +616,7 @@ class ResultViewModel(
                                         effectiveProvider = 0
                                     } else {
                                         launch(Dispatchers.Main) {
-                                            _error.value = "Audio compression failed."
+                                            _error.value = appContext.getString(R.string.error_compression_failed)
                                             _isLoading.value = false
                                         }
                                         return@launch
@@ -662,7 +628,7 @@ class ResultViewModel(
                                 effectiveProvider = 0
                             } else {
                                 launch(Dispatchers.Main) {
-                                    _error.value = "Audio is too long for Groq. Switch to Gemini or enable Auto Compression."
+                                    _error.value = appContext.getString(R.string.error_audio_too_long_groq)
                                     _isLoading.value = false
                                 }
                                 return@launch
@@ -673,7 +639,7 @@ class ResultViewModel(
                             effectiveProvider = 0
                         } else {
                             launch(Dispatchers.Main) {
-                                _error.value = "File exceeds Groq's 25MB limit. Enable Auto Compression or switch to Gemini."
+                                _error.value = appContext.getString(R.string.error_file_exceeds_groq)
                                 _isLoading.value = false
                             }
                             return@launch
@@ -684,7 +650,7 @@ class ResultViewModel(
                 val apiKey = if (effectiveProvider == 1) groqKey else geminiKey
 
                 if (effectiveProvider == 1) {
-                    launch(Dispatchers.Main) { _loadingMessage.value = "Transcribing with Groq..." }
+                    launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_transcribing_groq) }
 
                     val requestFile = fileToUpload.asRequestBody("audio/mp4".toMediaTypeOrNull())
                     val body = MultipartBody.Part.createFormData("file", fileToUpload.name, requestFile)
@@ -694,7 +660,7 @@ class ResultViewModel(
                     val response = RetrofitClient.groqService.transcribeAudio("Bearer $apiKey", body, model, format)
                     transcript = response.text?.trim()
                 } else {
-                    launch(Dispatchers.Main) { _loadingMessage.value = "Uploading audio to Google..." }
+                    launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_uploading_google) }
                     val mimeType = "audio/mp4"
                     val requestBody = fileToUpload.asRequestBody(mimeType.toMediaTypeOrNull())
                     val uploadResponse = RetrofitClient.service.uploadFile(
@@ -709,7 +675,7 @@ class ResultViewModel(
                     val uploadedFileUri = uploadResponse.file.uri
                     remoteFileName = uploadResponse.file.name
 
-                    launch(Dispatchers.Main) { _loadingMessage.value = "Audio uploaded. Gemini is processing..." }
+                    launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_gemini_processing) }
 
                     val systemPrompt = """
                         You are a highly accurate audio transcription AI. Your ONLY task is to transcribe the audio exactly word-for-word.
@@ -771,9 +737,9 @@ class ResultViewModel(
                             }
                         }
                     } else if (transcript?.contains("[No speech detected]") == true) {
-                        _error.value = "No clear speech detected in the audio recording."
+                        _error.value = appContext.getString(R.string.error_no_speech_detected)
                     } else {
-                        _error.value = "AI failed to process the transcript. Server response was empty."
+                        _error.value = appContext.getString(R.string.error_ai_empty_transcript)
                     }
                     _isLoading.value = false
                 }
@@ -854,7 +820,7 @@ class ResultViewModel(
     private fun processTextAuto(currentNote: NoteEntity, language: String, task: Int, format: Int, metaTag: String, provider: Int) {
         _isLoading.value = true
         _error.value = null
-        _loadingMessage.value = "AI Engine is structuring your note..."
+        _loadingMessage.value = appContext.getString(R.string.loading_ai_structuring)
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -869,7 +835,7 @@ class ResultViewModel(
 
                 if (apiKey.isBlank()) {
                     launch(Dispatchers.Main) {
-                        _error.value = "AI Engine Requires an API Key. Please configure it in Settings."
+                        _error.value = appContext.getString(R.string.error_api_key_required_engine)
                         _isLoading.value = false
                     }
                     return@launch
@@ -988,7 +954,7 @@ class ResultViewModel(
                         _note.value = updatedNote
                         noteRepository.update(updatedNote)
                     } else {
-                        _error.value = "AI failed to process the text. The server response was empty."
+                        _error.value = appContext.getString(R.string.error_ai_empty_text)
                     }
                     _isLoading.value = false
                 }
@@ -1004,17 +970,17 @@ class ResultViewModel(
     private fun handleExceptionError(e: Exception): String {
         return if (e is HttpException) {
             when (e.code()) {
-                400 -> "Bad Request (400). File format or data is unrecognized."
-                401 -> "Invalid API Key (401). Please check your API Key in the Settings."
-                403 -> "Access Denied (403). Your API Key does not have permission."
-                413 -> "Payload Too Large (413). The file is too big for the server."
-                429 -> "API Rate Limit Exceeded (429). You are making too many requests. Please wait."
-                500 -> "Internal Server Error (500). Provider is having trouble. Please try again later."
-                503 -> "Service Unavailable (503). The AI Server is currently overloaded."
-                else -> "HTTP Error: ${e.code()} - Please check your connection or API Key."
+                400 -> appContext.getString(R.string.http_400)
+                401 -> appContext.getString(R.string.http_401)
+                403 -> appContext.getString(R.string.http_403)
+                413 -> appContext.getString(R.string.http_413)
+                429 -> appContext.getString(R.string.http_429)
+                500 -> appContext.getString(R.string.http_500)
+                503 -> appContext.getString(R.string.http_503)
+                else -> appContext.getString(R.string.http_generic, e.code())
             }
         } else {
-            "Processing failed: ${e.message}"
+            appContext.getString(R.string.processing_failed, e.message ?: "")
         }
     }
 

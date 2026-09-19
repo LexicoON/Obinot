@@ -101,6 +101,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalTextToolbar
 import androidx.compose.ui.platform.TextToolbar
 import androidx.compose.ui.platform.TextToolbarStatus
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -120,6 +121,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
+import com.obinot.app.R
 import com.obinot.app.ui.components.AudioFilePickerSheet
 import com.obinot.app.ui.components.BouncyButton
 import com.obinot.app.ui.components.BouncyCapsule
@@ -373,7 +375,7 @@ fun ResultScreen(
                                     if (!isTitleFocused) {
                                         if (note!!.title.isBlank()) {
                                             Text(
-                                                text = "Tap to add title...",
+                                                text = stringResource(R.string.result_title_placeholder),
                                                 style = MaterialTheme.typography.titleLarge,
                                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
                                                 maxLines = 1,
@@ -419,7 +421,7 @@ fun ResultScreen(
                             },
                             expandOnPress = 3.dp
                         ) {
-                            Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.result_cd_back))
                         }
                     },
                     actions = {
@@ -439,7 +441,7 @@ fun ResultScreen(
                                         },
                                         enabled = undoStack.isNotEmpty()
                                     ) {
-                                        Icon(imageVector = Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo", tint = if (undoStack.isNotEmpty()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
+                                        Icon(imageVector = Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.result_cd_undo), tint = if (undoStack.isNotEmpty()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
                                     }
                                     BouncyIconButton(
                                         onClick = {
@@ -450,7 +452,7 @@ fun ResultScreen(
                                         },
                                         enabled = redoStack.isNotEmpty()
                                     ) {
-                                        Icon(imageVector = Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo", tint = if (redoStack.isNotEmpty()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
+                                        Icon(imageVector = Icons.AutoMirrored.Filled.Redo, contentDescription = stringResource(R.string.result_cd_redo), tint = if (redoStack.isNotEmpty()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
                                     }
                                 }
                             } else {
@@ -459,7 +461,7 @@ fun ResultScreen(
                                     onClick = { showSidePanel = true },
                                     expandOnPress = 3.dp
                                 ) {
-                                    Icon(imageVector = Icons.Default.MoreVert, contentDescription = "Options")
+                                    Icon(imageVector = Icons.Default.MoreVert, contentDescription = stringResource(R.string.result_cd_options))
                                 }
                             }
                         }
@@ -500,8 +502,8 @@ fun ResultScreen(
                                 }
                             },
                             expanded = isFabExpanded,
-                            icon = { Icon(if (isEditMode) Icons.Default.Check else Icons.Default.Edit, contentDescription = if (isEditMode) "Process" else "Edit") },
-                            text = { Text(if (isEditMode) "Process" else "Edit") },
+                            icon = { Icon(if (isEditMode) Icons.Default.Check else Icons.Default.Edit, contentDescription = if (isEditMode) stringResource(R.string.result_process) else stringResource(R.string.result_edit)) },
+                            text = { Text(if (isEditMode) stringResource(R.string.result_process) else stringResource(R.string.result_edit)) },
                             containerColor = if (isEditMode) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primaryContainer,
                             contentColor = if (isEditMode) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onPrimaryContainer,
                             interactionSource = fabInteraction,
@@ -597,7 +599,7 @@ fun ResultScreen(
                                     AiThinkingAnimation(color = MaterialTheme.colorScheme.primary)
                                     Spacer(modifier = Modifier.width(16.dp))
                                     Text(
-                                        text = loadingMessage.ifBlank { "AI Engine is processing..." },
+                                        text = loadingMessage.ifBlank { stringResource(R.string.result_processing) },
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold
@@ -613,9 +615,9 @@ fun ResultScreen(
                                 shape = RoundedCornerShape(24.dp)
                             ) {
                                 Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(Icons.Default.ErrorOutline, contentDescription = "Error", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
+                                    Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
                                     Spacer(modifier = Modifier.height(16.dp))
-                                    Text("API Limit Reached", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.result_error_api_title), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(error!!, color = MaterialTheme.colorScheme.onErrorContainer, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
                                     Spacer(modifier = Modifier.height(32.dp))
@@ -645,7 +647,7 @@ fun ResultScreen(
                                     ) {
                                         Icon(
                                             imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                            contentDescription = "Play/Pause",
+                                            contentDescription = stringResource(R.string.result_cd_play_pause),
                                             tint = MaterialTheme.colorScheme.onError,
                                             modifier = Modifier.size(40.dp)
                                         )
@@ -665,9 +667,9 @@ fun ResultScreen(
                                         onClick = { exportAudioLauncher.launch("Obinot_Audio_Fallback_${note!!.id}.mp4") },
                                         containerColor = MaterialTheme.colorScheme.surfaceVariant
                                     ) {
-                                        Icon(Icons.Default.Download, contentDescription = "Save Audio", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Icon(Icons.Default.Download, contentDescription = stringResource(R.string.result_save_audio), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Save Original Audio", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                                        Text(stringResource(R.string.result_save_audio), color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -894,7 +896,7 @@ fun ResultScreen(
         }
         AlertDialog(
             onDismissRequest = { closeHighlightDialog() },
-            title = { Text("Highlight Note") },
+            title = { Text(stringResource(R.string.result_highlight_title)) },
             text = {
                 Column {
                     Text("\"$currentHighlightWord\"", style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -902,7 +904,7 @@ fun ResultScreen(
                     OutlinedTextField(
                         value = highlightNoteInput,
                         onValueChange = { highlightNoteInput = it },
-                        label = { Text("Your Note") },
+                        label = { Text(stringResource(R.string.result_highlight_note)) },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3
                     )
@@ -919,7 +921,7 @@ fun ResultScreen(
                     )
                     closeHighlightDialog()
                 }) {
-                    Text("Save")
+                    Text(stringResource(R.string.history_save))
                 }
             },
             dismissButton = {
@@ -935,11 +937,11 @@ fun ResultScreen(
                         },
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     ) {
-                        Text("Remove")
+                        Text(stringResource(R.string.result_highlight_remove))
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     TextButton(onClick = { closeHighlightDialog() }) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.common_cancel))
                     }
                 }
             }
@@ -974,7 +976,7 @@ fun ResultScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(8.dp))
-                    Text("AI Explain", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.result_ai_explain_title), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.height(16.dp))
                 Text("\"$aiExplainTargetWord\"", style = MaterialTheme.typography.bodyLarge, fontStyle = FontStyle.Italic)
@@ -994,7 +996,7 @@ fun ResultScreen(
                         }
                     } else {
                         MarkdownText(
-                            text = explainResult ?: "No explanation available.",
+                            text = explainResult ?: stringResource(R.string.result_ai_explain_empty),
                             scrollState = explainScrollState,
                             highlightsInfo = null,
                             onSavedHighlightClick = { _, _, _, _, _ -> },
@@ -1110,17 +1112,17 @@ fun ResultScreen(
                         },
                         expandOnPress = 4.dp
                     ) {
-                        Icon(Icons.Default.Brush, contentDescription = "Highlight", tint = MaterialTheme.colorScheme.inverseOnSurface)
+                        Icon(Icons.Default.Brush, contentDescription = stringResource(R.string.result_cd_highlight), tint = MaterialTheme.colorScheme.inverseOnSurface)
                     }
                     BouncyIconButton(
                         onClick = {
                             copyAction()
                             clearSelection()
-                            coroutineScope.launch { snackbarHostState.showSnackbar("Copied to clipboard") }
+                            coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.result_copied_clipboard)) }
                         },
                         expandOnPress = 4.dp
                     ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = MaterialTheme.colorScheme.inverseOnSurface)
+                        Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.result_cd_copy), tint = MaterialTheme.colorScheme.inverseOnSurface)
                     }
                     BouncyIconButton(
                         onClick = {
@@ -1128,7 +1130,7 @@ fun ResultScreen(
                         },
                         expandOnPress = 4.dp
                     ) {
-                        Icon(Icons.Default.SelectAll, contentDescription = "Select All", tint = MaterialTheme.colorScheme.inverseOnSurface)
+                        Icon(Icons.Default.SelectAll, contentDescription = stringResource(R.string.result_cd_select_all), tint = MaterialTheme.colorScheme.inverseOnSurface)
                     }
                     BouncyIconButton(
                         onClick = {
@@ -1142,7 +1144,7 @@ fun ResultScreen(
                         },
                         expandOnPress = 4.dp
                     ) {
-                        Icon(Icons.Default.Search, contentDescription = "AI Explain", tint = MaterialTheme.colorScheme.inverseOnSurface)
+                        Icon(Icons.Default.Search, contentDescription = stringResource(R.string.result_cd_ai_explain), tint = MaterialTheme.colorScheme.inverseOnSurface)
                     }
                 }
             }
@@ -1152,8 +1154,8 @@ fun ResultScreen(
     if (showCancelConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showCancelConfirmDialog = false },
-            title = { Text("Cancel editing?") },
-            text = { Text("You have unsaved changes. Are you sure you want to discard them?") },
+            title = { Text(stringResource(R.string.result_cancel_edit_title)) },
+            text = { Text(stringResource(R.string.result_cancel_edit_body)) },
             confirmButton = {
                 BouncyButton(
                     onClick = {
@@ -1163,12 +1165,12 @@ fun ResultScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Discard")
+                    Text(stringResource(R.string.result_discard))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showCancelConfirmDialog = false }) {
-                    Text("Keep editing")
+                    Text(stringResource(R.string.result_keep_editing))
                 }
             }
         )
@@ -1177,8 +1179,8 @@ fun ResultScreen(
     if (showDestructiveConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showDestructiveConfirmDialog = false },
-            title = { Text("Overwrite & Process?") },
-            text = { Text("Original raw text will be permanently overwritten and processed by the AI Engine. Continue?") },
+            title = { Text(stringResource(R.string.result_overwrite_title)) },
+            text = { Text(stringResource(R.string.result_overwrite_body)) },
             confirmButton = {
                 BouncyButton(
                     onClick = {
@@ -1187,17 +1189,17 @@ fun ResultScreen(
                         isEditMode = false
                         showDestructiveConfirmDialog = false
                         coroutineScope.launch {
-                            snackbarHostState.showSnackbar("AI Engine is processing...")
+                            snackbarHostState.showSnackbar(context.getString(R.string.result_processing))
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Process")
+                    Text(stringResource(R.string.result_process_confirm))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDestructiveConfirmDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -1206,12 +1208,12 @@ fun ResultScreen(
     if (showNewLabelDialog) {
         AlertDialog(
             onDismissRequest = { showNewLabelDialog = false },
-            title = { Text("New Label") },
+            title = { Text(stringResource(R.string.result_new_label_title)) },
             text = {
                 OutlinedTextField(
                     value = newLabelInput,
                     onValueChange = { newLabelInput = it },
-                    label = { Text("Label Name") },
+                    label = { Text(stringResource(R.string.history_label_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1223,9 +1225,9 @@ fun ResultScreen(
                         showNewLabelDialog = false
                         newLabelInput = ""
                     }
-                }) { Text("Create & Assign") }
+                }) { Text(stringResource(R.string.result_create_assign)) }
             },
-            dismissButton = { TextButton(onClick = { showNewLabelDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showNewLabelDialog = false }) { Text(stringResource(R.string.common_cancel)) } }
         )
     }
 
@@ -1235,14 +1237,14 @@ fun ResultScreen(
             onFileSelected = { uri ->
                 showAudioPicker = false
                 coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Replacing audio...")
+                    snackbarHostState.showSnackbar(context.getString(R.string.result_replacing_audio))
                 }
                 viewModel.replaceAudio(context, uri) { success ->
                     coroutineScope.launch {
                         if (success) {
-                            snackbarHostState.showSnackbar("Audio replaced. Re-processing...")
+                            snackbarHostState.showSnackbar(context.getString(R.string.result_replace_success))
                         } else {
-                            snackbarHostState.showSnackbar("Failed to replace audio.")
+                            snackbarHostState.showSnackbar(context.getString(R.string.result_replace_failed))
                         }
                     }
                 }
@@ -1263,7 +1265,7 @@ fun ResultScreen(
                     .padding(horizontal = 20.dp)
                     .padding(bottom = 24.dp)
             ) {
-                PanelSectionHeader(icon = Icons.AutoMirrored.Filled.Label, title = "Labels")
+                PanelSectionHeader(icon = Icons.AutoMirrored.Filled.Label, title = stringResource(R.string.result_section_labels))
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1293,19 +1295,19 @@ fun ResultScreen(
                         ) {
                             Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("New Label", color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.result_new_label_chip), color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
 
                 SectionSpacer()
 
-                PanelSectionHeader(icon = Icons.Default.Search, title = "Find & Format")
+                PanelSectionHeader(icon = Icons.Default.Search, title = stringResource(R.string.result_section_find_format))
                 OutlinedTextField(
                     value = searchHighlightQuery,
                     onValueChange = { searchHighlightQuery = it },
-                    label = { Text("Find word in note...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                    label = { Text(stringResource(R.string.result_find_placeholder)) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.common_search)) },
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1356,28 +1358,28 @@ fun ResultScreen(
 
                 SectionSpacer()
 
-                PanelSectionHeader(icon = Icons.Default.TextFields, title = "Reading Font")
+                PanelSectionHeader(icon = Icons.Default.TextFields, title = stringResource(R.string.result_section_reading_font))
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     SegmentedButton(
                         shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
                         onClick = { selectedFont = FontFamily.SansSerif },
                         selected = selectedFont == FontFamily.SansSerif
-                    ) { Text("Sans") }
+                    ) { Text(stringResource(R.string.result_font_sans)) }
                     SegmentedButton(
                         shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
                         onClick = { selectedFont = FontFamily.Serif },
                         selected = selectedFont == FontFamily.Serif
-                    ) { Text("Serif") }
+                    ) { Text(stringResource(R.string.result_font_serif)) }
                     SegmentedButton(
                         shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
                         onClick = { selectedFont = FontFamily.Monospace },
                         selected = selectedFont == FontFamily.Monospace
-                    ) { Text("Mono") }
+                    ) { Text(stringResource(R.string.result_font_mono)) }
                 }
 
                 SectionSpacer()
 
-                PanelSectionHeader(icon = Icons.Default.Tune, title = "Export & Media")
+                PanelSectionHeader(icon = Icons.Default.Tune, title = stringResource(R.string.result_section_export_media))
 
                 if (note!!.audioPath == null) {
                     Card(
@@ -1386,10 +1388,10 @@ fun ResultScreen(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
                     ) {
                         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Info, contentDescription = "Info", tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = "No audio attached. You can add one from the button below, and Obinot will transcribe and process it.",
+                                text = stringResource(R.string.result_no_audio_info),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
@@ -1406,14 +1408,14 @@ fun ResultScreen(
                             BouncyCapsule(
                                 onClick = {
                                     viewModel.restoreRawText()
-                                    coroutineScope.launch { snackbarHostState.showSnackbar("AI summary removed!") }
+                                    coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.result_summary_removed)) }
                                     showSidePanel = false
                                 },
                                 containerColor = MaterialTheme.colorScheme.errorContainer
                             ) {
-                                Icon(Icons.Default.Restore, contentDescription = "Restore", tint = MaterialTheme.colorScheme.onErrorContainer)
+                                Icon(Icons.Default.Restore, contentDescription = stringResource(R.string.result_restore_original), tint = MaterialTheme.colorScheme.onErrorContainer)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Restore Original", color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.result_restore_original), color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -1426,10 +1428,10 @@ fun ResultScreen(
                             },
                             containerColor = MaterialTheme.colorScheme.tertiaryContainer
                         ) {
-                            Icon(Icons.Default.SwapHoriz, contentDescription = "Replace audio", tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                            Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                if (note!!.audioPath == null) "Add Audio" else "Replace Audio",
+                                if (note!!.audioPath == null) stringResource(R.string.result_add_audio) else stringResource(R.string.result_replace_audio),
                                 color = MaterialTheme.colorScheme.onTertiaryContainer,
                                 fontWeight = FontWeight.Bold
                             )
@@ -1467,12 +1469,12 @@ fun ResultScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
                                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                        contentDescription = "Play/Pause",
+                                        contentDescription = stringResource(R.string.result_cd_play_pause),
                                         tint = if (isPlaying) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        if (isPlaying) "Pause" else "Play",
+                                        if (isPlaying) stringResource(R.string.result_pause) else stringResource(R.string.result_play),
                                         color = if (isPlaying) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
                                     )
                                 }
@@ -1484,9 +1486,9 @@ fun ResultScreen(
                                 onClick = { exportAudioLauncher.launch("Obinot_Audio_${note!!.id}.mp4") },
                                 containerColor = MaterialTheme.colorScheme.surfaceVariant
                             ) {
-                                Icon(Icons.Default.Download, contentDescription = "Save MP3", tint = MaterialTheme.colorScheme.onSurface)
+                                Icon(Icons.Default.Download, contentDescription = stringResource(R.string.result_save_audio_button), tint = MaterialTheme.colorScheme.onSurface)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Save Audio", color = MaterialTheme.colorScheme.onSurface)
+                                Text(stringResource(R.string.result_save_audio_button), color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                     }
@@ -1497,14 +1499,14 @@ fun ResultScreen(
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                 val cleanSummaryToCopy = note!!.summary?.replace(Regex("<!--BINOT_META:.*?-->"), "")?.trimEnd()
                                 clipboard.setPrimaryClip(ClipData.newPlainText("Obinot Note", cleanSummaryToCopy ?: note!!.rawText))
-                                coroutineScope.launch { snackbarHostState.showSnackbar("Text Copied!") }
+                                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.result_text_copied)) }
                                 showSidePanel = false
                             },
                             containerColor = MaterialTheme.colorScheme.surfaceVariant
                         ) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = MaterialTheme.colorScheme.onSurface)
+                            Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.result_copy), tint = MaterialTheme.colorScheme.onSurface)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Copy", color = MaterialTheme.colorScheme.onSurface)
+                            Text(stringResource(R.string.result_copy), color = MaterialTheme.colorScheme.onSurface)
                         }
                     }
 
@@ -1516,10 +1518,10 @@ fun ResultScreen(
                                         val sendIntent = Intent(Intent.ACTION_SEND).apply {
                                             type = "application/zip"
                                             putExtra(Intent.EXTRA_STREAM, uri)
-                                            putExtra(Intent.EXTRA_TEXT, "Obinot Note: ${note!!.title}")
+                                            putExtra(Intent.EXTRA_TEXT, context.getString(R.string.result_share_text, note!!.title))
                                             flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
                                         }
-                                        context.startActivity(Intent.createChooser(sendIntent, "Share .binot note via"))
+                                        context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.result_share_chooser)))
                                     } else {
                                         coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
                                     }
@@ -1528,9 +1530,9 @@ fun ResultScreen(
                             },
                             containerColor = MaterialTheme.colorScheme.surfaceVariant
                         ) {
-                            Icon(Icons.Default.Share, contentDescription = "Share", tint = MaterialTheme.colorScheme.onSurface)
+                            Icon(Icons.Default.Share, contentDescription = stringResource(R.string.result_share_binot), tint = MaterialTheme.colorScheme.onSurface)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Share .binot", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.result_share_binot), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1607,14 +1609,14 @@ private fun PhoneTranscriptionBanner(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = "Phone transcription",
+                    text = stringResource(R.string.result_phone_banner_title),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onTertiaryContainer
                 )
             }
             Text(
-                text = "This is what your phone's built-in recognizer captured live. It's faster but less accurate than the AI engine. If you want a cleaner transcript, re-analyze the saved audio with AI.",
+                text = stringResource(R.string.result_phone_banner_body),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.85f)
             )
@@ -1632,7 +1634,7 @@ private fun PhoneTranscriptionBanner(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Re-analyze with AI", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.result_phone_banner_button), fontWeight = FontWeight.Bold)
             }
         }
     }

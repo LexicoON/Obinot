@@ -45,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -135,6 +136,9 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
     val incomingUri by mainActivity.incomingIntentUri.collectAsState()
     var isImportingFromExternal by remember { mutableStateOf(false) }
 
+    val importFailedMsg = stringResource(R.string.main_import_failed)
+    val unpackingMsg = stringResource(R.string.main_unpacking)
+
     if (!isDataLoaded) {
         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer))
         return
@@ -159,7 +163,7 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
             if (newId != null) {
                 navController.navigate("result/$newId")
             } else {
-                snackbarHostState.showSnackbar("Failed to open or import note.")
+                snackbarHostState.showSnackbar(importFailedMsg)
             }
         }
     }
@@ -183,8 +187,8 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
                                 restoreState = true
                             }
                         },
-                        icon = { Icon(Icons.Default.Mic, contentDescription = "Record") },
-                        label = { Text("Record") }
+                        icon = { Icon(Icons.Default.Mic, contentDescription = stringResource(R.string.nav_record)) },
+                        label = { Text(stringResource(R.string.nav_record)) }
                     )
                     ShortNavigationBarItem(
                         selected = currentRoute == "history",
@@ -196,8 +200,8 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
                                 restoreState = true
                             }
                         },
-                        icon = { Icon(Icons.Default.History, contentDescription = "History") },
-                        label = { Text("History") }
+                        icon = { Icon(Icons.Default.History, contentDescription = stringResource(R.string.nav_history)) },
+                        label = { Text(stringResource(R.string.nav_history)) }
                     )
                     ShortNavigationBarItem(
                         selected = currentRoute == "settings",
@@ -209,8 +213,8 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
                                 restoreState = true
                             }
                         },
-                        icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                        label = { Text("Settings") }
+                        icon = { Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.nav_settings)) },
+                        label = { Text(stringResource(R.string.nav_settings)) }
                     )
                 }
             }
@@ -378,7 +382,7 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                         Text(
-                            text = "Unpacking Obinot...",
+                            text = unpackingMsg,
                             modifier = Modifier.padding(top = 16.dp),
                             color = MaterialTheme.colorScheme.onSurface,
                             style = MaterialTheme.typography.titleMedium

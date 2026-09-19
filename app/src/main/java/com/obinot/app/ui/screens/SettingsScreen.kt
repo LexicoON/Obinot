@@ -60,10 +60,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.obinot.app.R
 import com.obinot.app.ui.components.BouncyButton
 import com.obinot.app.ui.components.BouncyOutlinedButton
 import com.obinot.app.ui.components.BouncyToggleButton
@@ -150,7 +152,7 @@ private fun SettingsSelectorRow(
                 Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Select", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -181,8 +183,8 @@ private fun SettingsSelectionSheet(
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    label = { Text("Search...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                    label = { Text(stringResource(R.string.settings_search_placeholder)) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.common_search)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
                 )
@@ -204,7 +206,7 @@ private fun SettingsSelectionSheet(
                     ) {
                         Text(text = option, style = MaterialTheme.typography.bodyLarge)
                         if (option == selected) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = "Selected", tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -321,7 +323,6 @@ fun SettingsScreen(
     var showApplyAllDialog by remember { mutableStateOf(false) }
     var showLanguageSheet by remember { mutableStateOf(false) }
     var showColorPaletteSheet by remember { mutableStateOf(false) }
-    var languageSearchQuery by remember { mutableStateOf("") }
 
     // remember: evitar alocar y sortear 23 strings en cada frame.
     val supportedLanguages = remember {
@@ -363,191 +364,184 @@ fun SettingsScreen(
     if (showInfoDialog) {
         AlertDialog(
             onDismissRequest = { showInfoDialog = false },
-            title = { Text("Recording Modes") },
+            title = { Text(stringResource(R.string.mode_info_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Fast Mode", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.settings_dialog_fast_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text(
-                        "Uses your phone's built-in speech recognition. Fast and battery-efficient, but accuracy varies by device and language. Audio is not saved.",
+                        stringResource(R.string.settings_dialog_fast_body),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    Text("Accurate Mode", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.settings_dialog_accurate_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text(
-                        "Records the full audio and sends it to the AI (Gemini or Groq) for accurate transcription. Requires an internet connection and processes when you open the note. Audio is saved on your device.",
+                        stringResource(R.string.settings_dialog_accurate_body),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
             },
-            confirmButton = { TextButton(onClick = { showInfoDialog = false }) { Text("Got it") } }
+            confirmButton = { TextButton(onClick = { showInfoDialog = false }) { Text(stringResource(R.string.settings_dialog_got_it)) } }
         )
     }
 
     if (showAiInfoDialog) {
         AlertDialog(
             onDismissRequest = { showAiInfoDialog = false },
-            title = { Text("AI Providers") },
+            title = { Text(stringResource(R.string.settings_dialog_providers)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Google Gemini", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.settings_dialog_gemini_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text(
-                        "Best for complex content: math, chemistry, and Mermaid diagrams. Handles very long audio files without size limits. Generous free tier.",
+                        stringResource(R.string.settings_dialog_gemini_body),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    Text("Groq AI", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.settings_dialog_groq_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text(
-                        "Blazing fast, ideal for daily use. Powered by open-source models. Audio uploads are limited to 25 MB per file.",
+                        stringResource(R.string.settings_dialog_groq_body),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    Text("Dynamic (Beta)", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.settings_dialog_dynamic_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text(
-                        "Automatically picks the best provider for each task, so both free quotas last longer. Requires both API keys to be set. Renamed from \"Mix\" — same feature.",
+                        stringResource(R.string.settings_dialog_dynamic_body),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
             },
-            confirmButton = { TextButton(onClick = { showAiInfoDialog = false }) { Text("Got it") } }
+            confirmButton = { TextButton(onClick = { showAiInfoDialog = false }) { Text(stringResource(R.string.settings_dialog_got_it)) } }
         )
     }
 
     if (showTaskInfoDialog) {
         AlertDialog(
             onDismissRequest = { showTaskInfoDialog = false },
-            title = { Text("Processing Tasks") },
+            title = { Text(stringResource(R.string.settings_dialog_tasks)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Tidy Up", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.settings_dialog_tidy_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text(
-                        "Fixes typos, grammar, and removes filler words. Preserves your original meaning and tone. Best for cleaning up rough drafts.",
+                        stringResource(R.string.settings_dialog_tidy_body),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    Text("Summary", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.settings_dialog_summary_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text(
-                        "Extracts the core information into a concise summary. Best for long notes where you just want the key points.",
+                        stringResource(R.string.settings_dialog_summary_body),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    Text("Analyze", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.settings_dialog_analyze_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text(
-                        "Identifies main points, underlying sentiments, and any action items or decisions. Best for meeting notes or study material.",
+                        stringResource(R.string.settings_dialog_analyze_body),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
             },
-            confirmButton = { TextButton(onClick = { showTaskInfoDialog = false }) { Text("Got it") } }
+            confirmButton = { TextButton(onClick = { showTaskInfoDialog = false }) { Text(stringResource(R.string.settings_dialog_got_it)) } }
         )
     }
 
     if (showFormatInfoDialog) {
         AlertDialog(
             onDismissRequest = { showFormatInfoDialog = false },
-            title = { Text("Output Formats") },
+            title = { Text(stringResource(R.string.settings_dialog_formats)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Paragraphs", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.settings_dialog_paragraphs_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text(
-                        "Continuous prose with subheadings. Best for reading and content that flows naturally (essays, journals, stories).",
+                        stringResource(R.string.settings_dialog_paragraphs_body),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    Text("Bullets", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.settings_dialog_bullets_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text(
-                        "Short, scannable points organized by heading. Best for quick reference, action items, and structured data.",
+                        stringResource(R.string.settings_dialog_bullets_body),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Tip: Combine Tidy Up + Bullets for clean checklists. Combine Summary + Paragraphs for a readable executive summary.",
+                        stringResource(R.string.settings_dialog_formats_tip),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
             },
-            confirmButton = { TextButton(onClick = { showFormatInfoDialog = false }) { Text("Got it") } }
+            confirmButton = { TextButton(onClick = { showFormatInfoDialog = false }) { Text(stringResource(R.string.settings_dialog_got_it)) } }
         )
     }
 
     if (showCompressionInfoDialog) {
         AlertDialog(
             onDismissRequest = { showCompressionInfoDialog = false },
-            title = { Text("Auto Compression") },
+            title = { Text(stringResource(R.string.settings_auto_compression)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        "When audio exceeds an API's size limit, Obinot can compress it automatically before uploading. This makes long recordings work with providers that have tight limits.",
+                        stringResource(R.string.settings_dialog_compression_body),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    Text("Off", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text("No compression. Files over 25 MB will fail on Groq.", style = MaterialTheme.typography.bodyMedium)
-                    Text("Balanced (24 MB)", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text("Best quality. Minimal compression, targets just under the limit.", style = MaterialTheme.typography.bodyMedium)
-                    Text("Maximum (15 MB)", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text("Smaller files, still great for voice. Useful for slow connections.", style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.settings_dialog_compression_off_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.settings_dialog_compression_off_body), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.settings_dialog_compression_balanced_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.settings_dialog_compression_balanced_body), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.settings_dialog_compression_max_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.settings_dialog_compression_max_body), style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Tip: Gemini has no size limit. If you have Gemini configured, you can keep Auto Compression off for maximum audio quality.",
+                        stringResource(R.string.settings_dialog_compression_tip),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
             },
-            confirmButton = { TextButton(onClick = { showCompressionInfoDialog = false }) { Text("Got it") } }
+            confirmButton = { TextButton(onClick = { showCompressionInfoDialog = false }) { Text(stringResource(R.string.settings_dialog_got_it)) } }
         )
     }
 
     if (showColorInfoDialog) {
         AlertDialog(
             onDismissRequest = { showColorInfoDialog = false },
-            title = { Text("Color Palette") },
+            title = { Text(stringResource(R.string.settings_dialog_color_palette)) },
             text = {
                 Text(
-                    "Material 3 generates a full color scheme from a seed. Each style shifts the mood while keeping contrast and accessibility.\n\n" +
-                    "• Tonal Spot: balanced, the Material default.\n" +
-                    "• Vibrant: more saturated, livelier.\n" +
-                    "• Expressive: higher contrast, bold accents.\n" +
-                    "• Fruit Salad: colorful, three distinct hue families.\n" +
-                    "• Neutral: soft, muted colors with low saturation.\n" +
-                    "• Fidelity: keeps the seed color close to the source.\n" +
-                    "• Monochrome: grayscale, no color at all.",
+                    stringResource(R.string.settings_dialog_color_palette_body),
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
-            confirmButton = { TextButton(onClick = { showColorInfoDialog = false }) { Text("Got it") } }
+            confirmButton = { TextButton(onClick = { showColorInfoDialog = false }) { Text(stringResource(R.string.settings_dialog_got_it)) } }
         )
     }
 
     if (showBackupInfoDialog) {
         AlertDialog(
             onDismissRequest = { showBackupInfoDialog = false },
-            title = { Text("Notes Backup") },
+            title = { Text(stringResource(R.string.settings_dialog_backup)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Full Backup (.obinotbak)", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.settings_dialog_backup_full_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text(
-                        "Exports all your notes, audio, labels (with their colors), and your preferences. API keys are never included. This is the format Obinot 2.0+ uses and it's the recommended choice for migrating from Binot 1.x to Obinot.",
+                        stringResource(R.string.settings_dialog_backup_full_body),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    Text("Legacy Backup (.binotbak)", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.settings_dialog_backup_legacy_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text(
-                        "Exports only notes and audio, in the original Binot 1.x format. Use this only if you need to restore the backup on Binot 1.x itself. Labels and preferences are not included.",
+                        stringResource(R.string.settings_dialog_backup_legacy_body),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
             },
-            confirmButton = { TextButton(onClick = { showBackupInfoDialog = false }) { Text("Got it") } }
+            confirmButton = { TextButton(onClick = { showBackupInfoDialog = false }) { Text(stringResource(R.string.settings_dialog_got_it)) } }
         )
     }
 
     if (showWarningDialog) {
         AlertDialog(
             onDismissRequest = { showWarningDialog = false; pendingModeSelection = -1 },
-            title = { Text("Warning") },
-            text = { Text("Recording will be stopped and discarded. Continue?") },
+            title = { Text(stringResource(R.string.settings_dialog_warning)) },
+            text = { Text(stringResource(R.string.settings_dialog_warning_body)) },
             confirmButton = {
                 BouncyButton(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
@@ -559,17 +553,17 @@ fun SettingsScreen(
                         showWarningDialog = false
                         pendingModeSelection = -1
                     }
-                ) { Text("Continue") }
+                ) { Text(stringResource(R.string.settings_dialog_warning_continue)) }
             },
-            dismissButton = { TextButton(onClick = { showWarningDialog = false; pendingModeSelection = -1 }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showWarningDialog = false; pendingModeSelection = -1 }) { Text(stringResource(R.string.common_cancel)) } }
         )
     }
 
     if (showApplyAllDialog) {
         AlertDialog(
             onDismissRequest = { showApplyAllDialog = false },
-            title = { Text("Save & Apply to All Notes?") },
-            text = { Text("This will save your new preferences and reset the AI-generated results for all previous notes. They will be re-processed using your new preferences the next time you open them. Your original raw transcripts are completely safe.\n\nContinue?") },
+            title = { Text(stringResource(R.string.settings_dialog_apply_title)) },
+            text = { Text(stringResource(R.string.settings_dialog_apply_body)) },
             confirmButton = {
                 BouncyButton(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
@@ -582,17 +576,17 @@ fun SettingsScreen(
                             coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
                         }
                     }
-                ) { Text("Save & Apply") }
+                ) { Text(stringResource(R.string.settings_dialog_apply_button)) }
             },
             dismissButton = {
-                TextButton(onClick = { showApplyAllDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showApplyAllDialog = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
 
     if (showLanguageSheet) {
         SettingsSelectionSheet(
-            title = "Select Language",
+            title = stringResource(R.string.settings_select_language),
             options = supportedLanguages,
             selected = tempAiLanguage,
             searchable = true,
@@ -608,7 +602,7 @@ fun SettingsScreen(
         val styles = com.obinot.app.ui.theme.ColorStyle.entries
         val currentLabel = styles.getOrElse(colorStyle) { com.obinot.app.ui.theme.ColorStyle.TONAL_SPOT }.label
         SettingsSelectionSheet(
-            title = "Color Palette",
+            title = stringResource(R.string.settings_dialog_color_palette),
             options = styles.map { it.label },
             selected = currentLabel,
             searchable = false,
@@ -642,7 +636,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(safeTopMargin + 4.dp))
 
                 Text(
-                    text = "Settings",
+                    text = stringResource(R.string.settings_title),
                     style = MaterialTheme.typography.displaySmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(bottom = 8.dp)
@@ -654,7 +648,7 @@ fun SettingsScreen(
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
-                        Text("Personalization", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.settings_personalization), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.height(12.dp))
                         OutlinedTextField(
                             value = nameInput,
@@ -662,7 +656,7 @@ fun SettingsScreen(
                                 nameInput = it
                                 isNameDirty = true
                             },
-                            label = { Text("Your Name") },
+                            label = { Text(stringResource(R.string.settings_your_name)) },
                             modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(modifier = Modifier.height(12.dp))
@@ -670,13 +664,13 @@ fun SettingsScreen(
                             onClick = {
                                 viewModel.saveUserName(nameInput)
                                 isNameDirty = false
-                                coroutineScope.launch { snackbarHostState.showSnackbar("Name saved successfully!") }
+                                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_name_saved)) }
                             },
                             enabled = isNameDirty,
-                            expandOnPress = 0.dp, // está alineado al End con align(), no hace falta el push
+                            expandOnPress = 0.dp,
                             modifier = Modifier.align(Alignment.End)
                         ) {
-                            Text("Save Name")
+                            Text(stringResource(R.string.settings_save_name))
                         }
                     }
                 }
@@ -687,12 +681,12 @@ fun SettingsScreen(
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
-                        Text("Global AI Preferences", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                        Text("Notes will be automatically processed using these settings.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
+                        Text(stringResource(R.string.settings_global_ai_prefs), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.settings_global_ai_prefs_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
 
                         SettingsSelectorRow(
                             icon = Icons.Default.Language,
-                            label = "Output Language",
+                            label = stringResource(R.string.settings_output_language),
                             value = tempAiLanguage,
                             onClick = { showLanguageSheet = true }
                         )
@@ -703,19 +697,23 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                         ) {
-                            Text("Processing Task", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.settings_processing_task), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                             Spacer(modifier = Modifier.width(4.dp))
                             IconButton(
                                 onClick = { showTaskInfoDialog = true },
                                 modifier = Modifier.size(28.dp)
                             ) {
-                                Icon(Icons.Default.Info, contentDescription = "Task Info", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                             }
                         }
                         ExpressiveToggleGroup(
                             selectedIndex = tempAiTask,
                             onSelect = { tempAiTask = it },
-                            labels = listOf("Tidy Up", "Summary", "Analyze"),
+                            labels = listOf(
+                                stringResource(R.string.onboarding_task_tidy),
+                                stringResource(R.string.onboarding_task_summary),
+                                stringResource(R.string.onboarding_task_analyze)
+                            ),
                             icons = listOf(
                                 Icons.Default.AutoFixHigh,
                                 Icons.Default.Summarize,
@@ -730,19 +728,22 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                         ) {
-                            Text("Output Format", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.settings_output_format), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                             Spacer(modifier = Modifier.width(4.dp))
                             IconButton(
                                 onClick = { showFormatInfoDialog = true },
                                 modifier = Modifier.size(28.dp)
                             ) {
-                                Icon(Icons.Default.Info, contentDescription = "Format Info", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                             }
                         }
                         ExpressiveToggleGroup(
                             selectedIndex = tempAiFormat,
                             onSelect = { tempAiFormat = it },
-                            labels = listOf("Paragraphs", "Bullets"),
+                            labels = listOf(
+                                stringResource(R.string.onboarding_format_paragraphs),
+                                stringResource(R.string.onboarding_format_bullets)
+                            ),
                             icons = listOf(
                                 Icons.AutoMirrored.Filled.Notes,
                                 Icons.AutoMirrored.Filled.FormatListBulleted
@@ -761,7 +762,7 @@ fun SettingsScreen(
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Save & Apply to All Notes")
+                            Text(stringResource(R.string.settings_save_apply_all))
                         }
                     }
                 }
@@ -776,10 +777,10 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("AI Configuration", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.settings_ai_configuration), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.weight(1f))
                             IconButton(onClick = { showAiInfoDialog = true }) {
-                                Icon(Icons.Default.Info, contentDescription = "AI Info", tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                         Spacer(modifier = Modifier.height(16.dp))
@@ -787,7 +788,11 @@ fun SettingsScreen(
                         ExpressiveToggleGroup(
                             selectedIndex = tempAiProvider,
                             onSelect = { tempAiProvider = it },
-                            labels = listOf("Gemini", "Groq", "Dynamic"),
+                            labels = listOf(
+                                stringResource(R.string.settings_provider_gemini),
+                                stringResource(R.string.settings_provider_groq),
+                                stringResource(R.string.settings_provider_dynamic)
+                            ),
                             icons = listOf(
                                 Icons.Default.AutoAwesome,
                                 Icons.Default.Bolt,
@@ -808,25 +813,25 @@ fun SettingsScreen(
                                                 geminiKeyInput = it
                                                 isGeminiKeyDirty = true
                                             },
-                                            label = { Text("Gemini API Key") },
+                                            label = { Text(stringResource(R.string.settings_gemini_key_label)) },
                                             visualTransformation = PasswordVisualTransformation(),
                                             modifier = Modifier.fillMaxWidth()
                                         )
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        Text("Click here to get the API Key", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey"))) })
+                                        Text(stringResource(R.string.settings_get_api_key_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey"))) })
                                         Spacer(modifier = Modifier.height(12.dp))
                                         BouncyButton(
                                             onClick = {
                                                 viewModel.saveApiKey(geminiKeyInput)
                                                 viewModel.saveAiProvider(tempAiProvider)
                                                 isGeminiKeyDirty = false
-                                                coroutineScope.launch { snackbarHostState.showSnackbar("Gemini Configuration saved!") }
+                                                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_gemini_saved)) }
                                             },
                                             enabled = isGeminiKeyDirty || tempAiProvider != aiProvider,
                                             expandOnPress = 0.dp,
                                             modifier = Modifier.align(Alignment.End)
                                         ) {
-                                            Text("Save Key")
+                                            Text(stringResource(R.string.settings_save_key))
                                         }
                                     }
                                 }
@@ -838,25 +843,25 @@ fun SettingsScreen(
                                                 groqKeyInput = it
                                                 isGroqKeyDirty = true
                                             },
-                                            label = { Text("Groq API Key") },
+                                            label = { Text(stringResource(R.string.settings_groq_key_label)) },
                                             visualTransformation = PasswordVisualTransformation(),
                                             modifier = Modifier.fillMaxWidth()
                                         )
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        Text("Click here to get the API Key", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://console.groq.com/keys"))) })
+                                        Text(stringResource(R.string.settings_get_api_key_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://console.groq.com/keys"))) })
                                         Spacer(modifier = Modifier.height(12.dp))
                                         BouncyButton(
                                             onClick = {
                                                 viewModel.saveGroqApiKey(groqKeyInput)
                                                 viewModel.saveAiProvider(tempAiProvider)
                                                 isGroqKeyDirty = false
-                                                coroutineScope.launch { snackbarHostState.showSnackbar("Groq Configuration saved!") }
+                                                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_groq_saved)) }
                                             },
                                             enabled = isGroqKeyDirty || tempAiProvider != aiProvider,
                                             expandOnPress = 0.dp,
                                             modifier = Modifier.align(Alignment.End)
                                         ) {
-                                            Text("Save Key")
+                                            Text(stringResource(R.string.settings_save_key))
                                         }
                                     }
                                 }
@@ -868,7 +873,7 @@ fun SettingsScreen(
 
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Text(
-                                                "Dynamic",
+                                                stringResource(R.string.settings_provider_dynamic),
                                                 style = MaterialTheme.typography.titleMedium,
                                                 fontWeight = FontWeight.Bold,
                                                 color = MaterialTheme.colorScheme.primary,
@@ -882,31 +887,27 @@ fun SettingsScreen(
                                         Spacer(modifier = Modifier.height(8.dp))
 
                                         Text(
-                                            text = "Dynamic automatically picks the best provider for each task, so both free quotas last longer.",
+                                            text = stringResource(R.string.settings_dynamic_desc),
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.SemiBold
                                         )
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Text(
-                                            text = "• Short audio (<20MB) → Groq Whisper (fastest)\n" +
-                                                    "• Long audio (≥20MB) → Gemini (no size limit)\n" +
-                                                    "• Long text → Gemini Flash (better context)\n" +
-                                                    "• Short text → alternates between providers\n" +
-                                                    "• Titles & explanations → alternates between providers",
+                                            text = stringResource(R.string.settings_dynamic_bullets),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Spacer(modifier = Modifier.height(12.dp))
 
-                                        val geminiStatus = if (geminiKey.isNotBlank()) "✓ Configured" else "✗ Not set"
-                                        val groqStatus = if (groqKey.isNotBlank()) "✓ Configured" else "✗ Not set"
+                                        val geminiStatus = if (geminiKey.isNotBlank()) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
+                                        val groqStatus = if (groqKey.isNotBlank()) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
                                         Text(
-                                            text = "Gemini API Key: $geminiStatus",
+                                            text = stringResource(R.string.settings_dynamic_gemini_status, geminiStatus),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = if (geminiKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                                         )
                                         Text(
-                                            text = "Groq API Key: $groqStatus",
+                                            text = stringResource(R.string.settings_dynamic_groq_status, groqStatus),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = if (groqKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                                         )
@@ -917,8 +918,10 @@ fun SettingsScreen(
                                                 viewModel.saveAiProvider(tempAiProvider)
                                                 coroutineScope.launch {
                                                     snackbarHostState.showSnackbar(
-                                                        if (bothConfigured) "Dynamic mode enabled!"
-                                                        else "Dynamic enabled, but you need both API keys to work properly."
+                                                        context.getString(
+                                                            if (bothConfigured) R.string.snackbar_dynamic_enabled
+                                                            else R.string.snackbar_dynamic_needs_keys
+                                                        )
                                                     )
                                                 }
                                             },
@@ -926,7 +929,7 @@ fun SettingsScreen(
                                             expandOnPress = 0.dp,
                                             modifier = Modifier.align(Alignment.End)
                                         ) {
-                                            Text("Save Selection")
+                                            Text(stringResource(R.string.settings_save_selection))
                                         }
                                     }
                                 }
@@ -945,10 +948,10 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Recording Mode", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.recording_mode_title), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.weight(1f))
                             IconButton(onClick = { showInfoDialog = true }) {
-                                Icon(Icons.Default.Info, contentDescription = "Mode Info", tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                         Spacer(modifier = Modifier.height(16.dp))
@@ -964,7 +967,10 @@ fun SettingsScreen(
                                     }
                                 }
                             },
-                            labels = listOf("Fast", "Accurate"),
+                            labels = listOf(
+                                stringResource(R.string.settings_fast),
+                                stringResource(R.string.settings_accurate)
+                            ),
                             icons = listOf(
                                 Icons.Default.FlashOn,
                                 Icons.Default.GraphicEq
@@ -1005,7 +1011,7 @@ fun SettingsScreen(
                                     Column(modifier = Modifier.weight(1f)) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Text(
-                                                "Live Transcript",
+                                                stringResource(R.string.settings_live_transcript),
                                                 style = MaterialTheme.typography.titleMedium,
                                                 color = MaterialTheme.colorScheme.primary,
                                                 maxLines = 1,
@@ -1017,7 +1023,7 @@ fun SettingsScreen(
                                         }
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
-                                            "Shows your phone's live speech-to-text while recording. Faster feedback, but the recognizer fails or freezes on many devices. When off, only the audio is recorded and the AI transcribes it later.",
+                                            stringResource(R.string.settings_live_transcript_desc),
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -1044,10 +1050,10 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Record in Background", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                                Text(stringResource(R.string.settings_record_background), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    "Keep recording with the screen off or the app minimized. Shows a persistent notification with the elapsed time while it's active.",
+                                    stringResource(R.string.settings_record_background_desc),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1076,7 +1082,7 @@ fun SettingsScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        "Native Audio Picker",
+                                        stringResource(R.string.settings_native_picker),
                                         style = MaterialTheme.typography.titleLarge,
                                         color = MaterialTheme.colorScheme.primary,
                                         maxLines = 1,
@@ -1088,7 +1094,7 @@ fun SettingsScreen(
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    "Use Obinot's own audio browser (with duration, size and sorting) instead of the system file picker. Requires permission to read audio on this device.",
+                                    stringResource(R.string.settings_native_picker_desc),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1113,7 +1119,7 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                "Auto Compression",
+                                stringResource(R.string.settings_auto_compression),
                                 style = MaterialTheme.typography.titleLarge,
                                 color = MaterialTheme.colorScheme.primary,
                                 maxLines = 1,
@@ -1124,11 +1130,11 @@ fun SettingsScreen(
                             BetaBadge()
                             Spacer(modifier = Modifier.weight(1f))
                             IconButton(onClick = { showCompressionInfoDialog = true }) {
-                                Icon(Icons.Default.Info, contentDescription = "Compression Info", tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                         Text(
-                            "Reduces audio size automatically when it exceeds an API's limit. Keeps long recordings usable with providers that have tight size caps.",
+                            stringResource(R.string.settings_auto_compression_desc),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
@@ -1136,7 +1142,11 @@ fun SettingsScreen(
                         TextToggleGroup(
                             selectedIndex = autoCompressionMode,
                             onSelect = { viewModel.saveAutoCompressionMode(it) },
-                            labels = listOf("Off", "Balanced", "Max"),
+                            labels = listOf(
+                                stringResource(R.string.settings_compression_off),
+                                stringResource(R.string.settings_compression_balanced),
+                                stringResource(R.string.settings_compression_max)
+                            ),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -1148,12 +1158,17 @@ fun SettingsScreen(
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
-                        Text("Appearance", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.settings_appearance), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.height(16.dp))
                         ExpressiveToggleGroup(
                             selectedIndex = themeMode,
                             onSelect = { viewModel.saveThemeMode(it) },
-                            labels = listOf("Auto", "Light", "Dark", "Amoled"),
+                            labels = listOf(
+                                stringResource(R.string.settings_theme_auto),
+                                stringResource(R.string.settings_theme_light),
+                                stringResource(R.string.settings_theme_dark),
+                                stringResource(R.string.settings_theme_amoled)
+                            ),
                             icons = listOf(
                                 Icons.Default.PhoneAndroid,
                                 Icons.Default.LightMode,
@@ -1175,21 +1190,21 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Color Palette", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.settings_color_palette), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.weight(1f))
                             IconButton(onClick = { showColorInfoDialog = true }) {
-                                Icon(Icons.Default.Info, contentDescription = "Color Info", tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                         Text(
-                            "Changes the mood of the whole app. Each style generates a complete color scheme from the same seed.",
+                            stringResource(R.string.settings_color_palette_desc),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
                         )
                         SettingsSelectorRow(
                             icon = Icons.Default.Palette,
-                            label = "Style",
+                            label = stringResource(R.string.settings_color_style),
                             value = com.obinot.app.ui.theme.ColorStyle.entries.getOrElse(colorStyle) { com.obinot.app.ui.theme.ColorStyle.TONAL_SPOT }.label,
                             onClick = { showColorPaletteSheet = true }
                         )
@@ -1206,24 +1221,24 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Data & System", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.settings_data_system), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.weight(1f))
                             IconButton(onClick = { showBackupInfoDialog = true }) {
-                                Icon(Icons.Default.Info, contentDescription = "Backup Info", tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                         Spacer(modifier = Modifier.height(16.dp))
 
                         // --- Backup v2 (.obinotbak extendido) ---
                         Text(
-                            "Full Backup",
+                            stringResource(R.string.settings_full_backup),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            "Notes, audio, labels and preferences. Recommended for migrating from Binot 1.x.",
+                            stringResource(R.string.settings_full_backup_desc),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1236,12 +1251,12 @@ fun SettingsScreen(
                                 onClick = { importLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) },
                                 modifier = Modifier.weight(1f),
                                 expandOnPress = 0.dp
-                            ) { Text("Import") }
+                            ) { Text(stringResource(R.string.settings_import)) }
                             BouncyButton(
                                 onClick = { exportLauncher.launch("Obinot_Backup_${formatter.format(Date())}.obinotbak") },
                                 modifier = Modifier.weight(1f),
                                 expandOnPress = 0.dp
-                            ) { Text("Backup") }
+                            ) { Text(stringResource(R.string.settings_backup)) }
                         }
 
                         Spacer(modifier = Modifier.height(20.dp))
@@ -1250,14 +1265,14 @@ fun SettingsScreen(
 
                         // --- Backup legacy (.binotbak v1) ---
                         Text(
-                            "Legacy Backup",
+                            stringResource(R.string.settings_legacy_backup),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            "Only notes and audio, in the original Binot 1.x format. Use this if you need to restore the backup on Binot 1.x itself.",
+                            stringResource(R.string.settings_legacy_backup_desc),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1266,7 +1281,7 @@ fun SettingsScreen(
                             onClick = { exportLegacyLauncher.launch("Obinot_Legacy_${formatter.format(Date())}.binotbak") },
                             modifier = Modifier.fillMaxWidth(),
                             expandOnPress = 0.dp
-                        ) { Text("Backup Legacy (.binotbak)") }
+                        ) { Text(stringResource(R.string.settings_backup_legacy_button)) }
 
                         Spacer(modifier = Modifier.height(20.dp))
                         HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
@@ -1275,7 +1290,7 @@ fun SettingsScreen(
                         // --- App Version + Update ---
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                                Text("App Version", style = MaterialTheme.typography.bodyLarge)
+                                Text(stringResource(R.string.settings_app_version), style = MaterialTheme.typography.bodyLarge)
                                 Text("v$currentVersion", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
 
                                 if (updateState == UpdateState.Downloading) {
@@ -1283,22 +1298,22 @@ fun SettingsScreen(
                                     Spacer(Modifier.height(8.dp))
                                     LinearWavyProgressIndicator(progress = { animatedProgress }, modifier = Modifier.fillMaxWidth().height(6.dp), color = MaterialTheme.colorScheme.primary)
                                     Spacer(Modifier.height(4.dp))
-                                    Text("Downloading... $downloadProgress%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                    Text(stringResource(R.string.settings_downloading_progress, downloadProgress), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                                 } else if (updateState == UpdateState.Available) {
-                                    Text("New version ready: $latestVersionStr", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                    Text(stringResource(R.string.settings_new_version_ready, latestVersionStr), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                                 } else if (updateState == UpdateState.Error) {
-                                    Text("Failed: $latestVersionStr", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                                    Text(stringResource(R.string.settings_update_failed, latestVersionStr), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                                 } else if (updateState == UpdateState.Idle && latestVersionStr.isNotBlank()) {
-                                    Text("App is up to date.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                    Text(stringResource(R.string.settings_up_to_date), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                                 }
                             }
                             when (updateState) {
-                                UpdateState.Idle -> BouncyButton(onClick = { viewModel.checkForUpdate(currentVersion) }, expandOnPress = 0.dp) { Text("Check Update") }
+                                UpdateState.Idle -> BouncyButton(onClick = { viewModel.checkForUpdate(context, currentVersion) }, expandOnPress = 0.dp) { Text(stringResource(R.string.settings_check_update)) }
                                 UpdateState.Checking -> Button(onClick = {}, enabled = false) { LoadingIndicator(modifier = Modifier.size(20.dp)) }
-                                UpdateState.Available -> BouncyButton(onClick = { viewModel.startDownload(context) }, expandOnPress = 0.dp) { Text("Update App") }
-                                UpdateState.Downloading -> OutlinedButton(onClick = {}) { Text("Downloading") }
-                                UpdateState.Downloaded -> BouncyButton(onClick = { viewModel.promptInstall(context) }, expandOnPress = 0.dp) { Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(6.dp)); Text("Install") }
-                                UpdateState.Error -> BouncyOutlinedButton(onClick = { viewModel.checkForUpdate(currentVersion) }, expandOnPress = 0.dp) { Icon(Icons.Default.Error, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(6.dp)); Text("Retry") }
+                                UpdateState.Available -> BouncyButton(onClick = { viewModel.startDownload(context) }, expandOnPress = 0.dp) { Text(stringResource(R.string.settings_update_app)) }
+                                UpdateState.Downloading -> OutlinedButton(onClick = {}) { Text(stringResource(R.string.settings_downloading)) }
+                                UpdateState.Downloaded -> BouncyButton(onClick = { viewModel.promptInstall(context) }, expandOnPress = 0.dp) { Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(6.dp)); Text(stringResource(R.string.settings_install)) }
+                                UpdateState.Error -> BouncyOutlinedButton(onClick = { viewModel.checkForUpdate(context, currentVersion) }, expandOnPress = 0.dp) { Icon(Icons.Default.Error, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(6.dp)); Text(stringResource(R.string.settings_retry)) }
                             }
                         }
                     }
@@ -1319,8 +1334,8 @@ fun SettingsScreen(
                         Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(16.dp))
                         Column {
-                            Text("GitHub Repository", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                            Text("Star the repo or report an issue", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.settings_github_repo), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.settings_github_repo_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }

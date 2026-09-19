@@ -8,6 +8,7 @@ import android.os.Environment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.obinot.app.R
 import com.obinot.app.data.LabelEntity
 import com.obinot.app.data.LabelRepository
 import com.obinot.app.data.NoteEntity
@@ -44,10 +45,6 @@ class SettingsViewModel(
     private val noteRepository: NoteRepository,
     private val labelRepository: LabelRepository
 ) : ViewModel() {
-
-    // ============================================================
-    // State flows
-    // ============================================================
 
     private val _isDataLoaded = MutableStateFlow(false)
     val isDataLoaded: StateFlow<Boolean> = _isDataLoaded.asStateFlow()
@@ -156,17 +153,9 @@ class SettingsViewModel(
     private var apkDownloadUrl: String? = null
     private var downloadedApkUri: Uri? = null
 
-    // ============================================================
-    // Moshi (para serializar la lista de notas en el backup)
-    // ============================================================
-
     private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
     private val notesListType = Types.newParameterizedType(List::class.java, NoteEntity::class.java)
     private val notesAdapter = moshi.adapter<List<NoteEntity>>(notesListType)
-
-    // ============================================================
-    // Setters (uno por preferencia)
-    // ============================================================
 
     fun saveUserName(name: String) {
         viewModelScope.launch { settingsRepository.saveUserName(name) }
@@ -235,10 +224,6 @@ class SettingsViewModel(
         }
     }
 
-    // ============================================================
-    // Backup v2 (.obinotbak extendido)
-    // ============================================================
-
     fun exportBackup(context: Context, uri: Uri, onResult: (String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -260,7 +245,6 @@ class SettingsViewModel(
 
                 context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                     ZipOutputStream(outputStream).use { zos ->
-                        // --- notes.json ---
                         val notesForJson: List<NoteEntity> = notes.map { note ->
                             val audioPath: String? = note.audioPath
                             val audioFileName: String? = if (audioPath != null) File(audioPath).name else null
@@ -269,7 +253,6 @@ class SettingsViewModel(
                         val notesJson = notesAdapter.toJson(notesForJson)
                         writeBytesToZip(zos, "notes.json", notesJson.toByteArray(Charsets.UTF_8))
 
-                        // --- audio/* ---
                         notes.forEach { note ->
                             val audioPath = note.audioPath
                             if (audioPath != null) {
@@ -280,7 +263,6 @@ class SettingsViewModel(
                             }
                         }
 
-                        // --- labels.json ---
                         val labelsArray = JSONArray()
                         labels.forEach { label ->
                             val labelObj = JSONObject()
@@ -293,7 +275,6 @@ class SettingsViewModel(
                         labelsObj.put("labels", labelsArray)
                         writeBytesToZip(zos, "labels.json", labelsObj.toString().toByteArray(Charsets.UTF_8))
 
-                        // --- settings.json (SIN API keys) ---
                         val settingsObj = JSONObject()
                         settingsObj.put("userName", userName)
                         settingsObj.put("themeMode", themeMode)
@@ -309,7 +290,6 @@ class SettingsViewModel(
                         settingsObj.put("colorStyle", colorStyle)
                         writeBytesToZip(zos, "settings.json", settingsObj.toString().toByteArray(Charsets.UTF_8))
 
-                        // --- obinot_backup_meta.json ---
                         val metaObj = JSONObject()
                         metaObj.put("formatVersion", BACKUP_FORMAT_VERSION)
                         metaObj.put("createdBy", "Obinot")
@@ -318,16 +298,12 @@ class SettingsViewModel(
                         writeBytesToZip(zos, "obinot_backup_meta.json", metaObj.toString().toByteArray(Charsets.UTF_8))
                     }
                 }
-                launch(Dispatchers.Main) { onResult("Backup successful!") }
+                launch(Dispatchers.Main) { onResult(context.getString(R.string.backup_successful)) }
             } catch (e: Exception) {
-                launch(Dispatchers.Main) { onResult("Backup failed: ${e.message}") }
+                launch(Dispatchers.Main) { onResult(context.getString(R.string.backup_failed, e.message ?: "")) }
             }
         }
     }
-
-    // ============================================================
-    // Backup legacy (formato original Binot 1.x)
-    // ============================================================
 
     fun exportBackupLegacy(context: Context, uri: Uri, onResult: (String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -355,16 +331,12 @@ class SettingsViewModel(
                         }
                     }
                 }
-                launch(Dispatchers.Main) { onResult("Legacy backup successful!") }
+                launch(Dispatchers.Main) { onResult(context.getString(R.string.backup_legacy_successful)) }
             } catch (e: Exception) {
-                launch(Dispatchers.Main) { onResult("Legacy backup failed: ${e.message}") }
+                launch(Dispatchers.Main) { onResult(context.getString(R.string.backup_legacy_failed, e.message ?: "")) }
             }
         }
     }
-
-    // ============================================================
-    // Import (detecta v2 vs v1 automáticamente)
-    // ============================================================
 
     fun importBackup(context: Context, uri: Uri, onResult: (String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -420,7 +392,7 @@ class SettingsViewModel(
 
                 val notes = notesAdapter.fromJson(notesJson!!)
                 if (notes == null) {
-                    launch(Dispatchers.Main) { onResult("Invalid backup file.") }
+                    launch(Dispatchers.Main) { onResult(context.getString(R.string.restore_invalid)) }
                     return@launch
                 }
 
@@ -453,10 +425,14 @@ class SettingsViewModel(
                 noteRepository.insertNotes(remappedNotes)
 
                 val isV2 = labelsJson != null || settingsJson != null
-                val suffix = if (isV2) "" else " (legacy format)"
-                launch(Dispatchers.Main) { onResult("Restore successful!$suffix") }
+                val msg = if (isV2) {
+                    context.getString(R.string.restore_successful)
+                } else {
+                    context.getString(R.string.restore_successful_legacy)
+                }
+                launch(Dispatchers.Main) { onResult(msg) }
             } catch (e: Exception) {
-                launch(Dispatchers.Main) { onResult("Restore failed: ${e.message}") }
+                launch(Dispatchers.Main) { onResult(context.getString(R.string.restore_failed, e.message ?: "")) }
             }
         }
     }
@@ -475,7 +451,6 @@ class SettingsViewModel(
         if (obj.has("backgroundRecordingEnabled")) settingsRepository.saveBackgroundRecording(obj.optBoolean("backgroundRecordingEnabled", false))
         if (obj.has("nativePickerEnabled")) settingsRepository.saveNativePicker(obj.optBoolean("nativePickerEnabled", false))
         if (obj.has("colorStyle")) settingsRepository.saveColorStyle(obj.optInt("colorStyle", 0))
-        // API keys nunca se importan: el JSON exportado no las contiene por diseño.
     }
 
     private suspend fun applyImportedLabels(labelsJson: String) {
@@ -494,10 +469,6 @@ class SettingsViewModel(
             }
         }
     }
-
-    // ============================================================
-    // ZIP helpers
-    // ============================================================
 
     private fun writeBytesToZip(zos: ZipOutputStream, entryName: String, data: ByteArray) {
         val entry = ZipEntry(entryName)
@@ -561,11 +532,7 @@ class SettingsViewModel(
         }
     }
 
-    // ============================================================
-    // App update
-    // ============================================================
-
-    fun checkForUpdate(currentVersion: String) {
+    fun checkForUpdate(context: Context, currentVersion: String) {
         _updateState.value = UpdateState.Checking
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -576,7 +543,7 @@ class SettingsViewModel(
                     if (apkDownloadUrl != null) {
                         _updateState.value = UpdateState.Available
                     } else {
-                        _latestVersionStr.value = "No APK File found in Release"
+                        _latestVersionStr.value = context.getString(R.string.update_no_apk)
                         _updateState.value = UpdateState.Error
                     }
                 } else {
@@ -585,13 +552,13 @@ class SettingsViewModel(
                 }
             } catch (e: HttpException) {
                 e.printStackTrace()
-                if (e.code() == 403) _latestVersionStr.value = "Server Limit (Try again in 1 hour)"
-                else if (e.code() == 404) _latestVersionStr.value = "No Release Available"
-                else _latestVersionStr.value = "HTTP Error: ${e.code()}"
+                if (e.code() == 403) _latestVersionStr.value = context.getString(R.string.update_server_limit)
+                else if (e.code() == 404) _latestVersionStr.value = context.getString(R.string.update_no_release)
+                else _latestVersionStr.value = context.getString(R.string.update_http_error, e.code())
                 _updateState.value = UpdateState.Error
             } catch (e: Exception) {
                 e.printStackTrace()
-                _latestVersionStr.value = "Network Error (Check Internet)"
+                _latestVersionStr.value = context.getString(R.string.update_network_error)
                 _updateState.value = UpdateState.Error
             }
         }
@@ -646,7 +613,7 @@ class SettingsViewModel(
                             isDownloading = false
                             downloadedApkUri?.let { uri -> promptInstall(context, uri) }
                         } else if (status == DownloadManager.STATUS_FAILED) {
-                            _latestVersionStr.value = "Download Failed by System"
+                            _latestVersionStr.value = context.getString(R.string.update_download_failed)
                             _updateState.value = UpdateState.Error
                             isDownloading = false
                         } else {
@@ -672,14 +639,10 @@ class SettingsViewModel(
             context.startActivity(intent)
         } catch (e: Exception) {
             e.printStackTrace()
-            _latestVersionStr.value = "Installation Failed"
+            _latestVersionStr.value = context.getString(R.string.update_install_failed)
             _updateState.value = UpdateState.Error
         }
     }
-
-    // ============================================================
-    // Companion (constantes + factory)
-    // ============================================================
 
     companion object {
         private const val STREAM_BUFFER_SIZE = 64 * 1024
