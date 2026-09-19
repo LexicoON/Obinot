@@ -3,6 +3,7 @@
 package com.obinot.app.ui.screens
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -58,6 +59,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
@@ -125,9 +127,6 @@ private fun ExpressiveToggleGroup(
     }
 }
 
-// ============================================================
-// Selector genérico "fila con valor actual + hoja de selección".
-// ============================================================
 @Composable
 private fun SettingsSelectorRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -275,6 +274,9 @@ fun SettingsScreen(
     onDiscardRecording: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     val userName by viewModel.userName.collectAsState()
     val geminiApiKey by viewModel.apiKey.collectAsState()
     val groqApiKey by viewModel.groqApiKey.collectAsState()
@@ -328,7 +330,6 @@ fun SettingsScreen(
     var showColorPaletteSheet by remember { mutableStateOf(false) }
     var showAppLanguageSheet by remember { mutableStateOf(false) }
 
-    // remember: evitar alocar y sortear 23 strings en cada frame.
     val supportedLanguages = remember {
         listOf(
             "English", "Indonesia", "Spanish", "French", "German", "Chinese (Simplified)",
@@ -338,7 +339,6 @@ fun SettingsScreen(
         ).sorted()
     }
 
-    // Opciones de idioma de la app: label visible + código interno.
     val appLanguageOptions = remember(context) {
         listOf(
             context.getString(R.string.settings_language_device) to "device",
@@ -355,23 +355,20 @@ fun SettingsScreen(
         try { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.0" } catch (e: Exception) { "1.0.0" }
     }
 
-    // Backup v2 (.obinotbak extendido): notas + audio + labels + settings.
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         uri?.let { viewModel.exportBackup(context, it) { msg -> coroutineScope.launch { snackbarHostState.showSnackbar(msg) } } }
     }
 
-    // Backup legacy (.binotbak v1): solo notas + audio, compatible con Binot 1.x.
     val exportLegacyLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         uri?.let { viewModel.exportBackupLegacy(context, it) { msg -> coroutineScope.launch { snackbarHostState.showSnackbar(msg) } } }
     }
 
-    // Import unificado: detecta v2 vs v1 automáticamente.
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.importBackup(context, it) { msg -> coroutineScope.launch { snackbarHostState.showSnackbar(msg) } } }
     }
 
     // ============================================================
-    // Info dialogs
+    // Dialogs
     // ============================================================
 
     if (showInfoDialog) {
@@ -381,16 +378,10 @@ fun SettingsScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(stringResource(R.string.settings_dialog_fast_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text(
-                        stringResource(R.string.settings_dialog_fast_body),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text(stringResource(R.string.settings_dialog_fast_body), style = MaterialTheme.typography.bodyMedium)
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                     Text(stringResource(R.string.settings_dialog_accurate_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text(
-                        stringResource(R.string.settings_dialog_accurate_body),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text(stringResource(R.string.settings_dialog_accurate_body), style = MaterialTheme.typography.bodyMedium)
                 }
             },
             confirmButton = { TextButton(onClick = { showInfoDialog = false }) { Text(stringResource(R.string.settings_dialog_got_it)) } }
@@ -404,22 +395,13 @@ fun SettingsScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(stringResource(R.string.settings_dialog_gemini_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text(
-                        stringResource(R.string.settings_dialog_gemini_body),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text(stringResource(R.string.settings_dialog_gemini_body), style = MaterialTheme.typography.bodyMedium)
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                     Text(stringResource(R.string.settings_dialog_groq_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text(
-                        stringResource(R.string.settings_dialog_groq_body),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text(stringResource(R.string.settings_dialog_groq_body), style = MaterialTheme.typography.bodyMedium)
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                     Text(stringResource(R.string.settings_dialog_dynamic_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text(
-                        stringResource(R.string.settings_dialog_dynamic_body),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text(stringResource(R.string.settings_dialog_dynamic_body), style = MaterialTheme.typography.bodyMedium)
                 }
             },
             confirmButton = { TextButton(onClick = { showAiInfoDialog = false }) { Text(stringResource(R.string.settings_dialog_got_it)) } }
@@ -433,22 +415,13 @@ fun SettingsScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(stringResource(R.string.settings_dialog_tidy_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text(
-                        stringResource(R.string.settings_dialog_tidy_body),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text(stringResource(R.string.settings_dialog_tidy_body), style = MaterialTheme.typography.bodyMedium)
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                     Text(stringResource(R.string.settings_dialog_summary_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text(
-                        stringResource(R.string.settings_dialog_summary_body),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text(stringResource(R.string.settings_dialog_summary_body), style = MaterialTheme.typography.bodyMedium)
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                     Text(stringResource(R.string.settings_dialog_analyze_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text(
-                        stringResource(R.string.settings_dialog_analyze_body),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text(stringResource(R.string.settings_dialog_analyze_body), style = MaterialTheme.typography.bodyMedium)
                 }
             },
             confirmButton = { TextButton(onClick = { showTaskInfoDialog = false }) { Text(stringResource(R.string.settings_dialog_got_it)) } }
@@ -462,16 +435,10 @@ fun SettingsScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(stringResource(R.string.settings_dialog_paragraphs_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text(
-                        stringResource(R.string.settings_dialog_paragraphs_body),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text(stringResource(R.string.settings_dialog_paragraphs_body), style = MaterialTheme.typography.bodyMedium)
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                     Text(stringResource(R.string.settings_dialog_bullets_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text(
-                        stringResource(R.string.settings_dialog_bullets_body),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text(stringResource(R.string.settings_dialog_bullets_body), style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(4.dp))
                     Text(
                         stringResource(R.string.settings_dialog_formats_tip),
@@ -490,10 +457,7 @@ fun SettingsScreen(
             title = { Text(stringResource(R.string.settings_auto_compression)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        stringResource(R.string.settings_dialog_compression_body),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text(stringResource(R.string.settings_dialog_compression_body), style = MaterialTheme.typography.bodyMedium)
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                     Text(stringResource(R.string.settings_dialog_compression_off_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text(stringResource(R.string.settings_dialog_compression_off_body), style = MaterialTheme.typography.bodyMedium)
@@ -534,16 +498,10 @@ fun SettingsScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(stringResource(R.string.settings_dialog_backup_full_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text(
-                        stringResource(R.string.settings_dialog_backup_full_body),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text(stringResource(R.string.settings_dialog_backup_full_body), style = MaterialTheme.typography.bodyMedium)
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                     Text(stringResource(R.string.settings_dialog_backup_legacy_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text(
-                        stringResource(R.string.settings_dialog_backup_legacy_body),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text(stringResource(R.string.settings_dialog_backup_legacy_body), style = MaterialTheme.typography.bodyMedium)
                 }
             },
             confirmButton = { TextButton(onClick = { showBackupInfoDialog = false }) { Text(stringResource(R.string.settings_dialog_got_it)) } }
@@ -645,6 +603,778 @@ fun SettingsScreen(
         )
     }
 
+    // ============================================================
+    // Card lambdas.
+    // Cada card está definido como un lambda @Composable local para poder
+    // reutilizarlo tanto en single-column (portrait) como en two-column
+    // (landscape) sin duplicar código.
+    // ============================================================
+
+    val personalizationCard: @Composable () -> Unit = {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(stringResource(R.string.settings_personalization), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = nameInput,
+                    onValueChange = {
+                        nameInput = it
+                        isNameDirty = true
+                    },
+                    label = { Text(stringResource(R.string.settings_your_name)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                BouncyButton(
+                    onClick = {
+                        viewModel.saveUserName(nameInput)
+                        isNameDirty = false
+                        coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_name_saved)) }
+                    },
+                    enabled = isNameDirty,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text(stringResource(R.string.settings_save_name))
+                }
+            }
+        }
+    }
+
+    val appLanguageCard: @Composable () -> Unit = {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(stringResource(R.string.settings_app_language), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    stringResource(R.string.settings_app_language_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+                )
+                SettingsSelectorRow(
+                    icon = Icons.Default.Language,
+                    label = stringResource(R.string.settings_app_language),
+                    value = appLanguageOptions.firstOrNull { it.second == appLanguage }?.first
+                        ?: stringResource(R.string.settings_language_device),
+                    onClick = { showAppLanguageSheet = true }
+                )
+            }
+        }
+    }
+
+    val globalAiPrefsCard: @Composable () -> Unit = {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(stringResource(R.string.settings_global_ai_prefs), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                Text(stringResource(R.string.settings_global_ai_prefs_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
+
+                SettingsSelectorRow(
+                    icon = Icons.Default.Language,
+                    label = stringResource(R.string.settings_output_language),
+                    value = tempAiLanguage,
+                    onClick = { showLanguageSheet = true }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Text(stringResource(R.string.settings_processing_task), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    BouncyIconButton(
+                        onClick = { showTaskInfoDialog = true },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    }
+                }
+                ExpressiveToggleGroup(
+                    selectedIndex = tempAiTask,
+                    onSelect = { tempAiTask = it },
+                    labels = listOf(
+                        stringResource(R.string.onboarding_task_tidy),
+                        stringResource(R.string.onboarding_task_summary),
+                        stringResource(R.string.onboarding_task_analyze)
+                    ),
+                    icons = listOf(
+                        Icons.Default.AutoFixHigh,
+                        Icons.Default.Summarize,
+                        Icons.Default.Insights
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Text(stringResource(R.string.settings_output_format), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    BouncyIconButton(
+                        onClick = { showFormatInfoDialog = true },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    }
+                }
+                ExpressiveToggleGroup(
+                    selectedIndex = tempAiFormat,
+                    onSelect = { tempAiFormat = it },
+                    labels = listOf(
+                        stringResource(R.string.onboarding_format_paragraphs),
+                        stringResource(R.string.onboarding_format_bullets)
+                    ),
+                    icons = listOf(
+                        Icons.AutoMirrored.Filled.Notes,
+                        Icons.AutoMirrored.Filled.FormatListBulleted
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.settings_auto_process),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.settings_auto_process_desc),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Switch(
+                        checked = autoProcessEnabled,
+                        onCheckedChange = { viewModel.saveAutoProcess(it) }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                val isChanged = tempAiLanguage != aiLanguage || tempAiTask != aiTask || tempAiFormat != aiFormat
+
+                BouncyButton(
+                    onClick = { showApplyAllDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = isChanged
+                ) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.settings_save_apply_all))
+                }
+            }
+        }
+    }
+
+    val aiConfigurationCard: @Composable () -> Unit = {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.settings_ai_configuration), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.weight(1f))
+                    BouncyIconButton(onClick = { showAiInfoDialog = true }) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                ExpressiveToggleGroup(
+                    selectedIndex = tempAiProvider,
+                    onSelect = { tempAiProvider = it },
+                    labels = listOf(
+                        stringResource(R.string.settings_provider_gemini),
+                        stringResource(R.string.settings_provider_groq),
+                        stringResource(R.string.settings_provider_dynamic)
+                    ),
+                    icons = listOf(
+                        Icons.Default.AutoAwesome,
+                        Icons.Default.Bolt,
+                        Icons.Default.Shuffle
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                AnimatedContent(targetState = tempAiProvider, label = "ApiKeyInput") { provider ->
+                    when (provider) {
+                        0 -> {
+                            Column {
+                                OutlinedTextField(
+                                    value = geminiKeyInput,
+                                    onValueChange = {
+                                        geminiKeyInput = it
+                                        isGeminiKeyDirty = true
+                                    },
+                                    label = { Text(stringResource(R.string.settings_gemini_key_label)) },
+                                    visualTransformation = PasswordVisualTransformation(),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(stringResource(R.string.settings_get_api_key_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey"))) })
+                                Spacer(modifier = Modifier.height(12.dp))
+                                BouncyButton(
+                                    onClick = {
+                                        viewModel.saveApiKey(geminiKeyInput)
+                                        viewModel.saveAiProvider(tempAiProvider)
+                                        isGeminiKeyDirty = false
+                                        coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_gemini_saved)) }
+                                    },
+                                    enabled = isGeminiKeyDirty || tempAiProvider != aiProvider,
+                                    modifier = Modifier.align(Alignment.End)
+                                ) {
+                                    Text(stringResource(R.string.settings_save_key))
+                                }
+                            }
+                        }
+                        1 -> {
+                            Column {
+                                OutlinedTextField(
+                                    value = groqKeyInput,
+                                    onValueChange = {
+                                        groqKeyInput = it
+                                        isGroqKeyDirty = true
+                                    },
+                                    label = { Text(stringResource(R.string.settings_groq_key_label)) },
+                                    visualTransformation = PasswordVisualTransformation(),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(stringResource(R.string.settings_get_api_key_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://console.groq.com/keys"))) })
+                                Spacer(modifier = Modifier.height(12.dp))
+                                BouncyButton(
+                                    onClick = {
+                                        viewModel.saveGroqApiKey(groqKeyInput)
+                                        viewModel.saveAiProvider(tempAiProvider)
+                                        isGroqKeyDirty = false
+                                        coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_groq_saved)) }
+                                    },
+                                    enabled = isGroqKeyDirty || tempAiProvider != aiProvider,
+                                    modifier = Modifier.align(Alignment.End)
+                                ) {
+                                    Text(stringResource(R.string.settings_save_key))
+                                }
+                            }
+                        }
+                        else -> {
+                            Column {
+                                val geminiKey = geminiKeyInput
+                                val groqKey = groqKeyInput
+                                val bothConfigured = geminiKey.isNotBlank() && groqKey.isNotBlank()
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        stringResource(R.string.settings_provider_dynamic),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    BetaBadge()
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(
+                                    text = stringResource(R.string.settings_dynamic_desc),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = stringResource(R.string.settings_dynamic_bullets),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                val geminiStatus = if (geminiKey.isNotBlank()) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
+                                val groqStatus = if (groqKey.isNotBlank()) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
+                                Text(
+                                    text = stringResource(R.string.settings_dynamic_gemini_status, geminiStatus),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (geminiKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    text = stringResource(R.string.settings_dynamic_groq_status, groqStatus),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (groqKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                BouncyButton(
+                                    onClick = {
+                                        viewModel.saveAiProvider(tempAiProvider)
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                context.getString(
+                                                    if (bothConfigured) R.string.snackbar_dynamic_enabled
+                                                    else R.string.snackbar_dynamic_needs_keys
+                                                )
+                                            )
+                                        }
+                                    },
+                                    enabled = tempAiProvider != aiProvider,
+                                    modifier = Modifier.align(Alignment.End)
+                                ) {
+                                    Text(stringResource(R.string.settings_save_selection))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    val recordingModeCard: @Composable () -> Unit = {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.recording_mode_title), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.weight(1f))
+                    BouncyIconButton(onClick = { showInfoDialog = true }) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                ExpressiveToggleGroup(
+                    selectedIndex = recordMode,
+                    onSelect = { newIndex ->
+                        if (recordMode != newIndex) {
+                            if (isRecording) {
+                                pendingModeSelection = newIndex
+                                showWarningDialog = true
+                            } else {
+                                viewModel.saveRecordMode(newIndex)
+                            }
+                        }
+                    },
+                    labels = listOf(
+                        stringResource(R.string.settings_fast),
+                        stringResource(R.string.settings_accurate)
+                    ),
+                    icons = listOf(
+                        Icons.Default.FlashOn,
+                        Icons.Default.GraphicEq
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                AnimatedVisibility(
+                    visible = recordMode == 1,
+                    enter = expandVertically(
+                        expandFrom = Alignment.Top,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioLowBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        )
+                    ) + fadeIn(
+                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                    ),
+                    exit = shrinkVertically(
+                        shrinkTowards = Alignment.Top,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        )
+                    ) + fadeOut(
+                        animationSpec = spring(stiffness = Spring.StiffnessMedium)
+                    )
+                ) {
+                    Column {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        stringResource(R.string.settings_live_transcript),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    BetaBadge()
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    stringResource(R.string.settings_live_transcript_desc),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Switch(
+                                checked = liveTranscriptEnabled,
+                                onCheckedChange = { viewModel.saveLiveTranscript(it) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    val recordInBackgroundCard: @Composable () -> Unit = {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.settings_record_background), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.settings_record_background_desc),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Switch(
+                        checked = backgroundRecordingEnabled,
+                        onCheckedChange = { enabled ->
+                            viewModel.saveBackgroundRecording(enabled)
+                            if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    val nativePickerCard: @Composable () -> Unit = {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                stringResource(R.string.settings_native_picker),
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            BetaBadge()
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.settings_native_picker_desc),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Switch(
+                        checked = nativePickerEnabled,
+                        onCheckedChange = { viewModel.saveNativePicker(it) }
+                    )
+                }
+            }
+        }
+    }
+
+    val autoCompressionCard: @Composable () -> Unit = {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        stringResource(R.string.settings_auto_compression),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    BetaBadge()
+                    Spacer(modifier = Modifier.weight(1f))
+                    BouncyIconButton(onClick = { showCompressionInfoDialog = true }) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                Text(
+                    stringResource(R.string.settings_auto_compression_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+                )
+                TextToggleGroup(
+                    selectedIndex = autoCompressionMode,
+                    onSelect = { viewModel.saveAutoCompressionMode(it) },
+                    labels = listOf(
+                        stringResource(R.string.settings_compression_off),
+                        stringResource(R.string.settings_compression_balanced),
+                        stringResource(R.string.settings_compression_max)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+
+    val appearanceCard: @Composable () -> Unit = {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(stringResource(R.string.settings_appearance), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.height(16.dp))
+                ExpressiveToggleGroup(
+                    selectedIndex = themeMode,
+                    onSelect = { viewModel.saveThemeMode(it) },
+                    labels = listOf(
+                        stringResource(R.string.settings_theme_auto),
+                        stringResource(R.string.settings_theme_light),
+                        stringResource(R.string.settings_theme_dark),
+                        stringResource(R.string.settings_theme_amoled)
+                    ),
+                    icons = listOf(
+                        Icons.Default.PhoneAndroid,
+                        Icons.Default.LightMode,
+                        Icons.Default.DarkMode,
+                        Icons.Default.Contrast
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+
+    val colorPaletteCard: @Composable () -> Unit = {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.settings_color_palette), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.weight(1f))
+                    BouncyIconButton(onClick = { showColorInfoDialog = true }) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                Text(
+                    stringResource(R.string.settings_color_palette_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+                )
+                SettingsSelectorRow(
+                    icon = Icons.Default.Palette,
+                    label = stringResource(R.string.settings_color_style),
+                    value = com.obinot.app.ui.theme.ColorStyle.entries.getOrElse(colorStyle) { com.obinot.app.ui.theme.ColorStyle.TONAL_SPOT }.label,
+                    onClick = { showColorPaletteSheet = true }
+                )
+            }
+        }
+    }
+
+    val dataSystemCard: @Composable () -> Unit = {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.settings_data_system), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.weight(1f))
+                    BouncyIconButton(onClick = { showBackupInfoDialog = true }) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    stringResource(R.string.settings_full_backup),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    stringResource(R.string.settings_full_backup_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    BouncyOutlinedButton(
+                        onClick = { importLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) },
+                        modifier = Modifier.weight(1f)
+                    ) { Text(stringResource(R.string.settings_import)) }
+                    BouncyButton(
+                        onClick = { exportLauncher.launch("Obinot_Backup_${formatter.format(Date())}.obinotbak") },
+                        modifier = Modifier.weight(1f)
+                    ) { Text(stringResource(R.string.settings_backup)) }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Text(
+                    stringResource(R.string.settings_legacy_backup),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    stringResource(R.string.settings_legacy_backup_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                BouncyOutlinedButton(
+                    onClick = { exportLegacyLauncher.launch("Obinot_Legacy_${formatter.format(Date())}.binotbak") },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(stringResource(R.string.settings_backup_legacy_button)) }
+
+                Spacer(modifier = Modifier.height(20.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(stringResource(R.string.settings_app_version), style = MaterialTheme.typography.bodyLarge)
+                        Text("v$currentVersion", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+
+                        if (updateState == UpdateState.Downloading) {
+                            val animatedProgress by animateFloatAsState(targetValue = downloadProgress / 100f, label = "progress")
+                            Spacer(Modifier.height(8.dp))
+                            LinearWavyProgressIndicator(progress = { animatedProgress }, modifier = Modifier.fillMaxWidth().height(6.dp), color = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.height(4.dp))
+                            Text(stringResource(R.string.settings_downloading_progress, downloadProgress), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        } else if (updateState == UpdateState.Available) {
+                            Text(stringResource(R.string.settings_new_version_ready, latestVersionStr), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        } else if (updateState == UpdateState.Error) {
+                            Text(stringResource(R.string.settings_update_failed, latestVersionStr), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                        } else if (updateState == UpdateState.Idle && latestVersionStr.isNotBlank()) {
+                            Text(stringResource(R.string.settings_up_to_date), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                    when (updateState) {
+                        UpdateState.Idle -> BouncyButton(onClick = { viewModel.checkForUpdate(context, currentVersion) }) { Text(stringResource(R.string.settings_check_update)) }
+                        UpdateState.Checking -> Button(onClick = {}, enabled = false) { LoadingIndicator(modifier = Modifier.size(20.dp)) }
+                        UpdateState.Available -> BouncyButton(onClick = { viewModel.startDownload(context) }) { Text(stringResource(R.string.settings_update_app)) }
+                        UpdateState.Downloading -> OutlinedButton(onClick = {}) { Text(stringResource(R.string.settings_downloading)) }
+                        UpdateState.Downloaded -> BouncyButton(onClick = { viewModel.promptInstall(context) }) { Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(6.dp)); Text(stringResource(R.string.settings_install)) }
+                        UpdateState.Error -> BouncyOutlinedButton(onClick = { viewModel.checkForUpdate(context, currentVersion) }) { Icon(Icons.Default.Error, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(6.dp)); Text(stringResource(R.string.settings_retry)) }
+                    }
+                }
+            }
+        }
+    }
+
+    val supportCard: @Composable () -> Unit = {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .bouncyClickable {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LexicoON/Obinot"))
+                    context.startActivity(intent)
+                }
+        ) {
+            Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text(stringResource(R.string.settings_github_repo), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.settings_github_repo_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+
+    // ============================================================
+    // Render
+    // ============================================================
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
@@ -672,744 +1402,53 @@ fun SettingsScreen(
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
 
-                // ---------- Personalization ----------
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text(stringResource(R.string.settings_personalization), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedTextField(
-                            value = nameInput,
-                            onValueChange = {
-                                nameInput = it
-                                isNameDirty = true
-                            },
-                            label = { Text(stringResource(R.string.settings_your_name)) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        BouncyButton(
-                            onClick = {
-                                viewModel.saveUserName(nameInput)
-                                isNameDirty = false
-                                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_name_saved)) }
-                            },
-                            enabled = isNameDirty,
-                            modifier = Modifier.align(Alignment.End)
+                if (isLandscape) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Columna izquierda: personalización + IA.
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Text(stringResource(R.string.settings_save_name))
+                            personalizationCard()
+                            appLanguageCard()
+                            globalAiPrefsCard()
+                            aiConfigurationCard()
+                        }
+                        // Columna derecha: grabación + apariencia + datos.
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            recordingModeCard()
+                            recordInBackgroundCard()
+                            nativePickerCard()
+                            autoCompressionCard()
+                            appearanceCard()
+                            colorPaletteCard()
+                            dataSystemCard()
+                            supportCard()
                         }
                     }
-                }
-
-                // ---------- App Language ----------
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text(stringResource(R.string.settings_app_language), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                        Text(
-                            stringResource(R.string.settings_app_language_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
-                        )
-                        SettingsSelectorRow(
-                            icon = Icons.Default.Language,
-                            label = stringResource(R.string.settings_app_language),
-                            value = appLanguageOptions.firstOrNull { it.second == appLanguage }?.first
-                                ?: stringResource(R.string.settings_language_device),
-                            onClick = { showAppLanguageSheet = true }
-                        )
-                    }
-                }
-
-                // ---------- Global AI Preferences ----------
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text(stringResource(R.string.settings_global_ai_prefs), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                        Text(stringResource(R.string.settings_global_ai_prefs_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
-
-                        SettingsSelectorRow(
-                            icon = Icons.Default.Language,
-                            label = stringResource(R.string.settings_output_language),
-                            value = tempAiLanguage,
-                            onClick = { showLanguageSheet = true }
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                        ) {
-                            Text(stringResource(R.string.settings_processing_task), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            BouncyIconButton(
-                                onClick = { showTaskInfoDialog = true },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                            }
-                        }
-                        ExpressiveToggleGroup(
-                            selectedIndex = tempAiTask,
-                            onSelect = { tempAiTask = it },
-                            labels = listOf(
-                                stringResource(R.string.onboarding_task_tidy),
-                                stringResource(R.string.onboarding_task_summary),
-                                stringResource(R.string.onboarding_task_analyze)
-                            ),
-                            icons = listOf(
-                                Icons.Default.AutoFixHigh,
-                                Icons.Default.Summarize,
-                                Icons.Default.Insights
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                        ) {
-                            Text(stringResource(R.string.settings_output_format), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            BouncyIconButton(
-                                onClick = { showFormatInfoDialog = true },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                            }
-                        }
-                        ExpressiveToggleGroup(
-                            selectedIndex = tempAiFormat,
-                            onSelect = { tempAiFormat = it },
-                            labels = listOf(
-                                stringResource(R.string.onboarding_format_paragraphs),
-                                stringResource(R.string.onboarding_format_bullets)
-                            ),
-                            icons = listOf(
-                                Icons.AutoMirrored.Filled.Notes,
-                                Icons.AutoMirrored.Filled.FormatListBulleted
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Spacer(modifier = Modifier.height(20.dp))
-                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    stringResource(R.string.settings_auto_process),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    stringResource(R.string.settings_auto_process_desc),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Switch(
-                                checked = autoProcessEnabled,
-                                onCheckedChange = { viewModel.saveAutoProcess(it) }
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(24.dp))
-                        val isChanged = tempAiLanguage != aiLanguage || tempAiTask != aiTask || tempAiFormat != aiFormat
-
-                        BouncyButton(
-                            onClick = { showApplyAllDialog = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = isChanged
-                        ) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.settings_save_apply_all))
-                        }
-                    }
-                }
-
-                // ---------- AI Configuration ----------
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(stringResource(R.string.settings_ai_configuration), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.weight(1f))
-                            BouncyIconButton(onClick = { showAiInfoDialog = true }) {
-                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        ExpressiveToggleGroup(
-                            selectedIndex = tempAiProvider,
-                            onSelect = { tempAiProvider = it },
-                            labels = listOf(
-                                stringResource(R.string.settings_provider_gemini),
-                                stringResource(R.string.settings_provider_groq),
-                                stringResource(R.string.settings_provider_dynamic)
-                            ),
-                            icons = listOf(
-                                Icons.Default.AutoAwesome,
-                                Icons.Default.Bolt,
-                                Icons.Default.Shuffle
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        AnimatedContent(targetState = tempAiProvider, label = "ApiKeyInput") { provider ->
-                            when (provider) {
-                                0 -> {
-                                    Column {
-                                        OutlinedTextField(
-                                            value = geminiKeyInput,
-                                            onValueChange = {
-                                                geminiKeyInput = it
-                                                isGeminiKeyDirty = true
-                                            },
-                                            label = { Text(stringResource(R.string.settings_gemini_key_label)) },
-                                            visualTransformation = PasswordVisualTransformation(),
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(stringResource(R.string.settings_get_api_key_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey"))) })
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        BouncyButton(
-                                            onClick = {
-                                                viewModel.saveApiKey(geminiKeyInput)
-                                                viewModel.saveAiProvider(tempAiProvider)
-                                                isGeminiKeyDirty = false
-                                                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_gemini_saved)) }
-                                            },
-                                            enabled = isGeminiKeyDirty || tempAiProvider != aiProvider,
-                                            modifier = Modifier.align(Alignment.End)
-                                        ) {
-                                            Text(stringResource(R.string.settings_save_key))
-                                        }
-                                    }
-                                }
-                                1 -> {
-                                    Column {
-                                        OutlinedTextField(
-                                            value = groqKeyInput,
-                                            onValueChange = {
-                                                groqKeyInput = it
-                                                isGroqKeyDirty = true
-                                            },
-                                            label = { Text(stringResource(R.string.settings_groq_key_label)) },
-                                            visualTransformation = PasswordVisualTransformation(),
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(stringResource(R.string.settings_get_api_key_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://console.groq.com/keys"))) })
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        BouncyButton(
-                                            onClick = {
-                                                viewModel.saveGroqApiKey(groqKeyInput)
-                                                viewModel.saveAiProvider(tempAiProvider)
-                                                isGroqKeyDirty = false
-                                                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_groq_saved)) }
-                                            },
-                                            enabled = isGroqKeyDirty || tempAiProvider != aiProvider,
-                                            modifier = Modifier.align(Alignment.End)
-                                        ) {
-                                            Text(stringResource(R.string.settings_save_key))
-                                        }
-                                    }
-                                }
-                                else -> {
-                                    Column {
-                                        val geminiKey = geminiKeyInput
-                                        val groqKey = groqKeyInput
-                                        val bothConfigured = geminiKey.isNotBlank() && groqKey.isNotBlank()
-
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(
-                                                stringResource(R.string.settings_provider_dynamic),
-                                                style = MaterialTheme.typography.titleMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.weight(1f, fill = false)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            BetaBadge()
-                                        }
-                                        Spacer(modifier = Modifier.height(8.dp))
-
-                                        Text(
-                                            text = stringResource(R.string.settings_dynamic_desc),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            text = stringResource(R.string.settings_dynamic_bullets),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Spacer(modifier = Modifier.height(12.dp))
-
-                                        val geminiStatus = if (geminiKey.isNotBlank()) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
-                                        val groqStatus = if (groqKey.isNotBlank()) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
-                                        Text(
-                                            text = stringResource(R.string.settings_dynamic_gemini_status, geminiStatus),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = if (geminiKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                                        )
-                                        Text(
-                                            text = stringResource(R.string.settings_dynamic_groq_status, groqStatus),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = if (groqKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                                        )
-                                        Spacer(modifier = Modifier.height(12.dp))
-
-                                        BouncyButton(
-                                            onClick = {
-                                                viewModel.saveAiProvider(tempAiProvider)
-                                                coroutineScope.launch {
-                                                    snackbarHostState.showSnackbar(
-                                                        context.getString(
-                                                            if (bothConfigured) R.string.snackbar_dynamic_enabled
-                                                            else R.string.snackbar_dynamic_needs_keys
-                                                        )
-                                                    )
-                                                }
-                                            },
-                                            enabled = tempAiProvider != aiProvider,
-                                            modifier = Modifier.align(Alignment.End)
-                                        ) {
-                                            Text(stringResource(R.string.settings_save_selection))
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // ---------- Recording Mode ----------
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(stringResource(R.string.recording_mode_title), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.weight(1f))
-                            BouncyIconButton(onClick = { showInfoDialog = true }) {
-                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        ExpressiveToggleGroup(
-                            selectedIndex = recordMode,
-                            onSelect = { newIndex ->
-                                if (recordMode != newIndex) {
-                                    if (isRecording) {
-                                        pendingModeSelection = newIndex
-                                        showWarningDialog = true
-                                    } else {
-                                        viewModel.saveRecordMode(newIndex)
-                                    }
-                                }
-                            },
-                            labels = listOf(
-                                stringResource(R.string.settings_fast),
-                                stringResource(R.string.settings_accurate)
-                            ),
-                            icons = listOf(
-                                Icons.Default.FlashOn,
-                                Icons.Default.GraphicEq
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        AnimatedVisibility(
-                            visible = recordMode == 1,
-                            enter = expandVertically(
-                                expandFrom = Alignment.Top,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioLowBouncy,
-                                    stiffness = Spring.StiffnessMediumLow
-                                )
-                            ) + fadeIn(
-                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
-                            ),
-                            exit = shrinkVertically(
-                                shrinkTowards = Alignment.Top,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioNoBouncy,
-                                    stiffness = Spring.StiffnessMedium
-                                )
-                            ) + fadeOut(
-                                animationSpec = spring(stiffness = Spring.StiffnessMedium)
-                            )
-                        ) {
-                            Column {
-                                Spacer(modifier = Modifier.height(20.dp))
-                                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(
-                                                stringResource(R.string.settings_live_transcript),
-                                                style = MaterialTheme.typography.titleMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.weight(1f, fill = false)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            BetaBadge()
-                                        }
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            stringResource(R.string.settings_live_transcript_desc),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Switch(
-                                        checked = liveTranscriptEnabled,
-                                        onCheckedChange = { viewModel.saveLiveTranscript(it) }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // ---------- Record in Background ----------
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(stringResource(R.string.settings_record_background), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    stringResource(R.string.settings_record_background_desc),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Switch(
-                                checked = backgroundRecordingEnabled,
-                                onCheckedChange = { enabled ->
-                                    viewModel.saveBackgroundRecording(enabled)
-                                    if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                        notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                                    }
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // ---------- Native Audio Picker (beta) ----------
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        stringResource(R.string.settings_native_picker),
-                                        style = MaterialTheme.typography.titleLarge,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f, fill = false)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    BetaBadge()
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    stringResource(R.string.settings_native_picker_desc),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Switch(
-                                checked = nativePickerEnabled,
-                                onCheckedChange = { viewModel.saveNativePicker(it) }
-                            )
-                        }
-                    }
-                }
-
-                // ---------- Auto Compression ----------
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                stringResource(R.string.settings_auto_compression),
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            BetaBadge()
-                            Spacer(modifier = Modifier.weight(1f))
-                            BouncyIconButton(onClick = { showCompressionInfoDialog = true }) {
-                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                        Text(
-                            stringResource(R.string.settings_auto_compression_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
-                        )
-                        TextToggleGroup(
-                            selectedIndex = autoCompressionMode,
-                            onSelect = { viewModel.saveAutoCompressionMode(it) },
-                            labels = listOf(
-                                stringResource(R.string.settings_compression_off),
-                                stringResource(R.string.settings_compression_balanced),
-                                stringResource(R.string.settings_compression_max)
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-
-                // ---------- Appearance ----------
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text(stringResource(R.string.settings_appearance), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        ExpressiveToggleGroup(
-                            selectedIndex = themeMode,
-                            onSelect = { viewModel.saveThemeMode(it) },
-                            labels = listOf(
-                                stringResource(R.string.settings_theme_auto),
-                                stringResource(R.string.settings_theme_light),
-                                stringResource(R.string.settings_theme_dark),
-                                stringResource(R.string.settings_theme_amoled)
-                            ),
-                            icons = listOf(
-                                Icons.Default.PhoneAndroid,
-                                Icons.Default.LightMode,
-                                Icons.Default.DarkMode,
-                                Icons.Default.Contrast
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-
-                // ---------- Color Palette ----------
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(stringResource(R.string.settings_color_palette), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.weight(1f))
-                            BouncyIconButton(onClick = { showColorInfoDialog = true }) {
-                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                        Text(
-                            stringResource(R.string.settings_color_palette_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
-                        )
-                        SettingsSelectorRow(
-                            icon = Icons.Default.Palette,
-                            label = stringResource(R.string.settings_color_style),
-                            value = com.obinot.app.ui.theme.ColorStyle.entries.getOrElse(colorStyle) { com.obinot.app.ui.theme.ColorStyle.TONAL_SPOT }.label,
-                            onClick = { showColorPaletteSheet = true }
-                        )
-                    }
-                }
-
-                // ---------- Data & System ----------
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(stringResource(R.string.settings_data_system), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.weight(1f))
-                            BouncyIconButton(onClick = { showBackupInfoDialog = true }) {
-                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // --- Backup v2 (.obinotbak extendido) ---
-                        Text(
-                            stringResource(R.string.settings_full_backup),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            stringResource(R.string.settings_full_backup_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            BouncyOutlinedButton(
-                                onClick = { importLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) },
-                                modifier = Modifier.weight(1f)
-                            ) { Text(stringResource(R.string.settings_import)) }
-                            BouncyButton(
-                                onClick = { exportLauncher.launch("Obinot_Backup_${formatter.format(Date())}.obinotbak") },
-                                modifier = Modifier.weight(1f)
-                            ) { Text(stringResource(R.string.settings_backup)) }
-                        }
-
-                        Spacer(modifier = Modifier.height(20.dp))
-                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        // --- Backup legacy (.binotbak v1) ---
-                        Text(
-                            stringResource(R.string.settings_legacy_backup),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            stringResource(R.string.settings_legacy_backup_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        BouncyOutlinedButton(
-                            onClick = { exportLegacyLauncher.launch("Obinot_Legacy_${formatter.format(Date())}.binotbak") },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text(stringResource(R.string.settings_backup_legacy_button)) }
-
-                        Spacer(modifier = Modifier.height(20.dp))
-                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        // --- App Version + Update ---
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                                Text(stringResource(R.string.settings_app_version), style = MaterialTheme.typography.bodyLarge)
-                                Text("v$currentVersion", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-
-                                if (updateState == UpdateState.Downloading) {
-                                    val animatedProgress by animateFloatAsState(targetValue = downloadProgress / 100f, label = "progress")
-                                    Spacer(Modifier.height(8.dp))
-                                    LinearWavyProgressIndicator(progress = { animatedProgress }, modifier = Modifier.fillMaxWidth().height(6.dp), color = MaterialTheme.colorScheme.primary)
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(stringResource(R.string.settings_downloading_progress, downloadProgress), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                                } else if (updateState == UpdateState.Available) {
-                                    Text(stringResource(R.string.settings_new_version_ready, latestVersionStr), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                                } else if (updateState == UpdateState.Error) {
-                                    Text(stringResource(R.string.settings_update_failed, latestVersionStr), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                                } else if (updateState == UpdateState.Idle && latestVersionStr.isNotBlank()) {
-                                    Text(stringResource(R.string.settings_up_to_date), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                                }
-                            }
-                            when (updateState) {
-                                UpdateState.Idle -> BouncyButton(onClick = { viewModel.checkForUpdate(context, currentVersion) }) { Text(stringResource(R.string.settings_check_update)) }
-                                UpdateState.Checking -> Button(onClick = {}, enabled = false) { LoadingIndicator(modifier = Modifier.size(20.dp)) }
-                                UpdateState.Available -> BouncyButton(onClick = { viewModel.startDownload(context) }) { Text(stringResource(R.string.settings_update_app)) }
-                                UpdateState.Downloading -> OutlinedButton(onClick = {}) { Text(stringResource(R.string.settings_downloading)) }
-                                UpdateState.Downloaded -> BouncyButton(onClick = { viewModel.promptInstall(context) }) { Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(6.dp)); Text(stringResource(R.string.settings_install)) }
-                                UpdateState.Error -> BouncyOutlinedButton(onClick = { viewModel.checkForUpdate(context, currentVersion) }) { Icon(Icons.Default.Error, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(6.dp)); Text(stringResource(R.string.settings_retry)) }
-                            }
-                        }
-                    }
-                }
-
-                // ---------- Support cards ----------
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .bouncyClickable {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LexicoON/Obinot"))
-                            context.startActivity(intent)
-                        }
-                ) {
-                    Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column {
-                            Text(stringResource(R.string.settings_github_repo), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                            Text(stringResource(R.string.settings_github_repo_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        personalizationCard()
+                        appLanguageCard()
+                        globalAiPrefsCard()
+                        aiConfigurationCard()
+                        recordingModeCard()
+                        recordInBackgroundCard()
+                        nativePickerCard()
+                        autoCompressionCard()
+                        appearanceCard()
+                        colorPaletteCard()
+                        dataSystemCard()
+                        supportCard()
                     }
                 }
 

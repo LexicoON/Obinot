@@ -4,6 +4,8 @@ package com.obinot.app.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -237,9 +239,14 @@ fun OnboardingScreen(
                 modifier = Modifier
                     .fillMaxSize()
             ) { page ->
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .widthIn(max = 520.dp)
+                        .fillMaxWidth()
                         .padding(horizontal = 32.dp, vertical = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
@@ -805,6 +812,7 @@ fun OnboardingScreen(
                             }
                         }
                     }
+                }
                 }
             }
         }

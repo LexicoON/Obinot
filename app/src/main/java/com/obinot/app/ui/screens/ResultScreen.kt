@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color as AndroidColor
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -96,6 +97,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -156,6 +158,11 @@ fun ResultScreen(
     val labelColors by viewModel.labelColors.collectAsState()
     val showAnalyzeChip by viewModel.showAnalyzeChip.collectAsState()
 
+    // Detección de orientación. En landscape el side panel pasa a ser permanente
+    // en la columna derecha; en portrait sigue siendo un ModalBottomSheet.
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     val hasPhoneTranscription = remember(note?.rawText) {
         note?.rawText?.startsWith(AudioRecorderManager.PHONE_TRANSCRIPTION_MARKER) == true
     }
@@ -208,10 +215,6 @@ fun ResultScreen(
         selectionResetKey++
     }
 
-    // Reemplazo de LazyListState por ScrollState: MarkdownText ya no es lazy
-    // (ver comentario en MarkdownText.kt), así que necesitamos pixel-scroll.
-    // markdownLinePositions se llena desde dentro de MarkdownText para permitir
-    // el scroll-to-search-result sin LazyListState.
     val markdownScrollState = rememberScrollState()
     val markdownLinePositions: SnapshotStateMap<Int, Int> = remember { mutableStateMapOf() }
 
@@ -284,7 +287,7 @@ fun ResultScreen(
             clearSelection()
         } else if (showCancelConfirmDialog) {
             showCancelConfirmDialog = false
-        } else if (showSidePanel) {
+        } else if (showSidePanel && !isLandscape) {
             showSidePanel = false
         } else if (isEditMode) {
             if (hasUnsavedChanges) showCancelConfirmDialog = true else isEditMode = false
@@ -341,6 +344,337 @@ fun ResultScreen(
 
     val topInsets = WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
     val safeTopMargin = if (topInsets < 24.dp) 24.dp else topInsets
+
+    // ============================================================
+    // Contenido del side panel (labels + find/format + font + export/media).
+    //
+    // Se extrajo a una lambda @Composable para poder reutilizarlo en los dos
+    // layouts:
+    //   - Portrait: dentro de ModalBottomSheet (comportamiento actual).
+    //   - Landscape: columna fija a la derecha del contenido.
+    //
+    // La lambda captura el estado del composable padre. Cualquier acción que
+    // requiera cerrar el sheet en portrait (mostrar picker, restaurar rawText,
+    // etc.) también cierra el sheet explícitamente vía `showSidePanel = false`.
+    // En landscape esa línea es un no-op (el sheet no está abierto).
+    // ============================================================
+    val sidePanelContent: @Composable (Modifier) -> Unit = { modifier ->
+        Column(
+            modifier = modifier
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 24.dp)
+        ) {
+            PanelSectionHeader(icon = Icons.AutoMirrored.Filled.Label, title = stringResource(R.string.result_section_labels))
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(allLabels.filter { it.isNotBlank() }) { label ->
+                    val activeLabels = note!!.label?.split("|")?.map { it.trim() } ?: emptyList()
+                    val isSelected = activeLabels.contains(label)
+                    val assignedHex = labelColors[label]
+
+                    val (chipColor, chipTextColor) = resolveLabelColors(assignedHex, isSelected)
+
+                    BouncyChip(
+                        onClick = { viewModel.toggleLabel(label) },
+                        containerColor = chipColor,
+                        contentColor = chipTextColor
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Label, null, tint = chipTextColor, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(label, color = chipTextColor, fontWeight = FontWeight.Bold)
+                    }
+                }
+                item {
+                    BouncyChip(
+                        onClick = { showNewLabelDialog = true },
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    ) {
+                        Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.result_new_label_chip), color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            SectionSpacer()
+
+            PanelSectionHeader(icon = Icons.Default.Search, title = stringResource(R.string.result_section_find_format))
+            OutlinedTextField(
+                value = searchHighlightQuery,
+                onValueChange = { searchHighlightQuery = it },
+                label = { Text(stringResource(R.string.result_find_placeholder)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.common_search)) },
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            val cleanSummaryForSearch = remember(note!!.summary) {
+                note!!.summary?.replace(Regex("<!--BINOT_META:.*?-->"), "")?.trimEnd()
+            }
+            val textToSearch = cleanSummaryForSearch ?: note!!.rawText
+            val lines = remember(textToSearch) { textToSearch.split("\n") }
+            val searchResults = remember(lines, searchHighlightQuery) {
+                if (searchHighlightQuery.isBlank()) emptyList()
+                else lines.mapIndexedNotNull { index, line ->
+                    if (line.contains(searchHighlightQuery, ignoreCase = true)) {
+                        index to line.trim()
+                    } else null
+                }
+            }
+
+            if (searchHighlightQuery.isNotBlank() && searchResults.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 150.dp)) {
+                    items(searchResults) { (index, line) ->
+                        Text(
+                            text = line, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                coroutineScope.launch {
+                                    temporaryHighlight = searchHighlightQuery
+                                    if (note!!.summary != null) {
+                                        val target = markdownLinePositions[index]
+                                            ?: markdownLinePositions.keys.filter { it <= index }.maxOrNull()?.let { markdownLinePositions[it] }
+                                        if (target != null) {
+                                            markdownScrollState.animateScrollTo(target)
+                                        }
+                                    } else {
+                                        rawTextScrollState.animateScrollTo(index * 60)
+                                    }
+                                    showSidePanel = false
+                                    delay(4000)
+                                    temporaryHighlight = ""
+                                }
+                            }.padding(vertical = 12.dp, horizontal = 8.dp)
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                    }
+                }
+            }
+
+            SectionSpacer()
+
+            PanelSectionHeader(icon = Icons.Default.TextFields, title = stringResource(R.string.result_section_reading_font))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SegmentedButton(
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
+                    onClick = { selectedFont = FontFamily.SansSerif },
+                    selected = selectedFont == FontFamily.SansSerif
+                ) { Text(stringResource(R.string.result_font_sans)) }
+                SegmentedButton(
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
+                    onClick = { selectedFont = FontFamily.Serif },
+                    selected = selectedFont == FontFamily.Serif
+                ) { Text(stringResource(R.string.result_font_serif)) }
+                SegmentedButton(
+                    shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+                    onClick = { selectedFont = FontFamily.Monospace },
+                    selected = selectedFont == FontFamily.Monospace
+                ) { Text(stringResource(R.string.result_font_mono)) }
+            }
+
+            SectionSpacer()
+
+            PanelSectionHeader(icon = Icons.Default.Tune, title = stringResource(R.string.result_section_export_media))
+
+            if (note!!.audioPath == null) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                ) {
+                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = stringResource(R.string.result_no_audio_info),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+            }
+
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (note!!.summary != null) {
+                    item {
+                        BouncyCapsule(
+                            onClick = {
+                                viewModel.restoreRawText()
+                                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.result_summary_removed)) }
+                                showSidePanel = false
+                            },
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        ) {
+                            Icon(Icons.Default.Restore, contentDescription = stringResource(R.string.result_restore_original), tint = MaterialTheme.colorScheme.onErrorContainer)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.result_restore_original), color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                item {
+                    BouncyCapsule(
+                        onClick = {
+                            showSidePanel = false
+                            showAudioPicker = true
+                        },
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                    ) {
+                        Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            if (note!!.audioPath == null) stringResource(R.string.result_add_audio) else stringResource(R.string.result_replace_audio),
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                if (note!!.audioPath != null) {
+                    item {
+                        val playInteraction = remember { MutableInteractionSource() }
+                        val playScale = remember { Animatable(1f) }
+                        LaunchedEffect(playInteraction) {
+                            playInteraction.interactions.collect { i ->
+                                when (i) {
+                                    is PressInteraction.Press -> playScale.animateTo(0.92f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium))
+                                    is PressInteraction.Release, is PressInteraction.Cancel -> playScale.animateTo(1f, spring(0.40f, Spring.StiffnessMediumLow))
+                                }
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .graphicsLayer {
+                                    scaleX = playScale.value
+                                    scaleY = playScale.value
+                                }
+                                .height(48.dp).clip(CircleShape)
+                                .background(if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer)
+                                .clickable(
+                                    interactionSource = playInteraction,
+                                    indication = null,
+                                    onClick = { viewModel.toggleAudio() }
+                                )
+                                .padding(horizontal = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    contentDescription = stringResource(R.string.result_cd_play_pause),
+                                    tint = if (isPlaying) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    if (isPlaying) stringResource(R.string.result_pause) else stringResource(R.string.result_play),
+                                    color = if (isPlaying) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                    }
+
+                    item {
+                        BouncyCapsule(
+                            onClick = { exportAudioLauncher.launch("Obinot_Audio_${note!!.id}.mp4") },
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = stringResource(R.string.result_save_audio_button), tint = MaterialTheme.colorScheme.onSurface)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.result_save_audio_button), color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                }
+
+                item {
+                    BouncyCapsule(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val cleanSummaryToCopy = note!!.summary?.replace(Regex("<!--BINOT_META:.*?-->"), "")?.trimEnd()
+                            clipboard.setPrimaryClip(ClipData.newPlainText("Obinot Note", cleanSummaryToCopy ?: note!!.rawText))
+                            coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.result_text_copied)) }
+                            showSidePanel = false
+                        },
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.result_copy), tint = MaterialTheme.colorScheme.onSurface)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.result_copy), color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+
+                item {
+                    BouncyCapsule(
+                        onClick = {
+                            viewModel.shareBinotFile(context) { uri, msg ->
+                                if (uri != null) {
+                                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "application/zip"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        putExtra(Intent.EXTRA_TEXT, context.getString(R.string.result_share_text, note!!.title))
+                                        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                    }
+                                    context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.result_share_chooser)))
+                                } else {
+                                    coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
+                                }
+                            }
+                            showSidePanel = false
+                        },
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = stringResource(R.string.result_share_binot), tint = MaterialTheme.colorScheme.onSurface)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.result_share_binot), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                item {
+                    BouncyCapsule(
+                        onClick = {
+                            viewModel.exportMarkdownFile(context) { uri, msg ->
+                                if (uri != null) {
+                                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/markdown"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        putExtra(Intent.EXTRA_TEXT, context.getString(R.string.result_share_text_markdown, note!!.title))
+                                        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                    }
+                                    context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.result_share_markdown_chooser)))
+                                } else {
+                                    coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
+                                }
+                            }
+                            showSidePanel = false
+                        },
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Icon(Icons.Default.Description, contentDescription = stringResource(R.string.result_export_markdown), tint = MaterialTheme.colorScheme.onSurface)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.result_export_markdown), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            if (note!!.audioPath != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Slider(
+                    value = playbackProgress,
+                    onValueChange = { viewModel.seekAudio(it) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
 
     with(sharedTransitionScope) {
         Scaffold(
@@ -410,9 +744,6 @@ fun ResultScreen(
                         }
                     },
                     navigationIcon = {
-                        // expandOnPress = 3.dp: está pegado al borde izquierdo del
-                        // top bar (que no tiene padding horizontal), así que una
-                        // expansión grande lo sacaría de la pantalla.
                         BouncyIconButton(
                             onClick = {
                                 if (isTitleFocused) focusManager.clearFocus()
@@ -457,8 +788,9 @@ fun ResultScreen(
                                         Icon(imageVector = Icons.AutoMirrored.Filled.Redo, contentDescription = stringResource(R.string.result_cd_redo), tint = if (redoStack.isNotEmpty()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
                                     }
                                 }
-                            } else {
-                                // Mismo caso que Back: pegado al borde derecho.
+                            } else if (!isLandscape) {
+                                // En landscape el side panel está siempre visible,
+                                // así que el botón 3-puntos no hace falta.
                                 BouncyIconButton(
                                     onClick = { showSidePanel = true },
                                     expandOnPress = 3.dp
@@ -522,6 +854,10 @@ fun ResultScreen(
                                         exit = scaleOut(targetScale = 0f, animationSpec = tween(300))
                                     )
                                 })
+                                // En landscape el side panel está a la derecha, así
+                                // que corremos el FAB hacia la izquierda para que no
+                                // quede debajo del panel.
+                                .padding(end = if (isLandscape) 360.dp else 0.dp)
                         )
                     }
                 }
@@ -565,349 +901,374 @@ fun ResultScreen(
                             }
                         }
                 ) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        if (showAnalyzeChip) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                            ) {
-                                BouncyChip(
-                                    onClick = { viewModel.analyzeManually() },
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.AutoAwesome,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        text = stringResource(R.string.result_analyze_chip),
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        // Columna izquierda: contenido.
+                        // En portrait ocupa el 100%; en landscape se queda con el
+                        // espacio restante después del panel (360dp).
+                        Column(
+                            modifier = if (isLandscape) {
+                                Modifier.weight(1f).fillMaxHeight()
+                            } else {
+                                Modifier.fillMaxSize()
                             }
-                        }
-
-                        if (isLoading) {
-                            val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
-                            val alpha by infiniteTransition.animateFloat(
-                                initialValue = 0.2f,
-                                targetValue = 0.6f,
-                                animationSpec = infiniteRepeatable(
-                                    animation = tween(800, easing = LinearEasing),
-                                    repeatMode = RepeatMode.Reverse
-                                ),
-                                label = "shimmer_alpha"
-                            )
-                            val skeletonColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
-
-                            Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
-                                Box(modifier = Modifier.fillMaxWidth(0.6f).height(28.dp).clip(RoundedCornerShape(8.dp)).background(skeletonColor))
-                                Spacer(modifier = Modifier.height(24.dp))
-                                Box(modifier = Modifier.fillMaxWidth().height(14.dp).clip(RoundedCornerShape(4.dp)).background(skeletonColor))
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Box(modifier = Modifier.fillMaxWidth().height(14.dp).clip(RoundedCornerShape(4.dp)).background(skeletonColor))
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Box(modifier = Modifier.fillMaxWidth(0.8f).height(14.dp).clip(RoundedCornerShape(4.dp)).background(skeletonColor))
-                                Spacer(modifier = Modifier.height(24.dp))
-                                Box(modifier = Modifier.fillMaxWidth(0.4f).height(14.dp).clip(RoundedCornerShape(4.dp)).background(skeletonColor))
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Box(modifier = Modifier.fillMaxWidth(0.9f).height(14.dp).clip(RoundedCornerShape(4.dp)).background(skeletonColor))
-
-                                Spacer(modifier = Modifier.height(48.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center,
-                                    modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (showAnalyzeChip) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 4.dp)
                                 ) {
-                                    AiThinkingAnimation(color = MaterialTheme.colorScheme.primary)
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Text(
-                                        text = loadingMessage.ifBlank { stringResource(R.string.result_processing) },
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-
-                        if (error != null && note!!.rawText == AudioRecorderManager.PENDING_TRANSCRIPTION && note!!.audioPath != null) {
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                shape = RoundedCornerShape(24.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Text(stringResource(R.string.result_error_api_title), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(error!!, color = MaterialTheme.colorScheme.onErrorContainer, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
-                                    Spacer(modifier = Modifier.height(32.dp))
-
-                                    val playInteraction = remember { MutableInteractionSource() }
-                                    val playScale = remember { Animatable(1f) }
-                                    LaunchedEffect(playInteraction) {
-                                        playInteraction.interactions.collect { i ->
-                                            when (i) {
-                                                is PressInteraction.Press -> playScale.animateTo(0.90f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium))
-                                                is PressInteraction.Release, is PressInteraction.Cancel -> playScale.animateTo(1f, spring(0.40f, Spring.StiffnessMediumLow))
-                                            }
-                                        }
-                                    }
-
-                                    Box(
-                                        modifier = Modifier
-                                            .size(80.dp)
-                                            .graphicsLayer {
-                                                scaleX = playScale.value
-                                                scaleY = playScale.value
-                                            }
-                                            .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.error)
-                                            .clickable(interactionSource = playInteraction, indication = null) { viewModel.toggleAudio() },
-                                        contentAlignment = Alignment.Center
+                                    BouncyChip(
+                                        onClick = { viewModel.analyzeManually() },
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                     ) {
                                         Icon(
-                                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                            contentDescription = stringResource(R.string.result_cd_play_pause),
-                                            tint = MaterialTheme.colorScheme.onError,
-                                            modifier = Modifier.size(40.dp)
+                                            imageVector = Icons.Default.AutoAwesome,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
                                         )
-                                    }
-                                    Spacer(modifier = Modifier.height(24.dp))
-                                    Slider(
-                                        value = playbackProgress,
-                                        onValueChange = { viewModel.seekAudio(it) },
-                                        colors = SliderDefaults.colors(
-                                            thumbColor = MaterialTheme.colorScheme.error,
-                                            activeTrackColor = MaterialTheme.colorScheme.error
-                                        ),
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                    Spacer(modifier = Modifier.height(24.dp))
-                                    BouncyCapsule(
-                                        onClick = { exportAudioLauncher.launch("Obinot_Audio_Fallback_${note!!.id}.mp4") },
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                                    ) {
-                                        Icon(Icons.Default.Download, contentDescription = stringResource(R.string.result_save_audio), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(stringResource(R.string.result_save_audio), color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = stringResource(R.string.result_analyze_chip),
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     }
                                 }
                             }
-                        } else if (error != null) {
-                            Text(
-                                text = error!!,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(16.dp)
-                            )
+
+                            if (isLoading) {
+                                val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
+                                val alpha by infiniteTransition.animateFloat(
+                                    initialValue = 0.2f,
+                                    targetValue = 0.6f,
+                                    animationSpec = infiniteRepeatable(
+                                        animation = tween(800, easing = LinearEasing),
+                                        repeatMode = RepeatMode.Reverse
+                                    ),
+                                    label = "shimmer_alpha"
+                                )
+                                val skeletonColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
+
+                                Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+                                    Box(modifier = Modifier.fillMaxWidth(0.6f).height(28.dp).clip(RoundedCornerShape(8.dp)).background(skeletonColor))
+                                    Spacer(modifier = Modifier.height(24.dp))
+                                    Box(modifier = Modifier.fillMaxWidth().height(14.dp).clip(RoundedCornerShape(4.dp)).background(skeletonColor))
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Box(modifier = Modifier.fillMaxWidth().height(14.dp).clip(RoundedCornerShape(4.dp)).background(skeletonColor))
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Box(modifier = Modifier.fillMaxWidth(0.8f).height(14.dp).clip(RoundedCornerShape(4.dp)).background(skeletonColor))
+                                    Spacer(modifier = Modifier.height(24.dp))
+                                    Box(modifier = Modifier.fillMaxWidth(0.4f).height(14.dp).clip(RoundedCornerShape(4.dp)).background(skeletonColor))
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Box(modifier = Modifier.fillMaxWidth(0.9f).height(14.dp).clip(RoundedCornerShape(4.dp)).background(skeletonColor))
+
+                                    Spacer(modifier = Modifier.height(48.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        AiThinkingAnimation(color = MaterialTheme.colorScheme.primary)
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Text(
+                                            text = loadingMessage.ifBlank { stringResource(R.string.result_processing) },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+
+                            if (error != null && note!!.rawText == AudioRecorderManager.PENDING_TRANSCRIPTION && note!!.audioPath != null) {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                    shape = RoundedCornerShape(24.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Text(stringResource(R.string.result_error_api_title), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(error!!, color = MaterialTheme.colorScheme.onErrorContainer, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
+                                        Spacer(modifier = Modifier.height(32.dp))
+
+                                        val playInteraction = remember { MutableInteractionSource() }
+                                        val playScale = remember { Animatable(1f) }
+                                        LaunchedEffect(playInteraction) {
+                                            playInteraction.interactions.collect { i ->
+                                                when (i) {
+                                                    is PressInteraction.Press -> playScale.animateTo(0.90f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium))
+                                                    is PressInteraction.Release, is PressInteraction.Cancel -> playScale.animateTo(1f, spring(0.40f, Spring.StiffnessMediumLow))
+                                                }
+                                            }
+                                        }
+
+                                        Box(
+                                            modifier = Modifier
+                                                .size(80.dp)
+                                                .graphicsLayer {
+                                                    scaleX = playScale.value
+                                                    scaleY = playScale.value
+                                                }
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.error)
+                                                .clickable(interactionSource = playInteraction, indication = null) { viewModel.toggleAudio() },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                                contentDescription = stringResource(R.string.result_cd_play_pause),
+                                                tint = MaterialTheme.colorScheme.onError,
+                                                modifier = Modifier.size(40.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(24.dp))
+                                        Slider(
+                                            value = playbackProgress,
+                                            onValueChange = { viewModel.seekAudio(it) },
+                                            colors = SliderDefaults.colors(
+                                                thumbColor = MaterialTheme.colorScheme.error,
+                                                activeTrackColor = MaterialTheme.colorScheme.error
+                                            ),
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                        Spacer(modifier = Modifier.height(24.dp))
+                                        BouncyCapsule(
+                                            onClick = { exportAudioLauncher.launch("Obinot_Audio_Fallback_${note!!.id}.mp4") },
+                                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                        ) {
+                                            Icon(Icons.Default.Download, contentDescription = stringResource(R.string.result_save_audio), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(stringResource(R.string.result_save_audio), color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            } else if (error != null) {
+                                Text(
+                                    text = error!!,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                            }
+
+                            if (!note!!.summary.isNullOrEmpty() && !isLoading) {
+                                CompositionLocalProvider(LocalTextToolbar provides customTextToolbar) {
+                                    key(selectionResetKey) {
+                                        SelectionContainer(modifier = Modifier.fillMaxSize().clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
+                                            if (isTitleFocused) focusManager.clearFocus()
+                                        }) {
+                                            val cleanSummary = remember(note!!.summary) {
+                                                note!!.summary!!.replace(Regex("<!--BINOT_META:.*?-->"), "").trimEnd()
+                                            }
+                                            MarkdownText(
+                                                text = cleanSummary,
+                                                scrollState = markdownScrollState,
+                                                highlightsInfo = note!!.highlightsInfo,
+                                                onSavedHighlightClick = { word, noteText, line, start, end ->
+                                                    currentHighlightWord = word
+                                                    highlightNoteInput = noteText
+                                                    pendingHighlightLine = line
+                                                    pendingHighlightStart = start
+                                                    pendingHighlightEnd = end
+                                                    showHighlightDialog = true
+                                                },
+                                                onResolveSelection = { resolver -> resolveMarkdownSelection = resolver },
+                                                highlightQuery = temporaryHighlight,
+                                                onCheckboxToggle = { lineIndex -> viewModel.toggleCheckbox(lineIndex) },
+                                                fontFamily = selectedFont,
+                                                linePositions = markdownLinePositions,
+                                                modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            } else if (!isLoading && note!!.rawText != AudioRecorderManager.PENDING_TRANSCRIPTION) {
+                                if (isEditMode) {
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
+                                            .padding(bottom = 16.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                                .padding(16.dp)
+                                        ) {
+                                            BasicTextField(
+                                                value = textValue,
+                                                onValueChange = { newValue ->
+                                                    if (newValue.text != textValue.text) {
+                                                        undoStack.add(textValue)
+                                                        redoStack.clear()
+                                                    }
+                                                    textValue = newValue
+                                                },
+                                                modifier = Modifier.fillMaxSize(),
+                                                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    fontFamily = selectedFont
+                                                ),
+                                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    val rawPrefix = "Raw Transcript:\n\n"
+                                    val savedRawHighlights = remember(note!!.highlightsInfo) {
+                                        val list = mutableListOf<Triple<String, Int, Int>>()
+                                        val json = note!!.highlightsInfo
+                                        if (!json.isNullOrBlank() && json != "[]") {
+                                            try {
+                                                val array = org.json.JSONArray(json)
+                                                for (i in 0 until array.length()) {
+                                                    val obj = array.getJSONObject(i)
+                                                    if (obj.optInt("line", -1) == -1 && obj.optInt("start", -1) >= 0) {
+                                                        list.add(Triple(obj.getString("text"), obj.getInt("start"), obj.getInt("end")))
+                                                    }
+                                                }
+                                            } catch (e: Exception) { e.printStackTrace() }
+                                        }
+                                        list
+                                    }
+                                    val rawHighlightNotesByKey = remember(note!!.highlightsInfo) {
+                                        val map = mutableMapOf<String, String>()
+                                        val json = note!!.highlightsInfo
+                                        if (!json.isNullOrBlank() && json != "[]") {
+                                            try {
+                                                val array = org.json.JSONArray(json)
+                                                for (i in 0 until array.length()) {
+                                                    val obj = array.getJSONObject(i)
+                                                    val isRaw = obj.optInt("line", -1) == -1
+                                                    if (!isRaw) continue
+                                                    val start = obj.optInt("start", -1)
+                                                    val key = if (start >= 0) "${obj.getInt("start")}:${obj.getInt("end")}" else "legacy:${obj.getString("text")}"
+                                                    map[key] = obj.getString("note")
+                                                }
+                                            } catch (e: Exception) { e.printStackTrace() }
+                                        }
+                                        map
+                                    }
+                                    val legacyRawHighlights = remember(note!!.highlightsInfo) {
+                                        val map = mutableMapOf<String, String>()
+                                        val json = note!!.highlightsInfo
+                                        if (!json.isNullOrBlank() && json != "[]") {
+                                            try {
+                                                val array = org.json.JSONArray(json)
+                                                for (i in 0 until array.length()) {
+                                                    val obj = array.getJSONObject(i)
+                                                    if (obj.optInt("line", -1) == -1 && obj.optInt("start", -1) < 0) {
+                                                        map[obj.getString("text")] = obj.getString("note")
+                                                    }
+                                                }
+                                            } catch (e: Exception) { e.printStackTrace() }
+                                        }
+                                        map
+                                    }
+                                    val rawSavedHighlightColor = MaterialTheme.colorScheme.tertiaryContainer
+                                    val rawSavedHighlightTextColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                    val rawTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+
+                                    val displayRawText = remember(note!!.rawText) {
+                                        if (note!!.rawText.startsWith(AudioRecorderManager.PHONE_TRANSCRIPTION_MARKER)) {
+                                            note!!.rawText
+                                                .removePrefix(AudioRecorderManager.PHONE_TRANSCRIPTION_MARKER)
+                                                .trimStart('\n', ' ')
+                                        } else {
+                                            note!!.rawText
+                                        }
+                                    }
+                                    val rawAnnotatedString = remember(displayRawText, savedRawHighlights, legacyRawHighlights, temporaryHighlight, rawSavedHighlightColor, rawSavedHighlightTextColor, rawTextColor) {
+                                        buildHighlightedString(
+                                            prefix = rawPrefix,
+                                            text = displayRawText,
+                                            query = temporaryHighlight,
+                                            savedHighlights = savedRawHighlights,
+                                            legacyHighlights = legacyRawHighlights,
+                                            highlightColor = Color.Yellow.copy(alpha = 0.5f),
+                                            savedHighlightColor = rawSavedHighlightColor,
+                                            savedHighlightTextColor = rawSavedHighlightTextColor,
+                                            textColor = rawTextColor
+                                        )
+                                    }
+
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
+                                            .verticalScroll(rawTextScrollState)
+                                    ) {
+                                        if (hasPhoneTranscription) {
+                                            PhoneTranscriptionBanner(
+                                                onReanalyze = { viewModel.reanalyzeWithAI() }
+                                            )
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                        }
+                                        SelectionContainer {
+                                            Text(
+                                                text = rawAnnotatedString,
+                                                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = selectedFont),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .onGloballyPositioned { coordinates ->
+                                                        rawTextWindowBounds = coordinates.boundsInWindow()
+                                                    }
+                                                    .pointerInput(rawAnnotatedString) {
+                                                        detectTapGestures { pos ->
+                                                            rawTextLayoutResult?.let { layoutResult ->
+                                                                val offset = layoutResult.getOffsetForPosition(pos)
+                                                                rawAnnotatedString.getStringAnnotations(tag = "SAVED_HIGHLIGHT", start = offset, end = offset)
+                                                                    .firstOrNull()?.let { annotation ->
+                                                                        val parts = annotation.item.split("@@KEY@@")
+                                                                        val displayWord = parts.getOrElse(0) { "" }
+                                                                        val key = parts.getOrNull(1) ?: "legacy:$displayWord"
+                                                                        currentHighlightWord = displayWord
+                                                                        highlightNoteInput = rawHighlightNotesByKey[key] ?: ""
+                                                                        if (key.startsWith("legacy:")) {
+                                                                            pendingHighlightLine = -1
+                                                                            pendingHighlightStart = -1
+                                                                            pendingHighlightEnd = -1
+                                                                        } else {
+                                                                            val (s, e) = key.split(":").map { it.toInt() }
+                                                                            pendingHighlightLine = -1
+                                                                            pendingHighlightStart = s
+                                                                            pendingHighlightEnd = e
+                                                                        }
+                                                                        showHighlightDialog = true
+                                                                    }
+                                                            }
+                                                        }
+                                                    },
+                                                onTextLayout = { rawTextLayoutResult = it }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
 
-                        if (!note!!.summary.isNullOrEmpty() && !isLoading) {
-                            CompositionLocalProvider(LocalTextToolbar provides customTextToolbar) {
-                                key(selectionResetKey) {
-                                    SelectionContainer(modifier = Modifier.fillMaxSize().clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null
-                                    ) {
-                                        if (isTitleFocused) focusManager.clearFocus()
-                                    }) {
-                                        val cleanSummary = remember(note!!.summary) {
-                                            note!!.summary!!.replace(Regex("<!--BINOT_META:.*?-->"), "").trimEnd()
-                                        }
-                                        MarkdownText(
-                                            text = cleanSummary,
-                                            scrollState = markdownScrollState,
-                                            highlightsInfo = note!!.highlightsInfo,
-                                            onSavedHighlightClick = { word, noteText, line, start, end ->
-                                                currentHighlightWord = word
-                                                highlightNoteInput = noteText
-                                                pendingHighlightLine = line
-                                                pendingHighlightStart = start
-                                                pendingHighlightEnd = end
-                                                showHighlightDialog = true
-                                            },
-                                            onResolveSelection = { resolver -> resolveMarkdownSelection = resolver },
-                                            highlightQuery = temporaryHighlight,
-                                            onCheckboxToggle = { lineIndex -> viewModel.toggleCheckbox(lineIndex) },
-                                            fontFamily = selectedFont,
-                                            linePositions = markdownLinePositions,
-                                            modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        } else if (!isLoading && note!!.rawText != AudioRecorderManager.PENDING_TRANSCRIPTION) {
-                            if (isEditMode) {
-                                Column(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp)
-                                        .padding(bottom = 16.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                            .padding(16.dp)
-                                    ) {
-                                        BasicTextField(
-                                            value = textValue,
-                                            onValueChange = { newValue ->
-                                                if (newValue.text != textValue.text) {
-                                                    undoStack.add(textValue)
-                                                    redoStack.clear()
-                                                }
-                                                textValue = newValue
-                                            },
-                                            modifier = Modifier.fillMaxSize(),
-                                            textStyle = MaterialTheme.typography.bodyLarge.copy(
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                                fontFamily = selectedFont
-                                            ),
-                                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
-                                        )
-                                    }
-                                }
-                            } else {
-                                val rawPrefix = "Raw Transcript:\n\n"
-                                val savedRawHighlights = remember(note!!.highlightsInfo) {
-                                    val list = mutableListOf<Triple<String, Int, Int>>()
-                                    val json = note!!.highlightsInfo
-                                    if (!json.isNullOrBlank() && json != "[]") {
-                                        try {
-                                            val array = org.json.JSONArray(json)
-                                            for (i in 0 until array.length()) {
-                                                val obj = array.getJSONObject(i)
-                                                if (obj.optInt("line", -1) == -1 && obj.optInt("start", -1) >= 0) {
-                                                    list.add(Triple(obj.getString("text"), obj.getInt("start"), obj.getInt("end")))
-                                                }
-                                            }
-                                        } catch (e: Exception) { e.printStackTrace() }
-                                    }
-                                    list
-                                }
-                                val rawHighlightNotesByKey = remember(note!!.highlightsInfo) {
-                                    val map = mutableMapOf<String, String>()
-                                    val json = note!!.highlightsInfo
-                                    if (!json.isNullOrBlank() && json != "[]") {
-                                        try {
-                                            val array = org.json.JSONArray(json)
-                                            for (i in 0 until array.length()) {
-                                                val obj = array.getJSONObject(i)
-                                                val isRaw = obj.optInt("line", -1) == -1
-                                                if (!isRaw) continue
-                                                val start = obj.optInt("start", -1)
-                                                val key = if (start >= 0) "${obj.getInt("start")}:${obj.getInt("end")}" else "legacy:${obj.getString("text")}"
-                                                map[key] = obj.getString("note")
-                                            }
-                                        } catch (e: Exception) { e.printStackTrace() }
-                                    }
-                                    map
-                                }
-                                val legacyRawHighlights = remember(note!!.highlightsInfo) {
-                                    val map = mutableMapOf<String, String>()
-                                    val json = note!!.highlightsInfo
-                                    if (!json.isNullOrBlank() && json != "[]") {
-                                        try {
-                                            val array = org.json.JSONArray(json)
-                                            for (i in 0 until array.length()) {
-                                                val obj = array.getJSONObject(i)
-                                                if (obj.optInt("line", -1) == -1 && obj.optInt("start", -1) < 0) {
-                                                    map[obj.getString("text")] = obj.getString("note")
-                                                }
-                                            }
-                                        } catch (e: Exception) { e.printStackTrace() }
-                                    }
-                                    map
-                                }
-                                val rawSavedHighlightColor = MaterialTheme.colorScheme.tertiaryContainer
-                                val rawSavedHighlightTextColor = MaterialTheme.colorScheme.onTertiaryContainer
-                                val rawTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                        // Columna derecha: side panel permanente (solo landscape).
+                        if (isLandscape) {
+                            // Divider vertical entre contenido y panel.
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .width(1.dp)
+                                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            )
 
-                                val displayRawText = remember(note!!.rawText) {
-                                    if (note!!.rawText.startsWith(AudioRecorderManager.PHONE_TRANSCRIPTION_MARKER)) {
-                                        note!!.rawText
-                                            .removePrefix(AudioRecorderManager.PHONE_TRANSCRIPTION_MARKER)
-                                            .trimStart('\n', ' ')
-                                    } else {
-                                        note!!.rawText
-                                    }
-                                }
-                                val rawAnnotatedString = remember(displayRawText, savedRawHighlights, legacyRawHighlights, temporaryHighlight, rawSavedHighlightColor, rawSavedHighlightTextColor, rawTextColor) {
-                                    buildHighlightedString(
-                                        prefix = rawPrefix,
-                                        text = displayRawText,
-                                        query = temporaryHighlight,
-                                        savedHighlights = savedRawHighlights,
-                                        legacyHighlights = legacyRawHighlights,
-                                        highlightColor = Color.Yellow.copy(alpha = 0.5f),
-                                        savedHighlightColor = rawSavedHighlightColor,
-                                        savedHighlightTextColor = rawSavedHighlightTextColor,
-                                        textColor = rawTextColor
-                                    )
-                                }
-
-                                Column(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp)
-                                        .verticalScroll(rawTextScrollState)
-                                ) {
-                                    if (hasPhoneTranscription) {
-                                        PhoneTranscriptionBanner(
-                                            onReanalyze = { viewModel.reanalyzeWithAI() }
-                                        )
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                    }
-                                    SelectionContainer {
-                                        Text(
-                                            text = rawAnnotatedString,
-                                            style = MaterialTheme.typography.bodyLarge.copy(fontFamily = selectedFont),
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .onGloballyPositioned { coordinates ->
-                                                    rawTextWindowBounds = coordinates.boundsInWindow()
-                                                }
-                                                .pointerInput(rawAnnotatedString) {
-                                                    detectTapGestures { pos ->
-                                                        rawTextLayoutResult?.let { layoutResult ->
-                                                            val offset = layoutResult.getOffsetForPosition(pos)
-                                                            rawAnnotatedString.getStringAnnotations(tag = "SAVED_HIGHLIGHT", start = offset, end = offset)
-                                                                .firstOrNull()?.let { annotation ->
-                                                                    val parts = annotation.item.split("@@KEY@@")
-                                                                    val displayWord = parts.getOrElse(0) { "" }
-                                                                    val key = parts.getOrNull(1) ?: "legacy:$displayWord"
-                                                                    currentHighlightWord = displayWord
-                                                                    highlightNoteInput = rawHighlightNotesByKey[key] ?: ""
-                                                                    if (key.startsWith("legacy:")) {
-                                                                        pendingHighlightLine = -1
-                                                                        pendingHighlightStart = -1
-                                                                        pendingHighlightEnd = -1
-                                                                    } else {
-                                                                        val (s, e) = key.split(":").map { it.toInt() }
-                                                                        pendingHighlightLine = -1
-                                                                        pendingHighlightStart = s
-                                                                        pendingHighlightEnd = e
-                                                                    }
-                                                                    showHighlightDialog = true
-                                                                }
-                                                        }
-                                                    }
-                                                },
-                                            onTextLayout = { rawTextLayoutResult = it }
-                                        )
-                                    }
-                                }
-                            }
+                            // Panel: ancho fijo 360dp, altura completa, con su propio scroll.
+                            sidePanelContent(Modifier.width(360.dp).fillMaxHeight())
                         }
                     }
                 }
@@ -1071,9 +1432,6 @@ fun ResultScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
             ) {
                 Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    // Son 4 icon buttons pegados en un Row compacto. Con 4dp
-                    // por lado (8dp total por botón) la expansión se nota pero
-                    // no deforma el Card ni los hace pisarse entre sí.
                     BouncyIconButton(
                         onClick = {
                             val capturedRect = selectionRect
@@ -1280,328 +1638,16 @@ fun ResultScreen(
         )
     }
 
-    if (showSidePanel && note != null) {
+    // Sheet del panel — solo en portrait. En landscape el panel ya está
+    // siempre visible como columna fija, así que el ModalBottomSheet es
+    // innecesario.
+    if (showSidePanel && note != null && !isLandscape) {
         ModalBottomSheet(
             onDismissRequest = { showSidePanel = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 24.dp)
-            ) {
-                PanelSectionHeader(icon = Icons.AutoMirrored.Filled.Label, title = stringResource(R.string.result_section_labels))
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(allLabels.filter { it.isNotBlank() }) { label ->
-                        val activeLabels = note!!.label?.split("|")?.map { it.trim() } ?: emptyList()
-                        val isSelected = activeLabels.contains(label)
-                        val assignedHex = labelColors[label]
-
-                        val (chipColor, chipTextColor) = resolveLabelColors(assignedHex, isSelected)
-
-                        BouncyChip(
-                            onClick = { viewModel.toggleLabel(label) },
-                            containerColor = chipColor,
-                            contentColor = chipTextColor
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.Label, null, tint = chipTextColor, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(label, color = chipTextColor, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                    item {
-                        BouncyChip(
-                            onClick = { showNewLabelDialog = true },
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                        ) {
-                            Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(stringResource(R.string.result_new_label_chip), color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-
-                SectionSpacer()
-
-                PanelSectionHeader(icon = Icons.Default.Search, title = stringResource(R.string.result_section_find_format))
-                OutlinedTextField(
-                    value = searchHighlightQuery,
-                    onValueChange = { searchHighlightQuery = it },
-                    label = { Text(stringResource(R.string.result_find_placeholder)) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.common_search)) },
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                val cleanSummaryForSearch = remember(note!!.summary) {
-                    note!!.summary?.replace(Regex("<!--BINOT_META:.*?-->"), "")?.trimEnd()
-                }
-                val textToSearch = cleanSummaryForSearch ?: note!!.rawText
-                val lines = remember(textToSearch) { textToSearch.split("\n") }
-                val searchResults = remember(lines, searchHighlightQuery) {
-                    if (searchHighlightQuery.isBlank()) emptyList()
-                    else lines.mapIndexedNotNull { index, line ->
-                        if (line.contains(searchHighlightQuery, ignoreCase = true)) {
-                            index to line.trim()
-                        } else null
-                    }
-                }
-
-                if (searchHighlightQuery.isNotBlank() && searchResults.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 150.dp)) {
-                        items(searchResults) { (index, line) ->
-                            Text(
-                                text = line, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.fillMaxWidth().clickable {
-                                    coroutineScope.launch {
-                                        temporaryHighlight = searchHighlightQuery
-                                        if (note!!.summary != null) {
-                                            val target = markdownLinePositions[index]
-                                                ?: markdownLinePositions.keys.filter { it <= index }.maxOrNull()?.let { markdownLinePositions[it] }
-                                            if (target != null) {
-                                                markdownScrollState.animateScrollTo(target)
-                                            }
-                                        } else {
-                                            rawTextScrollState.animateScrollTo(index * 60)
-                                        }
-                                        showSidePanel = false
-                                        delay(4000)
-                                        temporaryHighlight = ""
-                                    }
-                                }.padding(vertical = 12.dp, horizontal = 8.dp)
-                            )
-                            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                        }
-                    }
-                }
-
-                SectionSpacer()
-
-                PanelSectionHeader(icon = Icons.Default.TextFields, title = stringResource(R.string.result_section_reading_font))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
-                        onClick = { selectedFont = FontFamily.SansSerif },
-                        selected = selectedFont == FontFamily.SansSerif
-                    ) { Text(stringResource(R.string.result_font_sans)) }
-                    SegmentedButton(
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
-                        onClick = { selectedFont = FontFamily.Serif },
-                        selected = selectedFont == FontFamily.Serif
-                    ) { Text(stringResource(R.string.result_font_serif)) }
-                    SegmentedButton(
-                        shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
-                        onClick = { selectedFont = FontFamily.Monospace },
-                        selected = selectedFont == FontFamily.Monospace
-                    ) { Text(stringResource(R.string.result_font_mono)) }
-                }
-
-                SectionSpacer()
-
-                PanelSectionHeader(icon = Icons.Default.Tune, title = stringResource(R.string.result_section_export_media))
-
-                if (note!!.audioPath == null) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                    ) {
-                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = stringResource(R.string.result_no_audio_info),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
-                    }
-                }
-
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    if (note!!.summary != null) {
-                        item {
-                            BouncyCapsule(
-                                onClick = {
-                                    viewModel.restoreRawText()
-                                    coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.result_summary_removed)) }
-                                    showSidePanel = false
-                                },
-                                containerColor = MaterialTheme.colorScheme.errorContainer
-                            ) {
-                                Icon(Icons.Default.Restore, contentDescription = stringResource(R.string.result_restore_original), tint = MaterialTheme.colorScheme.onErrorContainer)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(stringResource(R.string.result_restore_original), color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-
-                    item {
-                        BouncyCapsule(
-                            onClick = {
-                                showSidePanel = false
-                                showAudioPicker = true
-                            },
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                        ) {
-                            Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                if (note!!.audioPath == null) stringResource(R.string.result_add_audio) else stringResource(R.string.result_replace_audio),
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    if (note!!.audioPath != null) {
-                        item {
-                            val playInteraction = remember { MutableInteractionSource() }
-                            val playScale = remember { Animatable(1f) }
-                            LaunchedEffect(playInteraction) {
-                                playInteraction.interactions.collect { i ->
-                                    when (i) {
-                                        is PressInteraction.Press -> playScale.animateTo(0.92f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium))
-                                        is PressInteraction.Release, is PressInteraction.Cancel -> playScale.animateTo(1f, spring(0.40f, Spring.StiffnessMediumLow))
-                                    }
-                                }
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .graphicsLayer {
-                                        scaleX = playScale.value
-                                        scaleY = playScale.value
-                                    }
-                                    .height(48.dp).clip(CircleShape)
-                                    .background(if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer)
-                                    .clickable(
-                                        interactionSource = playInteraction,
-                                        indication = null,
-                                        onClick = { viewModel.toggleAudio() }
-                                    )
-                                    .padding(horizontal = 16.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                        contentDescription = stringResource(R.string.result_cd_play_pause),
-                                        tint = if (isPlaying) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        if (isPlaying) stringResource(R.string.result_pause) else stringResource(R.string.result_play),
-                                        color = if (isPlaying) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
-                            }
-                        }
-
-                        item {
-                            BouncyCapsule(
-                                onClick = { exportAudioLauncher.launch("Obinot_Audio_${note!!.id}.mp4") },
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
-                            ) {
-                                Icon(Icons.Default.Download, contentDescription = stringResource(R.string.result_save_audio_button), tint = MaterialTheme.colorScheme.onSurface)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(stringResource(R.string.result_save_audio_button), color = MaterialTheme.colorScheme.onSurface)
-                            }
-                        }
-                    }
-
-                    item {
-                        BouncyCapsule(
-                            onClick = {
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val cleanSummaryToCopy = note!!.summary?.replace(Regex("<!--BINOT_META:.*?-->"), "")?.trimEnd()
-                                clipboard.setPrimaryClip(ClipData.newPlainText("Obinot Note", cleanSummaryToCopy ?: note!!.rawText))
-                                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.result_text_copied)) }
-                                showSidePanel = false
-                            },
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        ) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.result_copy), tint = MaterialTheme.colorScheme.onSurface)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.result_copy), color = MaterialTheme.colorScheme.onSurface)
-                        }
-                    }
-
-                    item {
-                        BouncyCapsule(
-                            onClick = {
-                                viewModel.shareBinotFile(context) { uri, msg ->
-                                    if (uri != null) {
-                                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "application/zip"
-                                            putExtra(Intent.EXTRA_STREAM, uri)
-                                            putExtra(Intent.EXTRA_TEXT, context.getString(R.string.result_share_text, note!!.title))
-                                            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                        }
-                                        context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.result_share_chooser)))
-                                    } else {
-                                        coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
-                                    }
-                                }
-                                showSidePanel = false
-                            },
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        ) {
-                            Icon(Icons.Default.Share, contentDescription = stringResource(R.string.result_share_binot), tint = MaterialTheme.colorScheme.onSurface)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.result_share_binot), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    item {
-                        BouncyCapsule(
-                            onClick = {
-                                viewModel.exportMarkdownFile(context) { uri, msg ->
-                                    if (uri != null) {
-                                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "text/markdown"
-                                            putExtra(Intent.EXTRA_STREAM, uri)
-                                            putExtra(Intent.EXTRA_TEXT, context.getString(R.string.result_share_text_markdown, note!!.title))
-                                            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                        }
-                                        context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.result_share_markdown_chooser)))
-                                    } else {
-                                        coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
-                                    }
-                                }
-                                showSidePanel = false
-                            },
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        ) {
-                            Icon(Icons.Default.Description, contentDescription = stringResource(R.string.result_export_markdown), tint = MaterialTheme.colorScheme.onSurface)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.result_export_markdown), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-
-                if (note!!.audioPath != null) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Slider(
-                        value = playbackProgress,
-                        onValueChange = { viewModel.seekAudio(it) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-            }
+            sidePanelContent(Modifier.fillMaxWidth())
         }
     }
 }

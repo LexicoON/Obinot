@@ -710,7 +710,7 @@ fun HistoryScreen(
                             LazyVerticalStaggeredGrid(
                                 columns = StaggeredGridCells.Fixed(
                                     when {
-                                        !isGridView -> 1
+                                        !isGridView -> if (isLandscape) 2 else 1
                                         isLandscape -> 3
                                         else -> 2
                                     }
