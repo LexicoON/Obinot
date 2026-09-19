@@ -67,6 +67,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.obinot.app.R
 import com.obinot.app.ui.components.BouncyButton
+import com.obinot.app.ui.components.BouncyIconButton
 import com.obinot.app.ui.components.BouncyOutlinedButton
 import com.obinot.app.ui.components.BouncyToggleButton
 import com.obinot.app.ui.components.bouncyClickable
@@ -285,6 +286,7 @@ fun SettingsScreen(
     val autoCompressionMode by viewModel.autoCompressionMode.collectAsState()
     val nativePickerEnabled by viewModel.nativePickerEnabled.collectAsState()
     val colorStyle by viewModel.colorStyle.collectAsState()
+    val appLanguage by viewModel.appLanguage.collectAsState()
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -323,6 +325,7 @@ fun SettingsScreen(
     var showApplyAllDialog by remember { mutableStateOf(false) }
     var showLanguageSheet by remember { mutableStateOf(false) }
     var showColorPaletteSheet by remember { mutableStateOf(false) }
+    var showAppLanguageSheet by remember { mutableStateOf(false) }
 
     // remember: evitar alocar y sortear 23 strings en cada frame.
     val supportedLanguages = remember {
@@ -332,6 +335,15 @@ fun SettingsScreen(
             "Italian", "Hindi", "Bengali", "Urdu", "Turkish", "Vietnamese", "Thai",
             "Dutch", "Polish", "Swedish", "Malay"
         ).sorted()
+    }
+
+    // Opciones de idioma de la app: label visible + código interno.
+    val appLanguageOptions = remember(context) {
+        listOf(
+            context.getString(R.string.settings_language_device) to "device",
+            context.getString(R.string.settings_language_english) to "en",
+            context.getString(R.string.settings_language_spanish) to "es",
+        )
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -615,6 +627,23 @@ fun SettingsScreen(
         )
     }
 
+    if (showAppLanguageSheet) {
+        val currentLabel = appLanguageOptions.firstOrNull { it.second == appLanguage }?.first
+            ?: stringResource(R.string.settings_language_device)
+        SettingsSelectionSheet(
+            title = stringResource(R.string.settings_select_app_language),
+            options = appLanguageOptions.map { it.first },
+            selected = currentLabel,
+            searchable = false,
+            onDismiss = { showAppLanguageSheet = false },
+            onSelect = { label ->
+                val code = appLanguageOptions.firstOrNull { it.first == label }?.second ?: "device"
+                viewModel.saveAppLanguage(code)
+                showAppLanguageSheet = false
+            }
+        )
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
@@ -667,11 +696,33 @@ fun SettingsScreen(
                                 coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_name_saved)) }
                             },
                             enabled = isNameDirty,
-                            expandOnPress = 0.dp,
                             modifier = Modifier.align(Alignment.End)
                         ) {
                             Text(stringResource(R.string.settings_save_name))
                         }
+                    }
+                }
+
+                // ---------- App Language ----------
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(stringResource(R.string.settings_app_language), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            stringResource(R.string.settings_app_language_desc),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+                        )
+                        SettingsSelectorRow(
+                            icon = Icons.Default.Language,
+                            label = stringResource(R.string.settings_app_language),
+                            value = appLanguageOptions.firstOrNull { it.second == appLanguage }?.first
+                                ?: stringResource(R.string.settings_language_device),
+                            onClick = { showAppLanguageSheet = true }
+                        )
                     }
                 }
 
@@ -699,7 +750,7 @@ fun SettingsScreen(
                         ) {
                             Text(stringResource(R.string.settings_processing_task), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                             Spacer(modifier = Modifier.width(4.dp))
-                            IconButton(
+                            BouncyIconButton(
                                 onClick = { showTaskInfoDialog = true },
                                 modifier = Modifier.size(28.dp)
                             ) {
@@ -730,7 +781,7 @@ fun SettingsScreen(
                         ) {
                             Text(stringResource(R.string.settings_output_format), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                             Spacer(modifier = Modifier.width(4.dp))
-                            IconButton(
+                            BouncyIconButton(
                                 onClick = { showFormatInfoDialog = true },
                                 modifier = Modifier.size(28.dp)
                             ) {
@@ -757,7 +808,6 @@ fun SettingsScreen(
                         BouncyButton(
                             onClick = { showApplyAllDialog = true },
                             modifier = Modifier.fillMaxWidth(),
-                            expandOnPress = 0.dp,
                             enabled = isChanged
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -779,7 +829,7 @@ fun SettingsScreen(
                         ) {
                             Text(stringResource(R.string.settings_ai_configuration), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.weight(1f))
-                            IconButton(onClick = { showAiInfoDialog = true }) {
+                            BouncyIconButton(onClick = { showAiInfoDialog = true }) {
                                 Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             }
                         }
@@ -828,7 +878,6 @@ fun SettingsScreen(
                                                 coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_gemini_saved)) }
                                             },
                                             enabled = isGeminiKeyDirty || tempAiProvider != aiProvider,
-                                            expandOnPress = 0.dp,
                                             modifier = Modifier.align(Alignment.End)
                                         ) {
                                             Text(stringResource(R.string.settings_save_key))
@@ -858,7 +907,6 @@ fun SettingsScreen(
                                                 coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_groq_saved)) }
                                             },
                                             enabled = isGroqKeyDirty || tempAiProvider != aiProvider,
-                                            expandOnPress = 0.dp,
                                             modifier = Modifier.align(Alignment.End)
                                         ) {
                                             Text(stringResource(R.string.settings_save_key))
@@ -926,7 +974,6 @@ fun SettingsScreen(
                                                 }
                                             },
                                             enabled = tempAiProvider != aiProvider,
-                                            expandOnPress = 0.dp,
                                             modifier = Modifier.align(Alignment.End)
                                         ) {
                                             Text(stringResource(R.string.settings_save_selection))
@@ -950,7 +997,7 @@ fun SettingsScreen(
                         ) {
                             Text(stringResource(R.string.recording_mode_title), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.weight(1f))
-                            IconButton(onClick = { showInfoDialog = true }) {
+                            BouncyIconButton(onClick = { showInfoDialog = true }) {
                                 Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             }
                         }
@@ -1129,7 +1176,7 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             BetaBadge()
                             Spacer(modifier = Modifier.weight(1f))
-                            IconButton(onClick = { showCompressionInfoDialog = true }) {
+                            BouncyIconButton(onClick = { showCompressionInfoDialog = true }) {
                                 Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             }
                         }
@@ -1192,7 +1239,7 @@ fun SettingsScreen(
                         ) {
                             Text(stringResource(R.string.settings_color_palette), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.weight(1f))
-                            IconButton(onClick = { showColorInfoDialog = true }) {
+                            BouncyIconButton(onClick = { showColorInfoDialog = true }) {
                                 Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             }
                         }
@@ -1223,7 +1270,7 @@ fun SettingsScreen(
                         ) {
                             Text(stringResource(R.string.settings_data_system), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.weight(1f))
-                            IconButton(onClick = { showBackupInfoDialog = true }) {
+                            BouncyIconButton(onClick = { showBackupInfoDialog = true }) {
                                 Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             }
                         }
@@ -1249,13 +1296,11 @@ fun SettingsScreen(
                         ) {
                             BouncyOutlinedButton(
                                 onClick = { importLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) },
-                                modifier = Modifier.weight(1f),
-                                expandOnPress = 0.dp
+                                modifier = Modifier.weight(1f)
                             ) { Text(stringResource(R.string.settings_import)) }
                             BouncyButton(
                                 onClick = { exportLauncher.launch("Obinot_Backup_${formatter.format(Date())}.obinotbak") },
-                                modifier = Modifier.weight(1f),
-                                expandOnPress = 0.dp
+                                modifier = Modifier.weight(1f)
                             ) { Text(stringResource(R.string.settings_backup)) }
                         }
 
@@ -1279,8 +1324,7 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         BouncyOutlinedButton(
                             onClick = { exportLegacyLauncher.launch("Obinot_Legacy_${formatter.format(Date())}.binotbak") },
-                            modifier = Modifier.fillMaxWidth(),
-                            expandOnPress = 0.dp
+                            modifier = Modifier.fillMaxWidth()
                         ) { Text(stringResource(R.string.settings_backup_legacy_button)) }
 
                         Spacer(modifier = Modifier.height(20.dp))
@@ -1308,12 +1352,12 @@ fun SettingsScreen(
                                 }
                             }
                             when (updateState) {
-                                UpdateState.Idle -> BouncyButton(onClick = { viewModel.checkForUpdate(context, currentVersion) }, expandOnPress = 0.dp) { Text(stringResource(R.string.settings_check_update)) }
+                                UpdateState.Idle -> BouncyButton(onClick = { viewModel.checkForUpdate(context, currentVersion) }) { Text(stringResource(R.string.settings_check_update)) }
                                 UpdateState.Checking -> Button(onClick = {}, enabled = false) { LoadingIndicator(modifier = Modifier.size(20.dp)) }
-                                UpdateState.Available -> BouncyButton(onClick = { viewModel.startDownload(context) }, expandOnPress = 0.dp) { Text(stringResource(R.string.settings_update_app)) }
+                                UpdateState.Available -> BouncyButton(onClick = { viewModel.startDownload(context) }) { Text(stringResource(R.string.settings_update_app)) }
                                 UpdateState.Downloading -> OutlinedButton(onClick = {}) { Text(stringResource(R.string.settings_downloading)) }
-                                UpdateState.Downloaded -> BouncyButton(onClick = { viewModel.promptInstall(context) }, expandOnPress = 0.dp) { Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(6.dp)); Text(stringResource(R.string.settings_install)) }
-                                UpdateState.Error -> BouncyOutlinedButton(onClick = { viewModel.checkForUpdate(context, currentVersion) }, expandOnPress = 0.dp) { Icon(Icons.Default.Error, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(6.dp)); Text(stringResource(R.string.settings_retry)) }
+                                UpdateState.Downloaded -> BouncyButton(onClick = { viewModel.promptInstall(context) }) { Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(6.dp)); Text(stringResource(R.string.settings_install)) }
+                                UpdateState.Error -> BouncyOutlinedButton(onClick = { viewModel.checkForUpdate(context, currentVersion) }) { Icon(Icons.Default.Error, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(6.dp)); Text(stringResource(R.string.settings_retry)) }
                             }
                         }
                     }

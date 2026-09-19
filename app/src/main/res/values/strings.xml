@@ -546,4 +546,23 @@
     <string name="main_import_failed">Failed to open or import note.</string>
     <string name="main_unpacking">Unpacking Obinot…</string>
     
+    <!-- ============================================================ -->
+    <!-- App language (per-app locale selector)                        -->
+    <!-- ============================================================ -->
+
+    <string name="settings_app_language">App Language</string>
+    <string name="settings_app_language_desc">Choose the language used by the app\'s interface. AI output language is controlled separately in Global AI Preferences.</string>
+    <string name="settings_language_device">Device language</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_spanish">Spanish</string>
+    <string name="settings_select_app_language">Select App Language</string>
+
+    <!-- ============================================================ -->
+    <!-- Onboarding — skip without API key                             -->
+    <!-- ============================================================ -->
+
+    <string name="onboarding_no_key_title">No API Key</string>
+    <string name="onboarding_no_key_body">You can continue without an API key and add one later in Settings. AI features won\'t work until then, but recording in Fast mode and reading existing notes will still work.</string>
+    <string name="onboarding_start_workspace_no_key">Continue without AI</string>
+
 </resources>

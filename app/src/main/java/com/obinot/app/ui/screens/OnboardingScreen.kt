@@ -60,7 +60,7 @@ import java.net.ConnectException
 import java.net.SocketTimeoutException
 
 enum class KeyVerificationState {
-    IDLE, LOADING, SUCCESS, ERROR
+    IDLE, LOADING, SUCCESS, ERROR, SKIPPED
 }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -124,7 +124,15 @@ fun OnboardingScreen(
                                     pagerState.animateScrollToPage(pagerState.currentPage + 1)
                                 }
                             } else if (pagerState.currentPage == 4) {
-                                if (apiKeyInput.isBlank()) return@BouncyButton
+                                // Sin API key: saltamos la verificación y vamos a pág 5
+                                // con estado SKIPPED. El usuario no queda bloqueado.
+                                if (apiKeyInput.isBlank()) {
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(5)
+                                        keyState = KeyVerificationState.SKIPPED
+                                    }
+                                    return@BouncyButton
+                                }
 
                                 coroutineScope.launch {
                                     pagerState.animateScrollToPage(5)
@@ -187,9 +195,10 @@ fun OnboardingScreen(
                                 }
                             }
                         },
+                        // Solo la pág 1 exige texto (nombre). La pág 4 ya no exige
+                        // API key: si está vacía, el botón lleva a la pág 5 en SKIPPED.
                         enabled = when (pagerState.currentPage) {
                             1 -> nameInput.isNotBlank()
-                            4 -> apiKeyInput.isNotBlank()
                             else -> true
                         },
                         modifier = Modifier.height(56.dp)
@@ -647,7 +656,96 @@ fun OnboardingScreen(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             textAlign = TextAlign.Center
                                         )
-                                        Spacer(modifier = Modifier.height(48.dp))
+                                        Spacer(modifier = Modifier.height(32.dp))
+
+                                        // Botón outlined: volver a la pág 3 a revisar la key.
+                                        BouncyOutlinedButton(
+                                            onClick = {
+                                                coroutineScope.launch {
+                                                    pagerState.animateScrollToPage(3)
+                                                    keyState = KeyVerificationState.IDLE
+                                                }
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(56.dp),
+                                            expandOnPress = 0.dp
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.onboarding_review_key),
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.height(12.dp))
+
+                                        // Botón rojo: continuar de todos modos con key vacía.
+                                        // Nunca bloqueamos al usuario en el onboarding.
+                                        BouncyButton(
+                                            onClick = {
+                                                onComplete(
+                                                    nameInput.trim(),
+                                                    aiProvider,
+                                                    "",
+                                                    aiTask,
+                                                    aiFormat,
+                                                    autoCompression
+                                                )
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(56.dp),
+                                            expandOnPress = 0.dp,
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.error,
+                                                contentColor = MaterialTheme.colorScheme.onError
+                                            )
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.onboarding_start_workspace_no_key),
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+
+                                KeyVerificationState.SKIPPED -> {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(96.dp)
+                                                .background(MaterialTheme.colorScheme.errorContainer, CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Key,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.size(48.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(32.dp))
+                                        Text(
+                                            text = stringResource(R.string.onboarding_no_key_title),
+                                            style = MaterialTheme.typography.headlineMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.error,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Text(
+                                            text = stringResource(R.string.onboarding_no_key_body),
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Spacer(modifier = Modifier.height(32.dp))
 
                                         BouncyOutlinedButton(
                                             onClick = {
@@ -663,6 +761,35 @@ fun OnboardingScreen(
                                         ) {
                                             Text(
                                                 text = stringResource(R.string.onboarding_review_key),
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.height(12.dp))
+
+                                        BouncyButton(
+                                            onClick = {
+                                                onComplete(
+                                                    nameInput.trim(),
+                                                    aiProvider,
+                                                    "",
+                                                    aiTask,
+                                                    aiFormat,
+                                                    autoCompression
+                                                )
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(56.dp),
+                                            expandOnPress = 0.dp,
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.error,
+                                                contentColor = MaterialTheme.colorScheme.onError
+                                            )
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.onboarding_start_workspace_no_key),
                                                 fontSize = 16.sp,
                                                 fontWeight = FontWeight.Bold
                                             )

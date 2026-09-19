@@ -3,9 +3,10 @@ package com.obinot.app
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.spring
@@ -47,6 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.os.LocaleListCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -69,14 +71,21 @@ import com.obinot.app.viewmodel.RecordViewModel
 import com.obinot.app.viewmodel.ResultViewModel
 import com.obinot.app.viewmodel.SettingsViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
     val incomingIntentUri = MutableStateFlow<Uri?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Aplicar idioma preferido ANTES de setContent para que la primera
+        // composición de Compose ya use el locale correcto. Si el usuario cambia
+        // el idioma después, AppCompat recrea la activity automáticamente.
+        applyAppLanguage()
 
         enableEdgeToEdge()
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -117,6 +126,27 @@ class MainActivity : ComponentActivity() {
         if (intent?.action == Intent.ACTION_VIEW && intent.data != null) {
             incomingIntentUri.value = intent.data
         }
+    }
+
+    /**
+     * Aplica el idioma preferido (guardado en DataStore) al contexto de la app.
+     *
+     * - "device" → limpia la preferencia y sigue el idioma del sistema.
+     * - "en" / "es" → fuerza el idioma.
+     *
+     * `runBlocking` a propósito: la lectura de DataStore toma ~5-10ms y necesitamos
+     * el valor ANTES de setContent. Bloquear el main thread 10ms al arrancar es
+     * aceptable y mucho más simple que un preload asíncrono con estado intermedio.
+     */
+    private fun applyAppLanguage() {
+        val settingsRepo = (application as BinotApplication).container.settingsRepository
+        val lang = runBlocking { settingsRepo.appLanguageFlow.first() }
+        val localeList = when (lang) {
+            "en" -> LocaleListCompat.forLanguageTags("en")
+            "es" -> LocaleListCompat.forLanguageTags("es")
+            else -> LocaleListCompat.getEmptyLocaleList()
+        }
+        AppCompatDelegate.setApplicationLocales(localeList)
     }
 }
 

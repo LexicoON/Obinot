@@ -45,6 +45,10 @@ class SettingsRepository(private val context: Context) {
         // 0 = Tonal Spot, 1 = Vibrant, 2 = Expressive, 3 = Fruit Salad,
         // 4 = Neutral, 5 = Fidelity, 6 = Monochrome
         val COLOR_STYLE_KEY = intPreferencesKey("color_style")
+
+        // --- APP LANGUAGE (per-app locale) ---
+        // Valores: "device" (default, sigue el idioma del sistema), "en", "es".
+        val APP_LANGUAGE_KEY = stringPreferencesKey("app_language")
     }
 
     val userNameFlow: Flow<String> = context.dataStore.data.map { it[USER_NAME_KEY] ?: "" }
@@ -63,6 +67,7 @@ class SettingsRepository(private val context: Context) {
     val autoCompressionModeFlow: Flow<Int> = context.dataStore.data.map { it[AUTO_COMPRESSION_MODE_KEY] ?: 1 }
     val mixCounterFlow: Flow<Int> = context.dataStore.data.map { it[MIX_COUNTER_KEY] ?: 0 }
     val colorStyleFlow: Flow<Int> = context.dataStore.data.map { it[COLOR_STYLE_KEY] ?: 0 }
+    val appLanguageFlow: Flow<String> = context.dataStore.data.map { it[APP_LANGUAGE_KEY] ?: "device" }
     // Default OFF: el picker nativo es beta y se opta explícitamente.
     val nativePickerFlow: Flow<Boolean> = context.dataStore.data.map { it[NATIVE_PICKER_KEY] ?: false }
 
@@ -133,5 +138,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun resetMixCounter() {
         context.dataStore.edit { it[MIX_COUNTER_KEY] = 0 }
+    }
+
+    suspend fun saveAppLanguage(lang: String) {
+        context.dataStore.edit { it[APP_LANGUAGE_KEY] = lang }
     }
 }

@@ -141,6 +141,12 @@ class SettingsViewModel(
         initialValue = false
     )
 
+    val appLanguage: StateFlow<String> = settingsRepository.appLanguageFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "device"
+    )
+
     private val _updateState = MutableStateFlow(UpdateState.Idle)
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
 
@@ -211,6 +217,10 @@ class SettingsViewModel(
 
     fun saveColorStyle(style: Int) {
         viewModelScope.launch { settingsRepository.saveColorStyle(style) }
+    }
+
+    fun saveAppLanguage(lang: String) {
+        viewModelScope.launch { settingsRepository.saveAppLanguage(lang) }
     }
 
     fun applyAiPreferencesToAllNotes(onResult: (String) -> Unit) {

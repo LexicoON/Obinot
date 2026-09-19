@@ -72,6 +72,7 @@ secrets {
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
   implementation(platform(libs.firebase.bom))
+  implementation(libs.androidx.appcompat)
   implementation(libs.androidx.activity.compose)
   implementation("androidx.webkit:webkit:1.11.0")
   implementation(libs.androidx.compose.material.icons.core)
