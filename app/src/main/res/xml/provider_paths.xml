@@ -2,4 +2,6 @@
 <paths>
     <!-- Buka akses direktori cache khusus buat hasil export ZIP (.binot) -->
     <cache-path name="shared_notes" path="shared_notes/" />
+    <!-- Acceso a la carpeta de crash logs para compartir desde CrashActivity -->
+    <files-path name="crash_logs" path="crashes/" />
 </paths>

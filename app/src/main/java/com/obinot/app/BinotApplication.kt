@@ -7,6 +7,7 @@ import com.obinot.app.data.LabelRepository
 import com.obinot.app.data.NoteRepository
 import com.obinot.app.data.SettingsRepository
 import com.obinot.app.utils.AudioRecorderManager
+import com.obinot.app.utils.CrashHandler
 
 class BinotApplication : Application() {
 
@@ -14,6 +15,12 @@ class BinotApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // Instalar el handler de crashes lo antes posible. Si algo falla en
+        // AppContainer (Room, DataStore, etc.), queremos que el usuario vea
+        // una pantalla útil en vez de un cierre silencioso.
+        CrashHandler(this).install()
+
         container = AppContainer(this)
     }
 }

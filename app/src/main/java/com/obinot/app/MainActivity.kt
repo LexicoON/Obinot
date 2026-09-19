@@ -1,5 +1,6 @@
 package com.obinot.app
 
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -80,6 +81,9 @@ class MainActivity : AppCompatActivity() {
     val incomingIntentUri = MutableStateFlow<Uri?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // installSplashScreen() DEBE ir antes de super.onCreate().
+        installSplashScreen()
+
         super.onCreate(savedInstanceState)
 
         // Aplicar idioma ANTES de setContent. Idempotente con el LaunchedEffect

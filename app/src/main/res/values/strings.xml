@@ -592,4 +592,16 @@
     <string name="settings_about">About</string>
     <string name="settings_about_fork_notice">Obinot is a community fork of Binot, originally created by DENSLnetion (github.com/DENSLnetion/Binot), licensed under MIT.</string>
 
+    <!-- ============================================================ -->
+    <!-- Crash screen                                                  -->
+    <!-- ============================================================ -->
+
+    <string name="crash_title">App crashed</string>
+    <string name="crash_subtitle">An unexpected error occurred. You can copy the log below and share it with the developers.</string>
+    <string name="crash_copy">Copy log</string>
+    <string name="crash_share">Share</string>
+    <string name="crash_close">Close app</string>
+    <string name="crash_copied">Log copied to clipboard</string>
+    <string name="crash_no_log">No crash log available.</string>
+
 </resources>

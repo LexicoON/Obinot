@@ -36,7 +36,7 @@
             android:launchMode="singleTask"
             android:configChanges="locale|layoutDirection"
             android:label="@string/app_name"
-            android:theme="@style/Theme.Obinot">
+            android:theme="@style/Theme.Obinot.Splash">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -66,6 +66,17 @@
             </intent-filter>
 
         </activity>
+        <!-- Crash screen. Se lanza desde CrashHandler en un proceso nuevo
+             después de matar el proceso original. exported="false" porque
+             solo la lanzamos desde adentro de la app. -->
+        <activity
+            android:name=".CrashActivity"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:excludeFromRecents="true"
+            android:configChanges="orientation|screenSize|keyboardHidden|uiMode|locale|layoutDirection"
+            android:theme="@style/Theme.Obinot" />
+
 
         <!-- FileProvider: Syarat mutlak Android 7+ buat nge-share file ke app luar -->
         <provider
