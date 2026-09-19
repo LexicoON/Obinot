@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.LightMode
@@ -57,6 +58,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
@@ -263,6 +265,57 @@ private fun TextToggleGroup(
             }
         }
     }
+}
+
+/**
+ * Fila usada dentro de la card "Advanced". Switch + título + descripción,
+ * con badge BETA opcional.
+ */
+@Composable
+private fun AdvancedSwitchRow(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    showBetaBadge: Boolean = false
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (showBetaBadge) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    BetaBadge()
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+/**
+ * Divider con spacing consistente para separar sub-secciones dentro de
+ * la card Advanced.
+ */
+@Composable
+private fun AdvancedDivider() {
+    Spacer(modifier = Modifier.height(16.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+    Spacer(modifier = Modifier.height(16.dp))
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -604,10 +657,7 @@ fun SettingsScreen(
     }
 
     // ============================================================
-    // Card lambdas.
-    // Cada card está definido como un lambda @Composable local para poder
-    // reutilizarlo tanto en single-column (portrait) como en two-column
-    // (landscape) sin duplicar código.
+    // Card lambdas
     // ============================================================
 
     val personalizationCard: @Composable () -> Unit = {
@@ -745,34 +795,6 @@ fun SettingsScreen(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
-
-                Spacer(modifier = Modifier.height(20.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_auto_process),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            stringResource(R.string.settings_auto_process_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Switch(
-                        checked = autoProcessEnabled,
-                        onCheckedChange = { viewModel.saveAutoProcess(it) }
-                    )
-                }
 
                 Spacer(modifier = Modifier.height(24.dp))
                 val isChanged = tempAiLanguage != aiLanguage || tempAiTask != aiTask || tempAiFormat != aiFormat
@@ -960,6 +982,7 @@ fun SettingsScreen(
         }
     }
 
+    // NOTA: sin Live Transcript (se movió a Advanced).
     val recordingModeCard: @Composable () -> Unit = {
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -997,184 +1020,6 @@ fun SettingsScreen(
                     icons = listOf(
                         Icons.Default.FlashOn,
                         Icons.Default.GraphicEq
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                AnimatedVisibility(
-                    visible = recordMode == 1,
-                    enter = expandVertically(
-                        expandFrom = Alignment.Top,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioLowBouncy,
-                            stiffness = Spring.StiffnessMediumLow
-                        )
-                    ) + fadeIn(
-                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
-                    ),
-                    exit = shrinkVertically(
-                        shrinkTowards = Alignment.Top,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessMedium
-                        )
-                    ) + fadeOut(
-                        animationSpec = spring(stiffness = Spring.StiffnessMedium)
-                    )
-                ) {
-                    Column {
-                        Spacer(modifier = Modifier.height(20.dp))
-                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        stringResource(R.string.settings_live_transcript),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f, fill = false)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    BetaBadge()
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    stringResource(R.string.settings_live_transcript_desc),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Switch(
-                                checked = liveTranscriptEnabled,
-                                onCheckedChange = { viewModel.saveLiveTranscript(it) }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    val recordInBackgroundCard: @Composable () -> Unit = {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.settings_record_background), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            stringResource(R.string.settings_record_background_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Switch(
-                        checked = backgroundRecordingEnabled,
-                        onCheckedChange = { enabled ->
-                            viewModel.saveBackgroundRecording(enabled)
-                            if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                            }
-                        }
-                    )
-                }
-            }
-        }
-    }
-
-    val nativePickerCard: @Composable () -> Unit = {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                stringResource(R.string.settings_native_picker),
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            BetaBadge()
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            stringResource(R.string.settings_native_picker_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Switch(
-                        checked = nativePickerEnabled,
-                        onCheckedChange = { viewModel.saveNativePicker(it) }
-                    )
-                }
-            }
-        }
-    }
-
-    val autoCompressionCard: @Composable () -> Unit = {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        stringResource(R.string.settings_auto_compression),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    BetaBadge()
-                    Spacer(modifier = Modifier.weight(1f))
-                    BouncyIconButton(onClick = { showCompressionInfoDialog = true }) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
-                Text(
-                    stringResource(R.string.settings_auto_compression_desc),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
-                )
-                TextToggleGroup(
-                    selectedIndex = autoCompressionMode,
-                    onSelect = { viewModel.saveAutoCompressionMode(it) },
-                    labels = listOf(
-                        stringResource(R.string.settings_compression_off),
-                        stringResource(R.string.settings_compression_balanced),
-                        stringResource(R.string.settings_compression_max)
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1241,6 +1086,146 @@ fun SettingsScreen(
                     value = com.obinot.app.ui.theme.ColorStyle.entries.getOrElse(colorStyle) { com.obinot.app.ui.theme.ColorStyle.TONAL_SPOT }.label,
                     onClick = { showColorPaletteSheet = true }
                 )
+            }
+        }
+    }
+
+    // ============================================================
+    // Advanced card — colapsable
+    // ============================================================
+    val advancedCard: @Composable () -> Unit = {
+        var expanded by remember { mutableStateOf(false) }
+        val arrowRotation by animateFloatAsState(
+            targetValue = if (expanded) 180f else 0f,
+            animationSpec = spring(stiffness = Spring.StiffnessMedium),
+            label = "advancedArrow"
+        )
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { expanded = !expanded }
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.settings_advanced),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.settings_advanced_desc),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .size(28.dp)
+                            .graphicsLayer { rotationZ = arrowRotation }
+                    )
+                }
+
+                AnimatedVisibility(visible = expanded) {
+                    Column {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        AdvancedSwitchRow(
+                            title = stringResource(R.string.settings_record_background),
+                            description = stringResource(R.string.settings_record_background_desc),
+                            checked = backgroundRecordingEnabled,
+                            onCheckedChange = { enabled ->
+                                viewModel.saveBackgroundRecording(enabled)
+                                if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                            }
+                        )
+
+                        AdvancedDivider()
+
+                        AdvancedSwitchRow(
+                            title = stringResource(R.string.settings_auto_process),
+                            description = stringResource(R.string.settings_auto_process_desc),
+                            checked = autoProcessEnabled,
+                            onCheckedChange = { viewModel.saveAutoProcess(it) }
+                        )
+
+                        AdvancedDivider()
+
+                        AdvancedSwitchRow(
+                            title = stringResource(R.string.settings_live_transcript),
+                            description = stringResource(R.string.settings_live_transcript_desc),
+                            checked = liveTranscriptEnabled,
+                            onCheckedChange = { viewModel.saveLiveTranscript(it) },
+                            showBetaBadge = true
+                        )
+
+                        AdvancedDivider()
+
+                        AdvancedSwitchRow(
+                            title = stringResource(R.string.settings_native_picker),
+                            description = stringResource(R.string.settings_native_picker_desc),
+                            checked = nativePickerEnabled,
+                            onCheckedChange = { viewModel.saveNativePicker(it) },
+                            showBetaBadge = true
+                        )
+
+                        AdvancedDivider()
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                stringResource(R.string.settings_auto_compression),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.weight(1f, fill = false),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            BetaBadge()
+                            Spacer(modifier = Modifier.weight(1f))
+                            BouncyIconButton(
+                                onClick = { showCompressionInfoDialog = true },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.settings_auto_compression_desc),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        TextToggleGroup(
+                            selectedIndex = autoCompressionMode,
+                            onSelect = { viewModel.saveAutoCompressionMode(it) },
+                            labels = listOf(
+                                stringResource(R.string.settings_compression_off),
+                                stringResource(R.string.settings_compression_balanced),
+                                stringResource(R.string.settings_compression_max)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
             }
         }
     }
@@ -1371,6 +1356,28 @@ fun SettingsScreen(
         }
     }
 
+    val aboutCard: @Composable () -> Unit = {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
+                    stringResource(R.string.settings_about),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    stringResource(R.string.settings_about_fork_notice),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+
     // ============================================================
     // Render
     // ============================================================
@@ -1416,20 +1423,19 @@ fun SettingsScreen(
                             appLanguageCard()
                             globalAiPrefsCard()
                             aiConfigurationCard()
+                            recordingModeCard()
                         }
-                        // Columna derecha: grabación + apariencia + datos.
+                        // Columna derecha: apariencia + Advanced + sistema + soporte + about.
                         Column(
                             modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            recordingModeCard()
-                            recordInBackgroundCard()
-                            nativePickerCard()
-                            autoCompressionCard()
                             appearanceCard()
                             colorPaletteCard()
+                            advancedCard()
                             dataSystemCard()
                             supportCard()
+                            aboutCard()
                         }
                     }
                 } else {
@@ -1442,13 +1448,12 @@ fun SettingsScreen(
                         globalAiPrefsCard()
                         aiConfigurationCard()
                         recordingModeCard()
-                        recordInBackgroundCard()
-                        nativePickerCard()
-                        autoCompressionCard()
                         appearanceCard()
                         colorPaletteCard()
+                        advancedCard()
                         dataSystemCard()
                         supportCard()
+                        aboutCard()
                     }
                 }
 

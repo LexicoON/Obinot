@@ -731,14 +731,14 @@ private fun estimateInlineMathSize(latex: String): Pair<Float, Float> {
             }
         }
     }
-    val width = (units * 0.4f).coerceIn(0.3f, 20f)
+    val width = (units * 0.7f).coerceIn(0.5f, 20f)
     val extraHeight = when {
-        latex.contains("\\frac") || latex.contains("\\dfrac") || latex.contains("\\tfrac") -> 0.5f
-        latex.contains("\\sum") || latex.contains("\\int") || latex.contains("\\prod") -> 0.4f
-        latex.contains("\\sqrt") -> 0.25f
+        latex.contains("\\frac") || latex.contains("\\dfrac") || latex.contains("\\tfrac") -> 0.7f
+        latex.contains("\\sum") || latex.contains("\\int") || latex.contains("\\prod") -> 0.5f
+        latex.contains("\\sqrt") -> 0.3f
         else -> 0f
     }
-    val height = 1.15f + extraHeight
+    val height = 1.2f + extraHeight
     return width to height
 }
 
@@ -863,9 +863,12 @@ document.addEventListener("DOMContentLoaded", function() {
             throwOnError: false
         });
     }
+    // Solo escalar cuando la fórmula desborda significativamente.
+    // Si el placeholder (viewportWidth) es un poco más chico que el ancho
+    // real, dejamos que se vea a tamaño natural — es mejor que achicarlo.
     var naturalWidth = el.scrollWidth;
     var viewportWidth = document.documentElement.clientWidth;
-    if (naturalWidth > viewportWidth && viewportWidth > 0) {
+    if (viewportWidth > 0 && naturalWidth > viewportWidth * 1.15) {
         var scale = viewportWidth / naturalWidth;
         el.style.transformOrigin = 'left center';
         el.style.transform = 'scale(' + scale + ')';

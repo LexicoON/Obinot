@@ -583,4 +583,13 @@
     <string name="result_share_text_markdown">Nota Obinot (Markdown): %1$s</string>
     <string name="result_share_markdown_chooser">Compartir archivo Markdown vía</string>
 
+    <!-- ============================================================ -->
+    <!-- B3 — Advanced section + About                                 -->
+    <!-- ============================================================ -->
+
+    <string name="settings_advanced">Avanzado</string>
+    <string name="settings_advanced_desc">Ajustes menos comunes y funciones beta. Tocá para expandir.</string>
+    <string name="settings_about">Acerca de</string>
+    <string name="settings_about_fork_notice">Obinot es un fork comunitario de Binot, creado originalmente por DENSLnetion (github.com/DENSLnetion/Binot), bajo licencia MIT.</string>
+
 </resources>
