@@ -12,7 +12,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,12 +20,15 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,9 +55,11 @@ import kotlinx.coroutines.launch
 /**
  * ModalBottomSheet con el chat sobre la nota.
  *
- * El historial NO se persiste: vive en el ResultViewModel y se limpia
- * cuando el sheet se cierra. Límite duro de 20 mensajes por sesión
- * (impuesto en el ViewModel).
+ * El historial se persiste con la nota (campo chatHistory de NoteEntity) y
+ * sobrevive cierres de app. Límite de 40 mensajes por nota (20 turnos);
+ * el usuario puede limpiar la conversación con el botón del header.
+ *
+ * El .binot NO incluye este historial. El backup .obinotbak SÍ lo incluye.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +71,7 @@ fun ChatSheet(
     val isSending by viewModel.isChatSending.collectAsState()
 
     var input by remember { mutableStateOf("") }
+    var showClearConfirm by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
     LaunchedEffect(messages.size, isSending) {
@@ -76,10 +82,7 @@ fun ChatSheet(
     }
 
     ModalBottomSheet(
-        onDismissRequest = {
-            viewModel.clearChat()
-            onDismiss()
-        },
+        onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
@@ -105,8 +108,21 @@ fun ChatSheet(
                     text = stringResource(R.string.chat_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f)
                 )
+                if (messages.isNotEmpty()) {
+                    BouncyIconButton(
+                        onClick = { showClearConfirm = true },
+                        expandOnPress = 3.dp
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.DeleteSweep,
+                            contentDescription = stringResource(R.string.chat_clear_cd),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -133,8 +149,11 @@ fun ChatSheet(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
-                        items(messages, key = { it.hashCode() }) { msg ->
-                            ChatBubble(message = msg)
+                        itemsIndexed(messages) { index, msg ->
+                            ChatBubble(
+                                message = msg,
+                                bubbleKey = index
+                            )
                         }
                         if (isSending) {
                             item(key = "thinking_indicator") {
@@ -147,7 +166,7 @@ fun ChatSheet(
 
             Spacer(Modifier.height(8.dp))
 
-            val atLimit = messages.size >= 20
+            val atLimit = messages.size >= 40
             if (atLimit) {
                 Text(
                     text = stringResource(R.string.chat_limit_reached),
@@ -173,41 +192,61 @@ fun ChatSheet(
             Spacer(Modifier.height(16.dp))
         }
     }
+
+    if (showClearConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirm = false },
+            title = { Text(stringResource(R.string.chat_clear_confirm_title)) },
+            text = { Text(stringResource(R.string.chat_clear_confirm_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearChat()
+                        showClearConfirm = false
+                    },
+                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text(stringResource(R.string.chat_clear_confirm_yes))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirm = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            }
+        )
+    }
 }
 
 @Composable
-private fun ChatBubble(message: ChatMessage) {
+private fun ChatBubble(
+    message: ChatMessage,
+    bubbleKey: Int
+) {
     val isUser = message.role == "user"
 
-    // Expressive entrance: la burbuja entra con un spring bouncy desde
-    // un estado contraído, y un fade corto en paralelo. La animación se
-    // dispara cada vez que el mensaje se compone (nuevo ítem en la lista).
     val scale = remember { Animatable(0.85f) }
     val alpha = remember { Animatable(0f) }
     val translateY = remember { Animatable(16f) }
 
-    LaunchedEffect(message) {
-        launch {
-            scale.animateTo(
-                1f,
-                spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMediumLow
-                )
+    LaunchedEffect(bubbleKey) {
+        scale.animateTo(
+            1f,
+            spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMediumLow
             )
-        }
-        launch {
-            alpha.animateTo(1f, tween(durationMillis = 220))
-        }
-        launch {
-            translateY.animateTo(
-                0f,
-                spring(
-                    dampingRatio = Spring.DampingRatioLowBouncy,
-                    stiffness = Spring.StiffnessMediumLow
-                )
+        )
+        alpha.animateTo(1f, tween(durationMillis = 220))
+        translateY.animateTo(
+            0f,
+            spring(
+                dampingRatio = Spring.DampingRatioLowBouncy,
+                stiffness = Spring.StiffnessMediumLow
             )
-        }
+        )
     }
 
     Row(
@@ -239,17 +278,12 @@ private fun ChatBubble(message: ChatMessage) {
                 .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
             if (isUser) {
-                // Mensaje del usuario: texto plano. No necesita markdown.
                 Text(
                     text = message.content,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             } else {
-                // Respuesta del asistente: MarkdownText en modo compacto
-                // para que renderice LaTeX (inline y block), bold, italic,
-                // listas y links. Sin scroll propio (vive dentro del
-                // LazyColumn del chat).
                 MarkdownText(
                     text = message.content,
                     scrollState = rememberScrollState(),
@@ -277,27 +311,21 @@ private fun ThinkingBubble() {
     val translateY = remember { Animatable(16f) }
 
     LaunchedEffect(Unit) {
-        launch {
-            scale.animateTo(
-                1f,
-                spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMediumLow
-                )
+        scale.animateTo(
+            1f,
+            spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMediumLow
             )
-        }
-        launch {
-            alpha.animateTo(1f, tween(durationMillis = 220))
-        }
-        launch {
-            translateY.animateTo(
-                0f,
-                spring(
-                    dampingRatio = Spring.DampingRatioLowBouncy,
-                    stiffness = Spring.StiffnessMediumLow
-                )
+        )
+        alpha.animateTo(1f, tween(durationMillis = 220))
+        translateY.animateTo(
+            0f,
+            spring(
+                dampingRatio = Spring.DampingRatioLowBouncy,
+                stiffness = Spring.StiffnessMediumLow
             )
-        }
+        )
     }
 
     Row(

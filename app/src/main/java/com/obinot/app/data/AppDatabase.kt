@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [NoteEntity::class, LabelEntity::class, NoteFtsEntity::class],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -126,6 +126,23 @@ abstract class AppDatabase : RoomDatabase() {
                 // 3) Poblar el índice con las filas existentes. El comando 'rebuild'
                 // lee desde la tabla content (notes) y reconstruye el índice FTS.
                 db.execSQL("INSERT INTO `notes_fts`(`notes_fts`) VALUES('rebuild')")
+            }
+        }
+
+        /**
+         * 9 → 10: agrega `chatHistory` a la tabla notes.
+         *
+         * Guarda el historial del chat "Ask AI about this note" como JSON array
+         * de {role, content}. Se persiste por nota, así el usuario ve la
+         * conversación al reabrir. No afecta FTS (no está indexado).
+         *
+         * El .binot NO incluye este campo (exportNoteToBinot usa un data.json
+         * explícito). El backup .obinotbak SÍ lo incluye (Moshi serializa la
+         * NoteEntity completa).
+         */
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE notes ADD COLUMN chatHistory TEXT DEFAULT NULL")
             }
         }
     }

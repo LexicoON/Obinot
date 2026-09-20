@@ -176,6 +176,11 @@ class ResultViewModel(
             _note.value = fetchedNote
             _processingFailed.value = false
 
+            // Restaurar el historial del chat desde la nota persistida.
+            if (fetchedNote != null) {
+                _chatMessages.value = parseChatHistory(fetchedNote.chatHistory)
+            }
+
             if (fetchedNote != null) {
                 val rawText = fetchedNote.rawText
                 val hasPhoneMarker = rawText.startsWith(AudioRecorderManager.PHONE_TRANSCRIPTION_MARKER)
@@ -1236,16 +1241,25 @@ class ResultViewModel(
      * al historial. Si el historial ya llegó al límite (20 mensajes), ignora
      * el envío. No hace nada si el texto está vacío o si ya hay un envío en curso.
      */
+        /**
+     * Envía un mensaje del usuario al chat y agrega la respuesta del modelo
+     * al historial. Si el historial ya llegó al límite (40 mensajes), ignora
+     * el envío. No hace nada si el texto está vacío o si ya hay un envío en curso.
+     *
+     * El historial se persiste con cada mensaje agregado (user y assistant),
+     * así sobrevive al cierre de la app. Ver persistChatHistory().
+     */
     fun sendChatMessage(userMessage: String) {
         val trimmed = userMessage.trim()
         if (trimmed.isEmpty()) return
         if (_isChatSending.value) return
-        if (_chatMessages.value.size >= 20) return
+        if (_chatMessages.value.size >= MAX_CHAT_MESSAGES) return
 
         val currentNote = _note.value ?: return
 
         _chatMessages.value = _chatMessages.value + ChatMessage("user", trimmed)
         _isChatSending.value = true
+        persistChatHistory()
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -1266,6 +1280,7 @@ class ResultViewModel(
                             appContext.getString(R.string.error_api_key_missing)
                         )
                         _isChatSending.value = false
+                        persistChatHistory()
                     }
                     return@launch
                 }
@@ -1284,8 +1299,12 @@ class ResultViewModel(
                     1. ZERO YAPPING: No greetings, no introductions, no self-references. Answer directly.
                     2. Markdown allowed: headers, bold, italic, lists, code blocks, links.
                     3. NO TABLES under any circumstances.
-                    4. MATH: Block formulas only, using `${'$'}${'$'}...${'$'}${'$'}` on their own line. NEVER use inline math (`${'$'}...${'$'}`) inside a sentence.
-                    5. MERMAID: You may use ```mermaid blocks with `flowchart TD` or `flowchart LR` only. Wrap node labels in double quotes.
+                    4. MATH DELIMITERS (CRITICAL):
+                       - Inline math: ALWAYS use `${'$'}...${'$'}` (single dollar signs). Example: "The work is ${'$'}W = F \\cdot d${'$'} in joules."
+                       - Block math: ALWAYS use `${'$'}${'$'}...${'$'}${'$'}` (double dollar signs) on their own line.
+                       - NEVER use `\\(...\\)` or `\\[...\\]` — those delimiters are NOT supported by this app's renderer.
+                       - NEVER wrap math in quotes or bold markers (`**${'$'}...${'$'}**` is forbidden).
+                    5. NO MERMAID DIAGRAMS. This chat is for math and text only. Do not emit ```mermaid blocks.
 
                     --- NOTE TITLE ---
                     ${currentNote.title}
@@ -1338,6 +1357,7 @@ class ResultViewModel(
                     }
                     _chatMessages.value = _chatMessages.value + ChatMessage("assistant", reply)
                     _isChatSending.value = false
+                    persistChatHistory()
                 }
             } catch (e: Exception) {
                 launch(Dispatchers.Main) {
@@ -1346,15 +1366,42 @@ class ResultViewModel(
                         handleExceptionError(e)
                     )
                     _isChatSending.value = false
+                    persistChatHistory()
                 }
             }
         }
     }
 
-    /** Limpia el historial del chat. Se llama al cerrar el ModalBottomSheet. */
+    /**
+     * Borra el historial del chat de la nota (tanto en memoria como en la DB).
+     * Se llama desde el botón "Clear conversation" del ChatSheet, con
+     * confirmación previa del usuario.
+     */
     fun clearChat() {
         _chatMessages.value = emptyList()
         _isChatSending.value = false
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentNote = _note.value ?: return@launch
+            val updated = currentNote.copy(chatHistory = null)
+            _note.value = updated
+            noteRepository.update(updated)
+        }
+    }
+
+    /**
+     * Serializa el historial actual a JSON y lo guarda en la nota.
+     * Se llama después de agregar cada mensaje (user o assistant) para que
+     * el chat sobreviva al cierre de la app.
+     */
+    private fun persistChatHistory() {
+        val messages = _chatMessages.value
+        val currentNote = _note.value ?: return
+        val json = chatHistoryToJson(messages)
+        val updated = currentNote.copy(chatHistory = json)
+        _note.value = updated
+        viewModelScope.launch(Dispatchers.IO) {
+            noteRepository.update(updated)
+        }
     }
 
     /** Marca que el tooltip del long-press ya se mostró, para no repetirlo. */
@@ -1370,6 +1417,52 @@ class ResultViewModel(
     }
 
     companion object {
+        /** Cap total de mensajes persistidos por nota. Más allá de esto, el
+         *  usuario debe limpiar el chat. 40 = 20 turnos. */
+        private const val MAX_CHAT_MESSAGES = 40
+
+        /** Parsea el JSON de chatHistory a la lista de mensajes. Devuelve lista
+         *  vacía si el JSON está ausente o malformado. */
+        private fun parseChatHistory(json: String?): List<ChatMessage> {
+            if (json.isNullOrBlank() || json == "[]") return emptyList()
+            return try {
+                val array = JSONArray(json)
+                val list = mutableListOf<ChatMessage>()
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    list.add(
+                        ChatMessage(
+                            role = obj.optString("role", "assistant"),
+                            content = obj.optString("content", "")
+                        )
+                    )
+                }
+                list
+            } catch (e: Exception) {
+                e.printStackTrace()
+                emptyList()
+            }
+        }
+
+        /** Serializa la lista de mensajes a un JSON array. Null si está vacía. */
+        private fun chatHistoryToJson(messages: List<ChatMessage>): String? {
+            if (messages.isEmpty()) return null
+            return try {
+                val array = JSONArray()
+                messages.forEach { msg ->
+                    val obj = JSONObject().apply {
+                        put("role", msg.role)
+                        put("content", msg.content)
+                    }
+                    array.put(obj)
+                }
+                array.toString()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
+
         fun provideFactory(
             noteId: Int,
             repository: NoteRepository,

@@ -300,9 +300,13 @@
     <string name="chat_tooltip_title">Long press for quick access</string>
     <string name="chat_tooltip_body">Long press the options button to jump straight into a chat about this note. Tap it to see the regular menu.</string>
     <string name="chat_tooltip_got_it">Got it</string>
-    <string name="chat_limit_reached">Message limit reached (20 per session). Close and reopen the chat to start fresh.</string>
+    <string name="chat_limit_reached">Message limit reached (40 per note). Clear the conversation to start fresh.</string>
     <string name="chat_thinking">Thinking…</string>
-    <string name="chat_empty_state">Ask anything about this note. The AI can see the title, summary, and raw text.</string>
+    <string name="chat_empty_state">Ask anything about this note. The AI can see the title, summary, and raw text. Your conversation is saved with the note.</string>
+    <string name="chat_clear_cd">Clear conversation</string>
+    <string name="chat_clear_confirm_title">Clear conversation?</string>
+    <string name="chat_clear_confirm_body">All messages in this conversation will be deleted. The note itself is not affected.</string>
+    <string name="chat_clear_confirm_yes">Clear</string>
 
     <!-- AI Explain sheet -->
     <string name="result_ai_explain_title">AI Explain</string>

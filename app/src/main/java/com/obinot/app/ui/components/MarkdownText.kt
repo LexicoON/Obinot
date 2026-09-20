@@ -283,15 +283,31 @@ private data class InlineSegment(
  *   - Longitud máxima de 80 caracteres.
  */
 private fun splitInlineMathSegments(line: String): List<InlineSegment> {
-    val pattern = Regex("""\$\$([^$\n]+?)\$\$|(?<!\$)\$(?!\$)([^$\n]+?)\$(?!\$)""")
+    val pattern = Regex("""\\\(([^)\n]+?)\\\)|\\\[([^\]\n]+?)\\\]|\$\$([^$\n]+?)\$\$|(?<!\$)\$(?!\$)([^$\n]+?)\$(?!\$)""")
     val segments = mutableListOf<InlineSegment>()
     var cursor = 0
 
     for (match in pattern.findAll(line)) {
-        val isDouble = match.groups[1] != null
-        val content = if (isDouble) match.groups[1]!!.value else match.groups[2]!!.value
+        // 4 posibles grupos: (1) \(...\), (2) \[...\], (3) $$...$$, (4) $...$
+        val parenInline = match.groups[1]
+        val bracketInline = match.groups[2]
+        val doubleDollar = match.groups[3]
+        val singleDollar = match.groups[4]
 
-        val valid = if (isDouble) {
+        val content = when {
+            parenInline != null -> parenInline.value
+            bracketInline != null -> bracketInline.value
+            doubleDollar != null -> doubleDollar.value
+            singleDollar != null -> singleDollar.value
+            else -> continue
+        }
+
+        // Validación: para los delimitadores no-$ (que son inequívocos, un
+        // humano los escribió a propósito), aceptamos siempre que no estén
+        // vacíos. Para $...$ mantenemos las heurísticas anti-falsos-positivos
+        // porque "$100" es un precio, no math.
+        val isExplicit = parenInline != null || bracketInline != null
+        val valid = if (isExplicit || doubleDollar != null) {
             content.isNotBlank()
         } else {
             content.isNotBlank()
@@ -630,6 +646,28 @@ private fun parseMarkdownItems(lines: List<String>): List<MarkdownItem> {
             continue
         }
 
+        // LaTeX estándar: \[...\] como bloque (puede ocupar varias líneas).
+        if (trimmed.startsWith("\\[")) {
+            val startIndex = i
+            if (trimmed.length > 4 && trimmed.endsWith("\\]")) {
+                items.add(MarkdownItem.MathBlock(line, startIndex))
+                i++
+                continue
+            }
+            val content = StringBuilder(line)
+            i++
+            while (i < lines.size) {
+                content.append("\n").append(lines[i])
+                if (lines[i].trim().endsWith("\\]")) {
+                    i++
+                    break
+                }
+                i++
+            }
+            items.add(MarkdownItem.MathBlock(content.toString(), startIndex))
+            continue
+        }
+
         if (trimmed.startsWith("|") && trimmed.endsWith("|") && trimmed.length > 1) {
             val startIndex = i
             val tableLines = mutableListOf<String>()
@@ -771,8 +809,8 @@ fun MarkdownText(
                     is MarkdownItem.MathBlock -> {
                         val latexContent = item.rawText
                             .trim()
-                            .removePrefix("$$")
-                            .removeSuffix("$$")
+                            .removePrefix("$$").removeSuffix("$$")
+                            .removePrefix("\\[").removeSuffix("\\]")
                             .trim()
                         RaTeXBlockView(
                             latex = latexContent,
@@ -1192,7 +1230,7 @@ fun BasicMarkdownLine(
     modifier: Modifier = Modifier
 ) {
     val hasInlineMath = remember(text) {
-        Regex("""\$\$[^$\n]+?\$\$|(?<!\$)\$(?!\$)[^$\n]+?\$(?!\$)""").containsMatchIn(text)
+        Regex("""\\\([^)\n]+?\\\)|\\\[[^\]\n]+?\\\]|\$\$[^$\n]+?\$\$|(?<!\$)\$(?!\$)[^$\n]+?\$(?!\$)""").containsMatchIn(text)
     }
 
     if (hasInlineMath) {
