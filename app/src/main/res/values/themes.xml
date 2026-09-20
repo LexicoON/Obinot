@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Obinot" parent="android:Theme.DeviceDefault.NoActionBar" />
+    <style name="Theme.Obinot" parent="Theme.AppCompat.DayNight.NoActionBar" />
+
+    <!-- Splash theme. Se aplica al arrancar la Activity y se reemplaza
+         automáticamente por Theme.Obinot en cuanto el primer frame de
+         Compose está listo. -->
+    <style name="Theme.Obinot.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Obinot</item>
+    </style>
 </resources>

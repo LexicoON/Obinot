@@ -7,15 +7,21 @@ plugins {
 }
 
 android {
-  namespace = "com.example"
+  // Namespace migrado a com.obinot.app en A3.2.
+  // A3.2 lo cambia a com.obinot.app junto con todos los .kt.
+  namespace = "com.obinot.app"
   compileSdk { version = release(37) }
 
   defaultConfig {
-    applicationId = "com.aistudio.binot.xrztp"
+    // Obinot 2.0 se distribuye como app independiente. El package es
+    // propio, distinto del Binot original, así ambas apps coexisten sin
+    // colisiones en el launcher, en las asociaciones de archivos, ni en
+    // futuras distribuciones (Play Store, F-Droid, etc.).
+    applicationId = "com.obinot.app"
     minSdk = 24
     targetSdk = 36
-    versionCode = 20 
-    versionName = "1.1.9"
+    versionCode = 1
+    versionName = "2.0.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -39,7 +45,8 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }
@@ -64,8 +71,10 @@ secrets {
 }
 
 dependencies {
+  implementation(libs.androidx.core.splashscreen)
   implementation(platform(libs.androidx.compose.bom))
   implementation(platform(libs.firebase.bom))
+  implementation(libs.androidx.appcompat)
   implementation(libs.androidx.activity.compose)
   implementation("androidx.webkit:webkit:1.11.0")
   implementation(libs.androidx.compose.material.icons.core)
