@@ -70,6 +70,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -1401,20 +1402,10 @@ private fun InlineMathMarkdownLine(
                             placeholderVerticalAlign = PlaceholderVerticalAlign.TextCenter
                         )
                     ) { _ ->
-                        AndroidView(
-                            modifier = Modifier.wrapContentSize(Alignment.Center),
-                            factory = { ctx ->
-                                RaTeXView(ctx).apply {
-                                    displayMode = false
-                                    fontSize = 18f
-                                    latex = seg.text
-                                    color = textColor.toArgb()
-                                }
-                            },
-                            update = { view ->
-                                view.latex = seg.text
-                                view.color = textColor.toArgb()
-                            }
+                        RaTeXInlineView(
+                            latex = seg.text,
+                            textColor = textColor,
+                            fontSizeDp = 18f
                         )
                     })
                 }
@@ -1512,4 +1503,64 @@ private fun InlineMathMarkdownLine(
             },
         onTextLayout = { textLayoutResult = it }
     )
+}
+
+/**
+ * RaTeX inline view con auto-sizing y centrado vertical.
+ *
+ * Problema: RaTeXView con displayMode = false dibuja su contenido pegado
+ * arriba-izquierda de su propio rectángulo. Dentro del InlineTextContent
+ * eso se traduce en una fórmula que aparece "volando" arriba.
+ *
+ * Solución: medimos el RaTeXView con un OnLayoutChangeListener, ajustamos
+ * el tamaño del AndroidView al tamaño medido exacto, y lo centramos dentro
+ * del Placeholder con un Box. Es un frame de delay (medición inicial), pero
+ * imperceptible.
+ */
+@Composable
+private fun RaTeXInlineView(
+    latex: String,
+    textColor: Color,
+    fontSizeDp: Float
+) {
+    var measuredSize by remember(latex) { mutableStateOf(IntSize.Zero) }
+    val density = LocalDensity.current
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        if (measuredSize == IntSize.Zero) {
+            // Primer frame: reservamos un mínimo. En cuanto el View mida,
+            // se muestra el tamaño real. Es invisible para el usuario.
+            Spacer(Modifier.size(1.dp))
+        } else {
+            AndroidView(
+                modifier = Modifier.size(
+                    with(density) {
+                        measuredSize.width.toDp() to measuredSize.height.toDp()
+                    }
+                ),
+                factory = { ctx ->
+                    RaTeXView(ctx).apply {
+                        displayMode = false
+                        this.fontSize = fontSizeDp
+                        this.latex = latex
+                        color = textColor.toArgb()
+                        addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->
+                            val w = r - l
+                            val h = b - t
+                            if (w > 0 && h > 0 && (w != measuredSize.width || h != measuredSize.height)) {
+                                measuredSize = IntSize(w, h)
+                            }
+                        }
+                    }
+                },
+                update = { view ->
+                    view.latex = latex
+                    view.color = textColor.toArgb()
+                }
+            )
+        }
+    }
 }

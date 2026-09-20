@@ -292,6 +292,18 @@
     <string name="result_text_copied">Text Copied!</string>
     <string name="result_math_copied">Formula copied to clipboard</string>
 
+    <!-- AI Chat about this note (2.1) -->
+    <string name="chat_title">Ask about this note</string>
+    <string name="chat_placeholder">Ask a question…</string>
+    <string name="chat_send_cd">Send</string>
+    <string name="chat_menu_item">Ask AI about this note</string>
+    <string name="chat_tooltip_title">Long press for quick access</string>
+    <string name="chat_tooltip_body">Long press the options button to jump straight into a chat about this note. Tap it to see the regular menu.</string>
+    <string name="chat_tooltip_got_it">Got it</string>
+    <string name="chat_limit_reached">Message limit reached (20 per session). Close and reopen the chat to start fresh.</string>
+    <string name="chat_thinking">Thinking…</string>
+    <string name="chat_empty_state">Ask anything about this note. The AI can see the title, summary, and raw text.</string>
+
     <!-- AI Explain sheet -->
     <string name="result_ai_explain_title">AI Explain</string>
     <string name="result_ai_explain_empty">No explanation available.</string>

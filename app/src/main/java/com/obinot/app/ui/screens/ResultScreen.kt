@@ -131,7 +131,9 @@ import com.obinot.app.ui.components.BouncyButton
 import com.obinot.app.ui.components.BouncyCapsule
 import com.obinot.app.ui.components.BouncyChip
 import com.obinot.app.ui.components.BouncyIconButton
+import com.obinot.app.ui.components.ChatSheet
 import com.obinot.app.ui.components.MarkdownText
+import com.obinot.app.ui.components.observeBouncyPress
 import com.obinot.app.ui.theme.resolveLabelColors
 import com.obinot.app.utils.AudioRecorderManager
 import com.obinot.app.viewmodel.ResultViewModel
@@ -205,8 +207,14 @@ fun ResultScreen(
     var rawTextLayoutResult by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
     var rawTextWindowBounds by remember { mutableStateOf<Rect?>(null) }
 
-    var showAiExplainSheet by remember { mutableStateOf(false) }
-    var aiExplainTargetWord by remember { mutableStateOf("") }
+    // ============================================================
+    // AI Chat about this note (2.1)
+    // ============================================================
+    var showChatSheet by remember { mutableStateOf(false) }
+    var showChatTooltip by remember { mutableStateOf(false) }
+    var showMoreMenu by remember { mutableStateOf(false) }
+
+    val aiChatTooltipShown by viewModel.aiChatTooltipShown.collectAsState()
 
     var selectionRect by remember { mutableStateOf(Rect.Zero) }
     var showCustomMenu by remember { mutableStateOf(false) }
@@ -297,7 +305,8 @@ fun ResultScreen(
     // En esos casos el gesto predictivo no tiene sentido — un diálogo o una
     // selección de texto no se "previsualiza" deslizando.
     val hasTransientState = isTextSelected || showCustomMenu || showCancelConfirmDialog ||
-        (showSidePanel && !isLandscape) || isEditMode || isTitleFocused
+        (showSidePanel && !isLandscape) || isEditMode || isTitleFocused ||
+        showChatSheet || showChatTooltip || showMoreMenu
 
     // BackHandler normal para estados transitorios. Instantáneo, sin animación.
     BackHandler(enabled = hasTransientState) {
@@ -307,6 +316,9 @@ fun ResultScreen(
             showSidePanel && !isLandscape -> showSidePanel = false
             isEditMode -> if (hasUnsavedChanges) showCancelConfirmDialog = true else isEditMode = false
             isTitleFocused -> focusManager.clearFocus()
+            showChatSheet -> showChatSheet = false
+            showChatTooltip -> showChatTooltip = false
+            showMoreMenu -> showMoreMenu = false
         }
     }
 
@@ -829,12 +841,19 @@ fun ResultScreen(
                             } else if (!isLandscape) {
                                 // En landscape el side panel está siempre visible,
                                 // así que el botón 3-puntos no hace falta.
-                                BouncyIconButton(
-                                    onClick = { showSidePanel = true },
-                                    expandOnPress = 3.dp
-                                ) {
-                                    Icon(imageVector = Icons.Default.MoreVert, contentDescription = stringResource(R.string.result_cd_options))
-                                }
+                                //
+                                // Tap: abre el menú normal.
+                                // Long press: abre el chat directamente.
+                                ChatOptionsButton(
+                                    onClick = { showMoreMenu = true },
+                                    onLongPress = {
+                                        if (!aiChatTooltipShown) {
+                                            showChatTooltip = true
+                                        } else {
+                                            showChatSheet = true
+                                        }
+                                    }
+                                )
                             }
                         }
                     },
@@ -1321,6 +1340,55 @@ fun ResultScreen(
         }
     }
 
+    // ============================================================
+    // AI Chat about this note (2.1) — menú, tooltip, sheet
+    // ============================================================
+
+    DropdownMenu(
+        expanded = showMoreMenu,
+        onDismissRequest = { showMoreMenu = false }
+    ) {
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.chat_menu_item)) },
+            leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
+            onClick = {
+                showMoreMenu = false
+                showChatSheet = true
+            }
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.result_cd_options)) },
+            leadingIcon = { Icon(Icons.Default.Tune, contentDescription = null) },
+            onClick = {
+                showMoreMenu = false
+                showSidePanel = true
+            }
+        )
+    }
+
+    if (showChatTooltip) {
+        AlertDialog(
+            onDismissRequest = { showChatTooltip = false },
+            title = { Text(stringResource(R.string.chat_tooltip_title)) },
+            text = { Text(stringResource(R.string.chat_tooltip_body)) },
+            confirmButton = {
+                BouncyButton(onClick = {
+                    viewModel.markChatTooltipShown()
+                    showChatTooltip = false
+                }) {
+                    Text(stringResource(R.string.chat_tooltip_got_it))
+                }
+            }
+        )
+    }
+
+    if (showChatSheet) {
+        ChatSheet(
+            viewModel = viewModel,
+            onDismiss = { showChatSheet = false }
+        )
+    }
+
     if (showHighlightDialog) {
         fun closeHighlightDialog() {
             showHighlightDialog = false
@@ -1380,70 +1448,6 @@ fun ResultScreen(
                 }
             }
         )
-    }
-
-    if (showAiExplainSheet) {
-        val explainResult by viewModel.explainResult.collectAsState()
-        val isExplaining by viewModel.isExplaining.collectAsState()
-        val explainScrollState = rememberScrollState()
-
-        val scrollWall = remember {
-            object : NestedScrollConnection {
-                override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset = available
-                override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity = available
-            }
-        }
-
-        ModalBottomSheet(
-            onDismissRequest = {
-                showAiExplainSheet = false
-                viewModel.clearExplainResult()
-            },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.75f)
-                    .padding(horizontal = 24.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.result_ai_explain_title), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.height(16.dp))
-                Text("\"$aiExplainTargetWord\"", style = MaterialTheme.typography.bodyLarge, fontStyle = FontStyle.Italic)
-                Spacer(Modifier.height(16.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(16.dp))
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .nestedScroll(scrollWall)
-                ) {
-                    if (isExplaining) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            AiThinkingAnimation(color = MaterialTheme.colorScheme.primary)
-                        }
-                    } else {
-                        MarkdownText(
-                            text = explainResult ?: stringResource(R.string.result_ai_explain_empty),
-                            scrollState = explainScrollState,
-                            highlightsInfo = null,
-                            onSavedHighlightClick = { _, _, _, _, _ -> },
-                            onResolveSelection = { null },
-                            highlightQuery = "",
-                            fontFamily = selectedFont,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-        }
     }
 
     if (showCustomMenu) {
@@ -1562,20 +1566,6 @@ fun ResultScreen(
                         expandOnPress = 4.dp
                     ) {
                         Icon(Icons.Default.SelectAll, contentDescription = stringResource(R.string.result_cd_select_all), tint = MaterialTheme.colorScheme.inverseOnSurface)
-                    }
-                    BouncyIconButton(
-                        onClick = {
-                            extractSelectedTextAndExecute { text ->
-                                if (text.isNotBlank()) {
-                                    aiExplainTargetWord = text
-                                    viewModel.explainText(text, deviceLanguage)
-                                    showAiExplainSheet = true
-                                }
-                            }
-                        },
-                        expandOnPress = 4.dp
-                    ) {
-                        Icon(Icons.Default.Search, contentDescription = stringResource(R.string.result_cd_ai_explain), tint = MaterialTheme.colorScheme.inverseOnSurface)
                     }
                 }
             }
@@ -1883,5 +1873,46 @@ private fun AiThinkingAnimation(color: Color) {
                     .background(color)
             )
         }
+    }
+}
+
+/**
+ * Botón de opciones con long press.
+ *
+ * Tap corto: dispara [onClick] (abre el menú normal).
+ * Long press: dispara [onLongPress] (abre el chat directamente).
+ */
+@Composable
+private fun ChatOptionsButton(
+    onClick: () -> Unit,
+    onLongPress: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val scale = remember { Animatable(1f) }
+
+    LaunchedEffect(interactionSource) {
+        observeBouncyPress(interactionSource, scale, pressedScale = 0.88f)
+    }
+
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .graphicsLayer {
+                scaleX = scale.value
+                scaleY = scale.value
+            }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { onClick() },
+                    onLongPress = { onLongPress() }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.MoreVert,
+            contentDescription = stringResource(R.string.result_cd_options),
+            tint = MaterialTheme.colorScheme.onSurface
+        )
     }
 }

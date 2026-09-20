@@ -45,6 +45,17 @@ import java.io.File
 import org.json.JSONArray
 import org.json.JSONObject
 
+/**
+ * Un mensaje dentro de la conversación del chat sobre la nota.
+ *
+ * No se persiste a disco: el historial vive mientras el ModalBottomSheet
+ * esté abierto. Al cerrar el sheet, el historial se descarta.
+ */
+data class ChatMessage(
+    val role: String,   // "user" o "assistant"
+    val content: String
+)
+
 class ResultViewModel(
     private val noteId: Int,
     private val noteRepository: NoteRepository,
@@ -137,6 +148,22 @@ class ResultViewModel(
 
     private val _isExplaining = MutableStateFlow(false)
     val isExplaining: StateFlow<Boolean> = _isExplaining.asStateFlow()
+
+    // ============================================================
+    // AI Chat about this note (2.1)
+    // ============================================================
+
+    private val _chatMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
+    val chatMessages: StateFlow<List<ChatMessage>> = _chatMessages.asStateFlow()
+
+    private val _isChatSending = MutableStateFlow(false)
+    val isChatSending: StateFlow<Boolean> = _isChatSending.asStateFlow()
+
+    val aiChatTooltipShown: StateFlow<Boolean> = settingsRepository.aiChatTooltipShownFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
 
     init {
         loadNote()
@@ -517,7 +544,7 @@ class ResultViewModel(
     // ============================================================
 
     private enum class MixTask {
-        SHORT_AUDIO, LONG_AUDIO, SHORT_TEXT, LONG_TEXT, TITLE, EXPLAIN
+        SHORT_AUDIO, LONG_AUDIO, SHORT_TEXT, LONG_TEXT, TITLE, EXPLAIN, CHAT
     }
 
     private suspend fun pickProviderForMix(task: MixTask): Int {
@@ -525,7 +552,7 @@ class ResultViewModel(
             MixTask.LONG_AUDIO -> 0
             MixTask.SHORT_AUDIO -> 1
             MixTask.LONG_TEXT -> 0
-            MixTask.SHORT_TEXT, MixTask.TITLE, MixTask.EXPLAIN -> {
+            MixTask.SHORT_TEXT, MixTask.TITLE, MixTask.EXPLAIN, MixTask.CHAT -> {
                 val counter = settingsRepository.incrementMixCounter()
                 if (counter % 2 == 0) 0 else 1
             }
@@ -1134,6 +1161,141 @@ class ResultViewModel(
         } else {
             appContext.getString(R.string.processing_failed, e.message ?: "")
         }
+    }
+
+    // ============================================================
+    // AI Chat about this note (2.1)
+    // ============================================================
+
+    /**
+     * Envía un mensaje del usuario al chat y agrega la respuesta del modelo
+     * al historial. Si el historial ya llegó al límite (20 mensajes), ignora
+     * el envío. No hace nada si el texto está vacío o si ya hay un envío en curso.
+     */
+    fun sendChatMessage(userMessage: String) {
+        val trimmed = userMessage.trim()
+        if (trimmed.isEmpty()) return
+        if (_isChatSending.value) return
+        if (_chatMessages.value.size >= 20) return
+
+        val currentNote = _note.value ?: return
+
+        _chatMessages.value = _chatMessages.value + ChatMessage("user", trimmed)
+        _isChatSending.value = true
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val provider = settingsRepository.aiProviderFlow.first()
+                val geminiKey = settingsRepository.geminiApiKeyFlow.first()
+                val groqKey = settingsRepository.groqApiKeyFlow.first()
+                val targetLanguage = settingsRepository.aiLanguageFlow.first()
+
+                val effectiveProvider = if (provider == 2) {
+                    pickProviderForMix(MixTask.CHAT)
+                } else provider
+
+                val apiKey = if (effectiveProvider == 1) groqKey else geminiKey
+                if (apiKey.isBlank()) {
+                    launch(Dispatchers.Main) {
+                        _chatMessages.value = _chatMessages.value + ChatMessage(
+                            "assistant",
+                            appContext.getString(R.string.error_api_key_missing)
+                        )
+                        _isChatSending.value = false
+                    }
+                    return@launch
+                }
+
+                val cleanSummary = currentNote.summary
+                    ?.replace(Regex("<!--BINOT_META:.*?-->"), "")
+                    ?.trimEnd()
+
+                val systemPrompt = """
+                    You are an AI assistant helping the user understand their own note.
+                    Output language: $targetLanguage. If the user writes in a different language, reply in the user's language instead.
+
+                    The note's content is provided below for context. Answer the user's questions based strictly on it. If the answer isn't in the note, say so politely.
+
+                    STRICT RULES YOU MUST OBEY:
+                    1. ZERO YAPPING: No greetings, no introductions, no self-references. Answer directly.
+                    2. Markdown allowed: headers, bold, italic, lists, code blocks, links.
+                    3. NO TABLES under any circumstances.
+                    4. MATH: Block formulas only, using `${'$'}${'$'}...${'$'}${'$'}` on their own line. NEVER use inline math (`${'$'}...${'$'}`) inside a sentence.
+                    5. MERMAID: You may use ```mermaid blocks with `flowchart TD` or `flowchart LR` only. Wrap node labels in double quotes.
+
+                    --- NOTE TITLE ---
+                    ${currentNote.title}
+
+                    --- NOTE SUMMARY ---
+                    ${cleanSummary ?: "(no summary yet)"}
+
+                    --- NOTE RAW TEXT ---
+                    ${currentNote.rawText}
+                    --- END OF NOTE ---
+                """.trimIndent()
+
+                // Construimos el historial completo como una sola cadena para
+                // el turno del usuario. Es más simple que serializar mensajes
+                // individuales y el system prompt ya establece el contexto.
+                val conversationHistory = _chatMessages.value.joinToString("\n\n") { msg ->
+                    when (msg.role) {
+                        "user" -> "User: ${msg.content}"
+                        else -> "Assistant: ${msg.content}"
+                    }
+                }
+
+                val responseText = if (effectiveProvider == 1) {
+                    val request = GroqChatRequest(
+                        model = GroqModels.GPT_OSS_20B,
+                        messages = listOf(
+                            GroqMessage(role = "system", content = systemPrompt),
+                            GroqMessage(role = "user", content = conversationHistory)
+                        )
+                    )
+                    RetrofitClient.groqService.generateContent("Bearer $apiKey", request)
+                        .choices?.firstOrNull()?.message?.content?.trim()
+                } else {
+                    val request = GenerateContentRequest(
+                        systemInstruction = Content(parts = listOf(Part(text = systemPrompt))),
+                        contents = listOf(Content(parts = listOf(Part(text = conversationHistory))))
+                    )
+                    RetrofitClient.service.generateContent(
+                        model = GeminiModels.FLASH_LITE,
+                        apiKey = apiKey,
+                        request = request
+                    ).candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
+                }
+
+                launch(Dispatchers.Main) {
+                    val reply = if (responseText.isNullOrBlank()) {
+                        appContext.getString(R.string.error_ai_empty_text)
+                    } else {
+                        responseText
+                    }
+                    _chatMessages.value = _chatMessages.value + ChatMessage("assistant", reply)
+                    _isChatSending.value = false
+                }
+            } catch (e: Exception) {
+                launch(Dispatchers.Main) {
+                    _chatMessages.value = _chatMessages.value + ChatMessage(
+                        "assistant",
+                        handleExceptionError(e)
+                    )
+                    _isChatSending.value = false
+                }
+            }
+        }
+    }
+
+    /** Limpia el historial del chat. Se llama al cerrar el ModalBottomSheet. */
+    fun clearChat() {
+        _chatMessages.value = emptyList()
+        _isChatSending.value = false
+    }
+
+    /** Marca que el tooltip del long-press ya se mostró, para no repetirlo. */
+    fun markChatTooltipShown() {
+        viewModelScope.launch { settingsRepository.saveAiChatTooltipShown(true) }
     }
 
     override fun onCleared() {

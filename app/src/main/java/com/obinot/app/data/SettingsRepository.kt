@@ -57,6 +57,12 @@ class SettingsRepository(private val context: Context) {
         // --- F4b: READING FONT ---
         // 0 = Sans (default), 1 = Serif, 2 = Mono.
         val READING_FONT_KEY = intPreferencesKey("reading_font")
+
+        // --- 2.1: AI CHAT ABOUT NOTE ---
+        // Primera vez que el usuario abre ResultScreen, mostramos un popup
+        // explicando que el botón de 3-puntos tiene long press para chat
+        // directo. Después de verlo una vez, no se vuelve a mostrar.
+        val AI_CHAT_TOOLTIP_SHOWN_KEY = booleanPreferencesKey("ai_chat_tooltip_shown")
     }
 
     val userNameFlow: Flow<String> = context.dataStore.data.map { it[USER_NAME_KEY] ?: "" }
@@ -80,6 +86,7 @@ class SettingsRepository(private val context: Context) {
     val readingFontFlow: Flow<Int> = context.dataStore.data.map { it[READING_FONT_KEY] ?: 0 }
     // Default OFF: el picker nativo es beta y se opta explícitamente.
     val nativePickerFlow: Flow<Boolean> = context.dataStore.data.map { it[NATIVE_PICKER_KEY] ?: false }
+    val aiChatTooltipShownFlow: Flow<Boolean> = context.dataStore.data.map { it[AI_CHAT_TOOLTIP_SHOWN_KEY] ?: false }
 
     suspend fun saveUserName(name: String) {
         context.dataStore.edit { it[USER_NAME_KEY] = name }
@@ -160,5 +167,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun saveReadingFont(mode: Int) {
         context.dataStore.edit { it[READING_FONT_KEY] = mode.coerceIn(0, 2) }
+    }
+
+    suspend fun saveAiChatTooltipShown(shown: Boolean) {
+        context.dataStore.edit { it[AI_CHAT_TOOLTIP_SHOWN_KEY] = shown }
     }
 }

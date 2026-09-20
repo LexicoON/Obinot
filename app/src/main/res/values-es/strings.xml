@@ -292,6 +292,18 @@
     <string name="result_text_copied">¡Texto copiado!</string>
     <string name="result_math_copied">Fórmula copiada al portapapeles</string>
 
+    <!-- AI Chat about this note (2.1) -->
+    <string name="chat_title">Preguntá sobre esta nota</string>
+    <string name="chat_placeholder">Hacé una pregunta…</string>
+    <string name="chat_send_cd">Enviar</string>
+    <string name="chat_menu_item">Preguntarle a la IA sobre esta nota</string>
+    <string name="chat_tooltip_title">Mantené presionado para acceso rápido</string>
+    <string name="chat_tooltip_body">Mantené presionado el botón de opciones para abrir directamente un chat sobre esta nota. Tocalo para ver el menú normal.</string>
+    <string name="chat_tooltip_got_it">Entendido</string>
+    <string name="chat_limit_reached">Límite de mensajes alcanzado (20 por sesión). Cerrá y volvé a abrir el chat para empezar de nuevo.</string>
+    <string name="chat_thinking">Pensando…</string>
+    <string name="chat_empty_state">Preguntá lo que quieras sobre esta nota. La IA puede ver el título, el resumen y el texto original.</string>
+
     <!-- AI Explain sheet -->
     <string name="result_ai_explain_title">Explicación con IA</string>
     <string name="result_ai_explain_empty">No hay explicación disponible.</string>
