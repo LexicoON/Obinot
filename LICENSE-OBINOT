@@ -1,0 +1,42 @@
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   Copyright 2026 LexicoON (github.com/LexicoON)
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+   ─────────────────────────────────────────────────────────────────
+
+   This license applies to the fork-specific code, features, and
+   modifications made in this repository on top of the original Binot
+   project.
+
+   The original Binot codebase is licensed under the MIT License and
+   is covered by the LICENSE file in this repository, which retains
+   the copyright of its original author (DENSLnetion). That license
+   is not modified or superseded by this one.
+
+   For the full text of the Apache License 2.0, see:
+   https://www.apache.org/licenses/LICENSE-2.0.txt
+
+   ─────────────────────────────────────────────────────────────────
+
+   NOTICE
+
+   Obinot
+   Copyright 2026 LexicoON
+
+   This product includes software developed as part of the Binot
+   project (https://github.com/DENSLnetion/Binot), licensed under
+   the MIT License.

@@ -93,3 +93,46 @@
 -keep class com.obinot.app.MainActivity { *; }
 -keep class com.obinot.app.BinotApplication { *; }
 -keep class com.obinot.app.utils.RecordingService { *; }
+
+# ============================================================
+# Compose InlineTextContent + inline AndroidView
+# ============================================================
+# R8 elimina o rompe el ComposableLambda que construye el
+# AndroidView dentro de InlineTextContent. El Placeholder se
+# renderiza (reserva espacio) y el alternateText sobrevive en el
+# AnnotatedString, pero el WebView inline nunca se crea.
+#
+# Estas reglas preservan:
+#  - La clase InlineTextContent y sus métodos internos.
+#  - Los ComposableLambda generados por el compilador de Compose.
+#  - El AndroidView y sus factories.
+#  - El WebView y sus clientes (Chromium internals).
+-keep class androidx.compose.foundation.text.InlineTextContent { *; }
+-keep class androidx.compose.foundation.text.InlineTextContentKt { *; }
+-keepclassmembers class androidx.compose.foundation.text.InlineTextContent { *; }
+
+-keep class androidx.compose.ui.text.Placeholder { *; }
+-keep class androidx.compose.ui.text.PlaceholderVerticalAlign { *; }
+
+-keep class androidx.compose.ui.viewinterop.AndroidView* { *; }
+-keepclassmembers class androidx.compose.ui.viewinterop.** { *; }
+
+-keep class androidx.compose.runtime.internal.ComposableLambda* { *; }
+-keepclassmembers class androidx.compose.runtime.internal.ComposableLambda* { *; }
+
+-keep class androidx.compose.runtime.internal.ComposableLambdaImpl { *; }
+-keepclassmembers class androidx.compose.runtime.internal.ComposableLambdaImpl { *; }
+
+# AndroidView depende de ViewFactoryHolder internamente.
+-keep class androidx.compose.ui.viewinterop.ViewFactoryHolder { *; }
+-keepclassmembers class androidx.compose.ui.viewinterop.ViewFactoryHolder { *; }
+
+# WebView + Chromium. R8 a veces elimina métodos que solo se
+# invocan por reflection desde Chromium.
+-keep class android.webkit.WebView { *; }
+-keep class android.webkit.WebViewClient { *; }
+-keep class android.webkit.WebChromeClient { *; }
+-keepclassmembers class android.webkit.WebView { *; }
+
+# Los addJavascriptInterface con @JavascriptInterface ya están
+# cubiertos por las reglas generales al inicio del archivo.
