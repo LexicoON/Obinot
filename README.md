@@ -1,6 +1,10 @@
 # README — versión C completa (sin cortes)
 
 ```markdown
+<p align="center">
+  <img src="https://raw.githubusercontent.com/LexicoON/Obinot/dev/store-assets/icon.png" width="120" height="120" alt="Obinot" />
+</p>
+
 <h1 align="center">Obinot</h1>
 
 <p align="center">
@@ -18,9 +22,15 @@
   <em>👉 Please support the original creator of Binot: <a href="https://github.com/DENSLnetion/Binot">github.com/DENSLnetion/Binot</a></em>
 </p>
 
-## Screenshot
+## Screenshots
 
-<img width="1920" height="3234" alt="Screenshot" src="https://github.com/user-attachments/assets/f6ea2734-ae8b-4cf1-a493-3ede4b031b11" />
+<p align="center">
+  <img src="https://raw.githubusercontent.com/LexicoON/Obinot/dev/store-assets/readme/cover.png" width="780" alt="Obinot — voice notes, structured by AI" />
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/LexicoON/Obinot/dev/store-assets/readme/features.png" width="780" alt="Dark mode, colored labels, and offline diagrams" />
+</p>
 
 ## What is Obinot?
 
