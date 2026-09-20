@@ -72,6 +72,25 @@ interface NoteDao {
     )
     fun getAllLabelStrings(): Flow<List<String>>
 
+    /**
+     * Devuelve las notas no-trasheadas (excluyendo la system note) cuyo campo
+     * `label` contiene el string `:label`. El filtro es deliberadamente
+     * laxo (`LIKE '%' || label || '%'`) para aprovechar el LIKE de SQLite;
+     * el caller debe verificar que el label aparezca como token completo en
+     * el string `label1|label2|label3` antes de operar sobre la nota.
+     *
+     * Se usa para renameLabel / deleteLabel: en vez de cargar TODAS las notas
+     * (getAllNotesSync) y filtrar en Kotlin, la DB devuelve solo el subconjunto
+     * que puede contener el label. Con 500 notas y 10 labels típicos, reduce
+     * el trabajo de 500 a ~50 filas.
+     */
+    @Query(
+        "SELECT * FROM notes " +
+        "WHERE isTrashed = 0 AND label LIKE '%' || :label || '%' " +
+        "AND title != '[[BINOT_SYSTEM_LABELS]]'"
+    )
+    suspend fun getNotesWithLabelSync(label: String): List<NoteEntity>
+
     @Query("SELECT * FROM notes WHERE isTrashed = 0")
     suspend fun getAllNotesSync(): List<NoteEntity>
 

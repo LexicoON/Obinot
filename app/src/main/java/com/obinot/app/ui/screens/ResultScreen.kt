@@ -131,7 +131,10 @@ import com.obinot.app.ui.components.BouncyButton
 import com.obinot.app.ui.components.BouncyCapsule
 import com.obinot.app.ui.components.BouncyChip
 import com.obinot.app.ui.components.BouncyIconButton
+import com.obinot.app.ui.components.ChatSheet
 import com.obinot.app.ui.components.MarkdownText
+import com.obinot.app.ui.components.SummaryEditorSheet
+import com.obinot.app.ui.components.observeBouncyPress
 import com.obinot.app.ui.theme.resolveLabelColors
 import com.obinot.app.utils.AudioRecorderManager
 import com.obinot.app.viewmodel.ResultViewModel
@@ -205,8 +208,14 @@ fun ResultScreen(
     var rawTextLayoutResult by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
     var rawTextWindowBounds by remember { mutableStateOf<Rect?>(null) }
 
-    var showAiExplainSheet by remember { mutableStateOf(false) }
-    var aiExplainTargetWord by remember { mutableStateOf("") }
+    // ============================================================
+    // AI Chat about this note (2.1)
+    // ============================================================
+    var showChatSheet by remember { mutableStateOf(false) }
+    var showChatTooltip by remember { mutableStateOf(false) }
+    var showSummaryEditor by remember { mutableStateOf(false) }
+
+    val aiChatTooltipShown by viewModel.aiChatTooltipShown.collectAsState()
 
     var selectionRect by remember { mutableStateOf(Rect.Zero) }
     var showCustomMenu by remember { mutableStateOf(false) }
@@ -277,6 +286,19 @@ fun ResultScreen(
         }
     }
 
+    // Launcher para exportar Markdown: SAF CreateDocument pide al usuario
+    // dónde guardar, y después escribimos directo a ese URI sin disparar
+    // ningún share intent.
+    val exportMarkdownLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/markdown")
+    ) { uri ->
+        uri?.let {
+            viewModel.exportMarkdownToUri(context, it) { _, msg ->
+                coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
+            }
+        }
+    }
+
     var showContent by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(60)
@@ -297,7 +319,8 @@ fun ResultScreen(
     // En esos casos el gesto predictivo no tiene sentido — un diálogo o una
     // selección de texto no se "previsualiza" deslizando.
     val hasTransientState = isTextSelected || showCustomMenu || showCancelConfirmDialog ||
-        (showSidePanel && !isLandscape) || isEditMode || isTitleFocused
+        (showSidePanel && !isLandscape) || isEditMode || isTitleFocused ||
+        showChatSheet || showChatTooltip || showSummaryEditor
 
     // BackHandler normal para estados transitorios. Instantáneo, sin animación.
     BackHandler(enabled = hasTransientState) {
@@ -307,6 +330,9 @@ fun ResultScreen(
             showSidePanel && !isLandscape -> showSidePanel = false
             isEditMode -> if (hasUnsavedChanges) showCancelConfirmDialog = true else isEditMode = false
             isTitleFocused -> focusManager.clearFocus()
+            showChatSheet -> showChatSheet = false
+            showChatTooltip -> showChatTooltip = false
+            showSummaryEditor -> showSummaryEditor = false
         }
     }
 
@@ -431,6 +457,29 @@ fun ResultScreen(
 
             SectionSpacer()
 
+            PanelSectionHeader(icon = Icons.Default.AutoAwesome, title = stringResource(R.string.chat_menu_item))
+
+            BouncyButton(
+                onClick = {
+                    showSidePanel = false
+                    showChatSheet = true
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.chat_menu_item),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            SectionSpacer()
+
             PanelSectionHeader(icon = Icons.Default.Search, title = stringResource(R.string.result_section_find_format))
             OutlinedTextField(
                 value = searchHighlightQuery,
@@ -533,6 +582,20 @@ fun ResultScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 if (note!!.summary != null) {
+                    item {
+                        BouncyCapsule(
+                            onClick = {
+                                showSummaryEditor = true
+                                showSidePanel = false
+                            },
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.result_edit_summary), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.result_edit_summary), color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
                     item {
                         BouncyCapsule(
                             onClick = {
@@ -642,17 +705,23 @@ fun ResultScreen(
                 item {
                     BouncyCapsule(
                         onClick = {
-                            viewModel.shareBinotFile(context) { uri, msg ->
+                            // Guarda el .binot en Documentos y luego abre el share
+                            // dialog del sistema con el archivo. En API < 29 no se
+                            // guarda (no hay MediaStore.Downloads) — solo se comparte
+                            // desde cache.
+                            viewModel.shareBinotToDocuments(context) { uri, msg ->
+                                // Mostramos el snackbar SIEMPRE: informa si el
+                                // archivo se guardó en Documentos o no.
+                                coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
                                 if (uri != null) {
                                     val sendIntent = Intent(Intent.ACTION_SEND).apply {
                                         type = "application/zip"
                                         putExtra(Intent.EXTRA_STREAM, uri)
                                         putExtra(Intent.EXTRA_TEXT, context.getString(R.string.result_share_text, note!!.title))
                                         flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                        clipData = ClipData.newRawUri("", uri)
                                     }
                                     context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.result_share_chooser)))
-                                } else {
-                                    coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
                                 }
                             }
                             showSidePanel = false
@@ -668,19 +737,13 @@ fun ResultScreen(
                 item {
                     BouncyCapsule(
                         onClick = {
-                            viewModel.exportMarkdownFile(context) { uri, msg ->
-                                if (uri != null) {
-                                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/markdown"
-                                        putExtra(Intent.EXTRA_STREAM, uri)
-                                        putExtra(Intent.EXTRA_TEXT, context.getString(R.string.result_share_text_markdown, note!!.title))
-                                        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                    }
-                                    context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.result_share_markdown_chooser)))
-                                } else {
-                                    coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
-                                }
-                            }
+                            // SAF CreateDocument abre el picker "guardar como…".
+                            // Cuando el usuario confirma, escribimos el Markdown
+                            // directo al URI elegido. Sin share intent.
+                            val safeTitle = note!!.title
+                                .ifBlank { "Obinot_Note" }
+                                .replace(Regex("[^a-zA-Z0-9.-]"), "_")
+                            exportMarkdownLauncher.launch("${safeTitle}.md")
                             showSidePanel = false
                         },
                         containerColor = MaterialTheme.colorScheme.surfaceVariant
@@ -694,10 +757,9 @@ fun ResultScreen(
 
             if (note!!.audioPath != null) {
                 Spacer(modifier = Modifier.height(12.dp))
-                Slider(
-                    value = playbackProgress,
-                    onValueChange = { viewModel.seekAudio(it) },
-                    modifier = Modifier.fillMaxWidth()
+                ExpressiveAudioBar(
+                    progress = playbackProgress,
+                    onSeek = { viewModel.seekAudio(it) }
                 )
             }
 
@@ -719,12 +781,6 @@ fun ResultScreen(
                     scaleY = scale
                     alpha = 1f - p * 0.5f
                 }
-                .sharedBounds(
-                    sharedContentState = rememberSharedContentState(key = "note-$noteId"),
-                    animatedVisibilityScope = animatedVisibilityScope,
-                    resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
-                    boundsTransform = { _, _ -> tween(300) }
-                )
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
             topBar = {
                 TopAppBar(
@@ -829,12 +885,19 @@ fun ResultScreen(
                             } else if (!isLandscape) {
                                 // En landscape el side panel está siempre visible,
                                 // así que el botón 3-puntos no hace falta.
-                                BouncyIconButton(
+                                //
+                                // Tap: abre el menú normal.
+                                // Long press: abre el chat directamente.
+                                ChatOptionsButton(
                                     onClick = { showSidePanel = true },
-                                    expandOnPress = 3.dp
-                                ) {
-                                    Icon(imageVector = Icons.Default.MoreVert, contentDescription = stringResource(R.string.result_cd_options))
-                                }
+                                    onLongPress = {
+                                        if (!aiChatTooltipShown) {
+                                            showChatTooltip = true
+                                        } else {
+                                            showChatSheet = true
+                                        }
+                                    }
+                                )
                             }
                         }
                     },
@@ -911,6 +974,12 @@ fun ResultScreen(
                         .fillMaxSize()
                         .padding(paddingValues)
                         .imePadding()
+                        .sharedBounds(
+                            sharedContentState = rememberSharedContentState(key = "note-$noteId"),
+                            animatedVisibilityScope = animatedVisibilityScope,
+                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
+                            boundsTransform = { _, _ -> tween(300) }
+                        )
                         .onGloballyPositioned { coordinates ->
                             selectionContentBounds = coordinates.boundsInWindow()
                         }
@@ -1064,14 +1133,10 @@ fun ResultScreen(
                                             )
                                         }
                                         Spacer(modifier = Modifier.height(24.dp))
-                                        Slider(
-                                            value = playbackProgress,
-                                            onValueChange = { viewModel.seekAudio(it) },
-                                            colors = SliderDefaults.colors(
-                                                thumbColor = MaterialTheme.colorScheme.error,
-                                                activeTrackColor = MaterialTheme.colorScheme.error
-                                            ),
-                                            modifier = Modifier.fillMaxWidth()
+                                        ExpressiveAudioBar(
+                                            progress = playbackProgress,
+                                            onSeek = { viewModel.seekAudio(it) },
+                                            tint = MaterialTheme.colorScheme.error
                                         )
                                         Spacer(modifier = Modifier.height(24.dp))
                                         BouncyCapsule(
@@ -1119,6 +1184,13 @@ fun ResultScreen(
                                                 onResolveSelection = { resolver -> resolveMarkdownSelection = resolver },
                                                 highlightQuery = temporaryHighlight,
                                                 onCheckboxToggle = { lineIndex -> viewModel.toggleCheckbox(lineIndex) },
+                                                onMathCopy = { latex ->
+                                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                    clipboard.setPrimaryClip(ClipData.newPlainText("LaTeX", latex))
+                                                    coroutineScope.launch {
+                                                        snackbarHostState.showSnackbar(context.getString(R.string.result_math_copied))
+                                                    }
+                                                },
                                                 fontFamily = selectedFont,
                                                 linePositions = markdownLinePositions,
                                                 modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
@@ -1314,6 +1386,49 @@ fun ResultScreen(
         }
     }
 
+    // ============================================================
+    // AI Chat about this note (2.1) — tooltip + sheet
+    // ============================================================
+
+    if (showChatTooltip) {
+        AlertDialog(
+            onDismissRequest = { showChatTooltip = false },
+            title = { Text(stringResource(R.string.chat_tooltip_title)) },
+            text = { Text(stringResource(R.string.chat_tooltip_body)) },
+            confirmButton = {
+                BouncyButton(onClick = {
+                    viewModel.markChatTooltipShown()
+                    showChatTooltip = false
+                }) {
+                    Text(stringResource(R.string.chat_tooltip_got_it))
+                }
+            }
+        )
+    }
+
+    if (showChatSheet) {
+        ChatSheet(
+            viewModel = viewModel,
+            onDismiss = { showChatSheet = false }
+        )
+    }
+
+    if (showSummaryEditor && !note?.summary.isNullOrEmpty()) {
+        SummaryEditorSheet(
+            initialSummary = remember(note?.summary) {
+                note?.summary?.replace(Regex("<!--BINOT_META:.*?-->"), "")?.trimEnd() ?: ""
+            },
+            onSave = { newSummary ->
+                viewModel.updateSummary(newSummary)
+                showSummaryEditor = false
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(context.getString(R.string.summary_editor_saved))
+                }
+            },
+            onDismiss = { showSummaryEditor = false }
+        )
+    }
+
     if (showHighlightDialog) {
         fun closeHighlightDialog() {
             showHighlightDialog = false
@@ -1373,70 +1488,6 @@ fun ResultScreen(
                 }
             }
         )
-    }
-
-    if (showAiExplainSheet) {
-        val explainResult by viewModel.explainResult.collectAsState()
-        val isExplaining by viewModel.isExplaining.collectAsState()
-        val explainScrollState = rememberScrollState()
-
-        val scrollWall = remember {
-            object : NestedScrollConnection {
-                override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset = available
-                override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity = available
-            }
-        }
-
-        ModalBottomSheet(
-            onDismissRequest = {
-                showAiExplainSheet = false
-                viewModel.clearExplainResult()
-            },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.75f)
-                    .padding(horizontal = 24.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.result_ai_explain_title), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.height(16.dp))
-                Text("\"$aiExplainTargetWord\"", style = MaterialTheme.typography.bodyLarge, fontStyle = FontStyle.Italic)
-                Spacer(Modifier.height(16.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(16.dp))
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .nestedScroll(scrollWall)
-                ) {
-                    if (isExplaining) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            AiThinkingAnimation(color = MaterialTheme.colorScheme.primary)
-                        }
-                    } else {
-                        MarkdownText(
-                            text = explainResult ?: stringResource(R.string.result_ai_explain_empty),
-                            scrollState = explainScrollState,
-                            highlightsInfo = null,
-                            onSavedHighlightClick = { _, _, _, _, _ -> },
-                            onResolveSelection = { null },
-                            highlightQuery = "",
-                            fontFamily = selectedFont,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-        }
     }
 
     if (showCustomMenu) {
@@ -1555,20 +1606,6 @@ fun ResultScreen(
                         expandOnPress = 4.dp
                     ) {
                         Icon(Icons.Default.SelectAll, contentDescription = stringResource(R.string.result_cd_select_all), tint = MaterialTheme.colorScheme.inverseOnSurface)
-                    }
-                    BouncyIconButton(
-                        onClick = {
-                            extractSelectedTextAndExecute { text ->
-                                if (text.isNotBlank()) {
-                                    aiExplainTargetWord = text
-                                    viewModel.explainText(text, deviceLanguage)
-                                    showAiExplainSheet = true
-                                }
-                            }
-                        },
-                        expandOnPress = 4.dp
-                    ) {
-                        Icon(Icons.Default.Search, contentDescription = stringResource(R.string.result_cd_ai_explain), tint = MaterialTheme.colorScheme.inverseOnSurface)
                     }
                 }
             }
@@ -1876,5 +1913,96 @@ private fun AiThinkingAnimation(color: Color) {
                     .background(color)
             )
         }
+    }
+}
+
+/**
+ * Botón de opciones con long press.
+ *
+ * Tap corto: dispara [onClick] (abre el menú normal).
+ * Long press: dispara [onLongPress] (abre el chat directamente).
+ */
+@Composable
+private fun ChatOptionsButton(
+    onClick: () -> Unit,
+    onLongPress: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val scale = remember { Animatable(1f) }
+
+    LaunchedEffect(interactionSource) {
+        observeBouncyPress(interactionSource, scale, pressedScale = 0.88f)
+    }
+
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .graphicsLayer {
+                scaleX = scale.value
+                scaleY = scale.value
+            }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { onClick() },
+                    onLongPress = { onLongPress() }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.MoreVert,
+            contentDescription = stringResource(R.string.result_cd_options),
+            tint = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+/**
+ * Barra de progreso de audio clickeable con estilo "expressive".
+ *
+ * Reemplaza el Slider estándar de Material 3 por un LinearWavyProgressIndicator
+ * con animación de onda, más acorde al resto del lenguaje visual de la app.
+ *
+ * El seeking funciona con tap: se calcula la fracción del ancho donde el
+ * usuario tocó y se pasa a [onSeek]. No hay thumb arrastrable — es más
+ * simple y visualmente más limpio.
+ */
+@Composable
+private fun ExpressiveAudioBar(
+    progress: Float,
+    onSeek: (Float) -> Unit,
+    tint: Color = MaterialTheme.colorScheme.primary,
+    modifier: Modifier = Modifier
+) {
+    val density = LocalDensity.current
+    var barWidthPx by remember { mutableIntStateOf(0) }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(40.dp)
+            .onGloballyPositioned { coords ->
+                barWidthPx = coords.size.width
+            }
+            .pointerInput(barWidthPx) {
+                detectTapGestures { offset ->
+                    if (barWidthPx > 0) {
+                        val fraction = (offset.x / barWidthPx).coerceIn(0f, 1f)
+                        onSeek(fraction)
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        LinearWavyProgressIndicator(
+            progress = { progress },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(24.dp),
+            color = tint,
+            trackColor = tint.copy(alpha = 0.20f),
+            amplitude = { with(density) { 2.dp.toPx() } },
+            wavelength = 28.dp
+        )
     }
 }

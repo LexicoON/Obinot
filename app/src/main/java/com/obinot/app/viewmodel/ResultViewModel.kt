@@ -2,6 +2,7 @@ package com.obinot.app.viewmodel
 
 import android.content.Context
 import android.media.MediaMetadataRetriever
+import android.os.Build
 import android.media.MediaPlayer
 import android.net.Uri
 import androidx.lifecycle.ViewModel
@@ -44,6 +45,17 @@ import retrofit2.HttpException
 import java.io.File
 import org.json.JSONArray
 import org.json.JSONObject
+
+/**
+ * Un mensaje dentro de la conversación del chat sobre la nota.
+ *
+ * No se persiste a disco: el historial vive mientras el ModalBottomSheet
+ * esté abierto. Al cerrar el sheet, el historial se descarta.
+ */
+data class ChatMessage(
+    val role: String,   // "user" o "assistant"
+    val content: String
+)
 
 class ResultViewModel(
     private val noteId: Int,
@@ -138,6 +150,22 @@ class ResultViewModel(
     private val _isExplaining = MutableStateFlow(false)
     val isExplaining: StateFlow<Boolean> = _isExplaining.asStateFlow()
 
+    // ============================================================
+    // AI Chat about this note (2.1)
+    // ============================================================
+
+    private val _chatMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
+    val chatMessages: StateFlow<List<ChatMessage>> = _chatMessages.asStateFlow()
+
+    private val _isChatSending = MutableStateFlow(false)
+    val isChatSending: StateFlow<Boolean> = _isChatSending.asStateFlow()
+
+    val aiChatTooltipShown: StateFlow<Boolean> = settingsRepository.aiChatTooltipShownFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
     init {
         loadNote()
     }
@@ -147,6 +175,11 @@ class ResultViewModel(
             val fetchedNote = noteRepository.getNoteById(noteId)
             _note.value = fetchedNote
             _processingFailed.value = false
+
+            // Restaurar el historial del chat desde la nota persistida.
+            if (fetchedNote != null) {
+                _chatMessages.value = parseChatHistory(fetchedNote.chatHistory)
+            }
 
             if (fetchedNote != null) {
                 val rawText = fetchedNote.rawText
@@ -214,54 +247,78 @@ class ResultViewModel(
         viewModelScope.launch { settingsRepository.saveReadingFont(mode) }
     }
 
-    fun shareBinotFile(context: Context, onResult: (Uri?, String) -> Unit) {
+    /**
+     * Genera el archivo .binot y lo guarda en la carpeta pública de Documentos
+     * del usuario (API 29+). Devuelve el URI del archivo en cache listo para
+     * ser compartido vía FileProvider. En API < 29 no se guarda en Documentos,
+     * solo se comparte desde cache (comportamiento previo).
+     */
+    fun shareBinotToDocuments(context: Context, onResult: (Uri?, String) -> Unit) {
         val currentNote = _note.value
         if (currentNote == null) {
             onResult(null, context.getString(R.string.error_note_empty))
             return
         }
-        // Capturamos el mapa de colores ANTES de salir del hilo principal para
-        // no leer un StateFlow desde Dispatchers.IO. Es un snapshot inmutable.
         val colorsSnapshot = labelColors.value
         viewModelScope.launch(Dispatchers.IO) {
             _isLoading.value = true
             _loadingMessage.value = context.getString(R.string.loading_generating_binot)
-            val uri = ImportExportHelper.exportNoteToBinot(context, currentNote, colorsSnapshot)
-            _isLoading.value = false
 
-            if (uri != null) {
-                launch(Dispatchers.Main) { onResult(uri, context.getString(R.string.error_file_ready)) }
-            } else {
-                launch(Dispatchers.Main) { onResult(null, context.getString(R.string.error_generate_binot_failed)) }
+            // 1. Generamos el .binot en cache y obtenemos el FileProvider URI
+            //    para compartir (funciona en todas las versiones de Android).
+            val shareUri = ImportExportHelper.exportNoteToBinot(context, currentNote, colorsSnapshot)
+
+            // 2. Si estamos en API 29+, copiamos el cache file a Documentos
+            //    vía MediaStore. Este URI NO se comparte (el FileProvider URI
+            //    es más confiable para intents de share).
+            var savedToDocuments = false
+            if (shareUri != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val safeName = "${currentNote.title.ifBlank { "Obinot_Note" }}.binot"
+                savedToDocuments = ImportExportHelper
+                    .copyUriToDocuments(context, shareUri, safeName) != null
+            }
+
+            _isLoading.value = false
+            launch(Dispatchers.Main) {
+                if (shareUri != null) {
+                    // El mensaje refleja si se guardó o no en Documentos.
+                    // En API < 29 siempre es "file ready" porque no se
+                    // intenta guardar (no hay MediaStore.Files.getContentUri).
+                    val msg = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        if (savedToDocuments) {
+                            context.getString(R.string.result_share_binot_saved)
+                        } else {
+                            context.getString(R.string.result_share_binot_not_saved)
+                        }
+                    } else {
+                        context.getString(R.string.error_file_ready)
+                    }
+                    onResult(shareUri, msg)
+                } else {
+                    onResult(null, context.getString(R.string.error_generate_binot_failed))
+                }
             }
         }
     }
 
     /**
-     * Genera un archivo .md con el título + summary de la nota, y lo deja en
-     * cache/shared_notes para ser compartido por FileProvider.
-     *
-     * Si la nota no tiene summary, exporta el rawText en su lugar.
+     * Escribe el archivo Markdown al [outputUri] dado (típicamente uno obtenido
+     * vía SAF CreateDocument, que ya preguntó al usuario dónde guardar). No
+     * dispara ningún share intent.
      */
-    fun exportMarkdownFile(context: Context, onResult: (Uri?, String) -> Unit) {
+    fun exportMarkdownToUri(context: Context, outputUri: Uri, onResult: (Boolean, String) -> Unit) {
         val currentNote = _note.value
         if (currentNote == null) {
-            onResult(null, context.getString(R.string.error_note_empty))
+            onResult(false, context.getString(R.string.error_note_empty))
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
-            _isLoading.value = true
-            _loadingMessage.value = context.getString(R.string.loading_generating_binot)
-            val uri = ImportExportHelper.exportNoteToMarkdown(context, currentNote)
-            _isLoading.value = false
-
-            if (uri != null) {
-                launch(Dispatchers.Main) {
-                    onResult(uri, context.getString(R.string.result_export_markdown_success))
-                }
-            } else {
-                launch(Dispatchers.Main) {
-                    onResult(null, context.getString(R.string.result_export_markdown_failed))
+            val success = ImportExportHelper.exportNoteToMarkdownUri(context, currentNote, outputUri)
+            launch(Dispatchers.Main) {
+                if (success) {
+                    onResult(true, context.getString(R.string.result_export_markdown_success))
+                } else {
+                    onResult(false, context.getString(R.string.result_export_markdown_failed))
                 }
             }
         }
@@ -400,6 +457,25 @@ class ResultViewModel(
      * el meta tag BINOT_META), que es lo que `MarkdownText` ve. Reconstruimos
      * el summary completo con el meta tag preservado al final.
      */
+    /**
+     * Actualiza el summary con el texto editado por el usuario desde el
+     * SummaryEditorSheet. Preserva el meta tag BINOT_META (que guarda las
+     * preferencias con las que se generó), re-adjuntándolo al final del
+     * nuevo contenido.
+     */
+    fun updateSummary(newCleanSummary: String) {
+        val currentNote = _note.value ?: return
+        val originalSummary = currentNote.summary ?: return
+
+        val metaTag = Regex("<!--BINOT_META:.*?-->").find(originalSummary)?.value
+        val trimmed = newCleanSummary.trimEnd()
+        val newSummary = if (metaTag != null) "$trimmed\n\n$metaTag" else trimmed
+
+        val updated = currentNote.copy(summary = newSummary, timestamp = System.currentTimeMillis())
+        _note.value = updated
+        viewModelScope.launch { noteRepository.update(updated) }
+    }
+
     fun toggleCheckbox(lineIndex: Int) {
         val currentNote = _note.value ?: return
         val originalSummary = currentNote.summary ?: return
@@ -517,7 +593,7 @@ class ResultViewModel(
     // ============================================================
 
     private enum class MixTask {
-        SHORT_AUDIO, LONG_AUDIO, SHORT_TEXT, LONG_TEXT, TITLE, EXPLAIN
+        SHORT_AUDIO, LONG_AUDIO, SHORT_TEXT, LONG_TEXT, TITLE, EXPLAIN, CHAT
     }
 
     private suspend fun pickProviderForMix(task: MixTask): Int {
@@ -525,7 +601,7 @@ class ResultViewModel(
             MixTask.LONG_AUDIO -> 0
             MixTask.SHORT_AUDIO -> 1
             MixTask.LONG_TEXT -> 0
-            MixTask.SHORT_TEXT, MixTask.TITLE, MixTask.EXPLAIN -> {
+            MixTask.SHORT_TEXT, MixTask.TITLE, MixTask.EXPLAIN, MixTask.CHAT -> {
                 val counter = settingsRepository.incrementMixCounter()
                 if (counter % 2 == 0) 0 else 1
             }
@@ -1136,6 +1212,183 @@ class ResultViewModel(
         }
     }
 
+    // ============================================================
+    // AI Chat about this note (2.1)
+    // ============================================================
+
+    /**
+     * Envía un mensaje del usuario al chat y agrega la respuesta del modelo
+     * al historial. Si el historial ya llegó al límite (20 mensajes), ignora
+     * el envío. No hace nada si el texto está vacío o si ya hay un envío en curso.
+     */
+        /**
+     * Envía un mensaje del usuario al chat y agrega la respuesta del modelo
+     * al historial. Si el historial ya llegó al límite (40 mensajes), ignora
+     * el envío. No hace nada si el texto está vacío o si ya hay un envío en curso.
+     *
+     * El historial se persiste con cada mensaje agregado (user y assistant),
+     * así sobrevive al cierre de la app. Ver persistChatHistory().
+     */
+    fun sendChatMessage(userMessage: String) {
+        val trimmed = userMessage.trim()
+        if (trimmed.isEmpty()) return
+        if (_isChatSending.value) return
+        if (_chatMessages.value.size >= MAX_CHAT_MESSAGES) return
+
+        val currentNote = _note.value ?: return
+
+        _chatMessages.value = _chatMessages.value + ChatMessage("user", trimmed)
+        _isChatSending.value = true
+        persistChatHistory()
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val provider = settingsRepository.aiProviderFlow.first()
+                val geminiKey = settingsRepository.geminiApiKeyFlow.first()
+                val groqKey = settingsRepository.groqApiKeyFlow.first()
+                val targetLanguage = settingsRepository.aiLanguageFlow.first()
+
+                val effectiveProvider = if (provider == 2) {
+                    pickProviderForMix(MixTask.CHAT)
+                } else provider
+
+                val apiKey = if (effectiveProvider == 1) groqKey else geminiKey
+                if (apiKey.isBlank()) {
+                    launch(Dispatchers.Main) {
+                        _chatMessages.value = _chatMessages.value + ChatMessage(
+                            "assistant",
+                            appContext.getString(R.string.error_api_key_missing)
+                        )
+                        _isChatSending.value = false
+                        persistChatHistory()
+                    }
+                    return@launch
+                }
+
+                val cleanSummary = currentNote.summary
+                    ?.replace(Regex("<!--BINOT_META:.*?-->"), "")
+                    ?.trimEnd()
+
+                val systemPrompt = """
+                    You are an AI assistant helping the user understand their own note.
+                    Output language: $targetLanguage. If the user writes in a different language, reply in the user's language instead.
+
+                    The note's content is provided below for context. Answer the user's questions based strictly on it. If the answer isn't in the note, say so politely.
+
+                    STRICT RULES YOU MUST OBEY:
+                    1. ZERO YAPPING: No greetings, no introductions, no self-references. Answer directly.
+                    2. Markdown allowed: headers, bold, italic, lists, code blocks, links.
+                    3. NO TABLES under any circumstances.
+                    4. MATH DELIMITERS (CRITICAL):
+                       - Inline math: ALWAYS use `${'$'}...${'$'}` (single dollar signs). Example: "The work is ${'$'}W = F \\cdot d${'$'} in joules."
+                       - Block math: ALWAYS use `${'$'}${'$'}...${'$'}${'$'}` (double dollar signs) on their own line.
+                       - NEVER use `\\(...\\)` or `\\[...\\]` — those delimiters are NOT supported by this app's renderer.
+                       - NEVER wrap math in quotes or bold markers (`**${'$'}...${'$'}**` is forbidden).
+                    5. NO MERMAID DIAGRAMS. This chat is for math and text only. Do not emit ```mermaid blocks.
+
+                    --- NOTE TITLE ---
+                    ${currentNote.title}
+
+                    --- NOTE SUMMARY ---
+                    ${cleanSummary ?: "(no summary yet)"}
+
+                    --- NOTE RAW TEXT ---
+                    ${currentNote.rawText}
+                    --- END OF NOTE ---
+                """.trimIndent()
+
+                // Construimos el historial completo como una sola cadena para
+                // el turno del usuario. Es más simple que serializar mensajes
+                // individuales y el system prompt ya establece el contexto.
+                val conversationHistory = _chatMessages.value.joinToString("\n\n") { msg ->
+                    when (msg.role) {
+                        "user" -> "User: ${msg.content}"
+                        else -> "Assistant: ${msg.content}"
+                    }
+                }
+
+                val responseText = if (effectiveProvider == 1) {
+                    val request = GroqChatRequest(
+                        model = GroqModels.GPT_OSS_20B,
+                        messages = listOf(
+                            GroqMessage(role = "system", content = systemPrompt),
+                            GroqMessage(role = "user", content = conversationHistory)
+                        )
+                    )
+                    RetrofitClient.groqService.generateContent("Bearer $apiKey", request)
+                        .choices?.firstOrNull()?.message?.content?.trim()
+                } else {
+                    val request = GenerateContentRequest(
+                        systemInstruction = Content(parts = listOf(Part(text = systemPrompt))),
+                        contents = listOf(Content(parts = listOf(Part(text = conversationHistory))))
+                    )
+                    RetrofitClient.service.generateContent(
+                        model = GeminiModels.FLASH_LITE,
+                        apiKey = apiKey,
+                        request = request
+                    ).candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
+                }
+
+                launch(Dispatchers.Main) {
+                    val reply = if (responseText.isNullOrBlank()) {
+                        appContext.getString(R.string.error_ai_empty_text)
+                    } else {
+                        responseText
+                    }
+                    _chatMessages.value = _chatMessages.value + ChatMessage("assistant", reply)
+                    _isChatSending.value = false
+                    persistChatHistory()
+                }
+            } catch (e: Exception) {
+                launch(Dispatchers.Main) {
+                    _chatMessages.value = _chatMessages.value + ChatMessage(
+                        "assistant",
+                        handleExceptionError(e)
+                    )
+                    _isChatSending.value = false
+                    persistChatHistory()
+                }
+            }
+        }
+    }
+
+    /**
+     * Borra el historial del chat de la nota (tanto en memoria como en la DB).
+     * Se llama desde el botón "Clear conversation" del ChatSheet, con
+     * confirmación previa del usuario.
+     */
+    fun clearChat() {
+        _chatMessages.value = emptyList()
+        _isChatSending.value = false
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentNote = _note.value ?: return@launch
+            val updated = currentNote.copy(chatHistory = null)
+            _note.value = updated
+            noteRepository.update(updated)
+        }
+    }
+
+    /**
+     * Serializa el historial actual a JSON y lo guarda en la nota.
+     * Se llama después de agregar cada mensaje (user o assistant) para que
+     * el chat sobreviva al cierre de la app.
+     */
+    private fun persistChatHistory() {
+        val messages = _chatMessages.value
+        val currentNote = _note.value ?: return
+        val json = chatHistoryToJson(messages)
+        val updated = currentNote.copy(chatHistory = json)
+        _note.value = updated
+        viewModelScope.launch(Dispatchers.IO) {
+            noteRepository.update(updated)
+        }
+    }
+
+    /** Marca que el tooltip del long-press ya se mostró, para no repetirlo. */
+    fun markChatTooltipShown() {
+        viewModelScope.launch { settingsRepository.saveAiChatTooltipShown(true) }
+    }
+
     override fun onCleared() {
         super.onCleared()
         mediaPlayer?.release()
@@ -1144,6 +1397,52 @@ class ResultViewModel(
     }
 
     companion object {
+        /** Cap total de mensajes persistidos por nota. Más allá de esto, el
+         *  usuario debe limpiar el chat. 40 = 20 turnos. */
+        private const val MAX_CHAT_MESSAGES = 40
+
+        /** Parsea el JSON de chatHistory a la lista de mensajes. Devuelve lista
+         *  vacía si el JSON está ausente o malformado. */
+        private fun parseChatHistory(json: String?): List<ChatMessage> {
+            if (json.isNullOrBlank() || json == "[]") return emptyList()
+            return try {
+                val array = JSONArray(json)
+                val list = mutableListOf<ChatMessage>()
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    list.add(
+                        ChatMessage(
+                            role = obj.optString("role", "assistant"),
+                            content = obj.optString("content", "")
+                        )
+                    )
+                }
+                list
+            } catch (e: Exception) {
+                e.printStackTrace()
+                emptyList()
+            }
+        }
+
+        /** Serializa la lista de mensajes a un JSON array. Null si está vacía. */
+        private fun chatHistoryToJson(messages: List<ChatMessage>): String? {
+            if (messages.isEmpty()) return null
+            return try {
+                val array = JSONArray()
+                messages.forEach { msg ->
+                    val obj = JSONObject().apply {
+                        put("role", msg.role)
+                        put("content", msg.content)
+                    }
+                    array.put(obj)
+                }
+                array.toString()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
+
         fun provideFactory(
             noteId: Int,
             repository: NoteRepository,

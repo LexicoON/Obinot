@@ -34,5 +34,10 @@ data class NoteEntity(
     val label: String? = null,
     val isTrashed: Boolean = false,
     val originalRawText: String? = null,
-    val highlightsInfo: String? = null // Format: JSON Array String -> [{"text":"highlighted_word", "note":"user_note"}]
+    val highlightsInfo: String? = null, // Format: JSON Array String -> [{"text":"highlighted_word", "note":"user_note"}]
+    // Format: JSON Array String -> [{"role":"user","content":"..."},{"role":"assistant","content":"..."}]
+    // Se persiste con la nota. NO se incluye en el .binot (exportNoteToBinot tiene
+    // su propio data.json explícito sin este campo). SÍ se incluye en el backup
+    // .obinotbak, porque el backup serializa NoteEntity completa con Moshi.
+    val chatHistory: String? = null
 )

@@ -290,6 +290,32 @@
     <string name="result_copied_clipboard">Copied to clipboard</string>
     <string name="result_summary_removed">AI summary removed!</string>
     <string name="result_text_copied">Text Copied!</string>
+    <string name="result_math_copied">Formula copied to clipboard</string>
+
+    <!-- Summary editor (2.1) -->
+    <string name="result_edit_summary">Edit Summary</string>
+    <string name="summary_editor_title">Edit summary</string>
+    <string name="summary_editor_preview">Preview</string>
+    <string name="summary_editor_edit">Edit</string>
+    <string name="summary_editor_save">Save</string>
+    <string name="summary_editor_placeholder">Write your note in Markdown…</string>
+    <string name="summary_editor_saved">Summary updated</string>
+
+    <!-- AI Chat about this note (2.1) -->
+    <string name="chat_title">Ask about this note</string>
+    <string name="chat_placeholder">Ask a question…</string>
+    <string name="chat_send_cd">Send</string>
+    <string name="chat_menu_item">Ask AI about this note</string>
+    <string name="chat_tooltip_title">Long press for quick access</string>
+    <string name="chat_tooltip_body">Long press the options button to jump straight into a chat about this note. Tap it to see the regular menu.</string>
+    <string name="chat_tooltip_got_it">Got it</string>
+    <string name="chat_limit_reached">Message limit reached (40 per note). Clear the conversation to start fresh.</string>
+    <string name="chat_thinking">Thinking…</string>
+    <string name="chat_empty_state">Ask anything about this note. The AI can see the title, summary, and raw text. Your conversation is saved with the note.</string>
+    <string name="chat_clear_cd">Clear conversation</string>
+    <string name="chat_clear_confirm_title">Clear conversation?</string>
+    <string name="chat_clear_confirm_body">All messages in this conversation will be deleted. The note itself is not affected.</string>
+    <string name="chat_clear_confirm_yes">Clear</string>
 
     <!-- AI Explain sheet -->
     <string name="result_ai_explain_title">AI Explain</string>
@@ -325,6 +351,8 @@
     <string name="result_play">Play</string>
     <string name="result_pause">Pause</string>
     <string name="result_share_binot">Share .binot</string>
+    <string name="result_share_binot_saved">Saved to Documents and ready to share</string>
+    <string name="result_share_binot_not_saved">Ready to share (couldn\'t save to Documents)</string>
     <string name="result_share_text">Obinot Note: %1$s</string>
     <string name="result_share_chooser">Share .binot note via</string>
 

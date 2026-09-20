@@ -290,6 +290,32 @@
     <string name="result_copied_clipboard">Copiado al portapapeles</string>
     <string name="result_summary_removed">¡Resumen de IA eliminado!</string>
     <string name="result_text_copied">¡Texto copiado!</string>
+    <string name="result_math_copied">Fórmula copiada al portapapeles</string>
+
+    <!-- Summary editor (2.1) -->
+    <string name="result_edit_summary">Editar resumen</string>
+    <string name="summary_editor_title">Editar resumen</string>
+    <string name="summary_editor_preview">Vista previa</string>
+    <string name="summary_editor_edit">Editar</string>
+    <string name="summary_editor_save">Guardar</string>
+    <string name="summary_editor_placeholder">Escribí tu nota en Markdown…</string>
+    <string name="summary_editor_saved">Resumen actualizado</string>
+
+    <!-- AI Chat about this note (2.1) -->
+    <string name="chat_title">Preguntá sobre esta nota</string>
+    <string name="chat_placeholder">Hacé una pregunta…</string>
+    <string name="chat_send_cd">Enviar</string>
+    <string name="chat_menu_item">Preguntarle a la IA sobre esta nota</string>
+    <string name="chat_tooltip_title">Mantené presionado para acceso rápido</string>
+    <string name="chat_tooltip_body">Mantené presionado el botón de opciones para abrir directamente un chat sobre esta nota. Tocalo para ver el menú normal.</string>
+    <string name="chat_tooltip_got_it">Entendido</string>
+    <string name="chat_limit_reached">Límite de mensajes alcanzado (40 por nota). Limpiá la conversación para empezar de nuevo.</string>
+    <string name="chat_thinking">Pensando…</string>
+    <string name="chat_empty_state">Preguntá lo que quieras sobre esta nota. La IA puede ver el título, el resumen y el texto original. La conversación se guarda con la nota.</string>
+    <string name="chat_clear_cd">Limpiar conversación</string>
+    <string name="chat_clear_confirm_title">¿Limpiar la conversación?</string>
+    <string name="chat_clear_confirm_body">Se eliminarán todos los mensajes de esta conversación. La nota en sí no se modifica.</string>
+    <string name="chat_clear_confirm_yes">Limpiar</string>
 
     <!-- AI Explain sheet -->
     <string name="result_ai_explain_title">Explicación con IA</string>
@@ -325,6 +351,8 @@
     <string name="result_play">Reproducir</string>
     <string name="result_pause">Pausar</string>
     <string name="result_share_binot">Compartir .binot</string>
+    <string name="result_share_binot_saved">Guardado en Documentos y listo para compartir</string>
+    <string name="result_share_binot_not_saved">Listo para compartir (no se pudo guardar en Documentos)</string>
     <string name="result_share_text">Nota Obinot: %1$s</string>
     <string name="result_share_chooser">Compartir nota .binot vía</string>
 

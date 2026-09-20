@@ -1,7 +1,11 @@
 package com.obinot.app.utils
 
+import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import com.obinot.app.data.LabelRepository
 import com.obinot.app.data.NoteEntity
@@ -63,78 +67,8 @@ object ImportExportHelper {
             val fileName = "${safeTitle}.binot"
             val outFile = File(cacheDir, fileName)
 
-            // Filtrar el mapa global al subset de labels que esta nota usa.
-            val noteLabels = note.label
-                ?.split("|")
-                ?.map { it.trim() }
-                ?.filter { it.isNotBlank() }
-                ?: emptyList()
-
-            val relevantColors = if (noteLabels.isEmpty() || labelColors.isEmpty()) {
-                emptyMap()
-            } else {
-                noteLabels.mapNotNull { name ->
-                    labelColors[name]?.let { hex -> name to hex }
-                }.toMap()
-            }
-
-            ZipOutputStream(BufferedOutputStream(FileOutputStream(outFile), STREAM_BUFFER_SIZE)).use { zos ->
-                // --- data.json ---
-                val json = JSONObject().apply {
-                    put("version", BINOT_FORMAT_VERSION)
-                    put("createdBy", "Obinot")
-                    put("title", note.title)
-                    put("rawText", note.rawText)
-                    put("summary", note.summary)
-                    put("highlightsInfo", note.highlightsInfo)
-                    put("label", note.label)
-                    put("hasAudio", note.audioPath != null)
-                }
-                val jsonBytes = json.toString().toByteArray(Charsets.UTF_8)
-                val jsonEntry = ZipEntry("data.json").apply {
-                    method = ZipEntry.STORED
-                    size = jsonBytes.size.toLong()
-                    compressedSize = jsonBytes.size.toLong()
-                    val crc = CRC32().apply { update(jsonBytes) }
-                    this.crc = crc.value
-                }
-                zos.putNextEntry(jsonEntry)
-                zos.write(jsonBytes)
-                zos.closeEntry()
-
-                // --- obinot_meta.json (solo si hay algo que meter) ---
-                // Se omite si no hay colores, para no agregar peso a notas simples.
-                // El importador trata la ausencia como "todos los labels con color default".
-                if (relevantColors.isNotEmpty()) {
-                    val colorsObj = JSONObject().apply {
-                        relevantColors.forEach { (name, hex) -> put(name, hex) }
-                    }
-                    val meta = JSONObject().apply {
-                        put("formatVersion", BINOT_FORMAT_VERSION)
-                        put("exportedAt", System.currentTimeMillis())
-                        put("appVersion", "2.0.0")
-                        put("labelColors", colorsObj)
-                    }
-                    val metaBytes = meta.toString().toByteArray(Charsets.UTF_8)
-                    val metaEntry = ZipEntry("obinot_meta.json").apply {
-                        method = ZipEntry.STORED
-                        size = metaBytes.size.toLong()
-                        compressedSize = metaBytes.size.toLong()
-                        val crc = CRC32().apply { update(metaBytes) }
-                        this.crc = crc.value
-                    }
-                    zos.putNextEntry(metaEntry)
-                    zos.write(metaBytes)
-                    zos.closeEntry()
-                }
-
-                // --- audio.mp4 ---
-                if (note.audioPath != null) {
-                    val audioFile = File(note.audioPath)
-                    if (audioFile.exists()) {
-                        writeStoredFile(zos, audioFile, "audio.mp4")
-                    }
-                }
+            FileOutputStream(outFile).use { output ->
+                writeBinotZip(output, note, labelColors)
             }
 
             FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", outFile)
@@ -145,26 +79,173 @@ object ImportExportHelper {
     }
 
     /**
-     * Exporta una nota a un archivo .md (Markdown puro).
+     * Copia el contenido de [sourceUri] (típicamente un FileProvider URI del
+     * cache) a un archivo nuevo en la carpeta pública de Documentos del usuario
+     * vía MediaStore. Solo funciona en API 29+ (Q). En versiones anteriores
+     * devuelve null y el caller debe caer al share desde cache.
      *
-     * Estructura:
-     *   # {title}
-     *
-     *   {summary sin el meta tag BINOT_META}
-     *
-     * Si la nota no tiene summary, se exporta el rawText en su lugar.
-     * El meta tag `<!--BINOT_META:...-->` nunca se incluye.
+     * Se usa para que "Share .binot" no solo comparta, sino que además deje el
+     * archivo guardado en Documentos para que el usuario lo encuentre después.
      */
-    suspend fun exportNoteToMarkdown(
+    suspend fun copyUriToDocuments(
         context: Context,
-        note: NoteEntity
+        sourceUri: Uri,
+        fileName: String
     ): Uri? = withContext(Dispatchers.IO) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return@withContext null
+        }
         try {
-            val cacheDir = File(context.cacheDir, "shared_notes").apply { mkdirs() }
-            val safeTitle = note.title.ifBlank { "Obinot_Note" }.replace(Regex("[^a-zA-Z0-9.-]"), "_")
-            val fileName = "${safeTitle}.md"
-            val outFile = File(cacheDir, fileName)
+            val safeName = fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+            val resolver = context.contentResolver
 
+            // MediaStore.Files.getContentUri("external") es la colección
+            // genérica que acepta cualquier RELATIVE_PATH dentro del storage
+            // primario. MediaStore.Downloads.EXTERNAL_CONTENT_URI solo acepta
+            // la carpeta "Downloads", y algunos OEMs rechazan otros paths.
+            val collection = MediaStore.Files.getContentUri("external")
+
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, safeName)
+                put(MediaStore.MediaColumns.MIME_TYPE, "application/zip")
+                put(
+                    MediaStore.MediaColumns.RELATIVE_PATH,
+                    Environment.DIRECTORY_DOCUMENTS
+                )
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+
+            val targetUri = resolver.insert(collection, values)
+                ?: run {
+                    android.util.Log.w(
+                        "ImportExportHelper",
+                        "Failed to insert into MediaStore at $collection, path=${Environment.DIRECTORY_DOCUMENTS}, name=$safeName"
+                    )
+                    return@withContext null
+                }
+
+            try {
+                resolver.openInputStream(sourceUri)?.use { input ->
+                    resolver.openOutputStream(targetUri)?.use { output ->
+                        input.copyTo(output, STREAM_BUFFER_SIZE)
+                    }
+                } ?: run {
+                    android.util.Log.w("ImportExportHelper", "Failed to open streams for $targetUri")
+                    resolver.delete(targetUri, null, null)
+                    return@withContext null
+                }
+
+                values.clear()
+                values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                resolver.update(targetUri, values, null, null)
+
+                android.util.Log.i(
+                    "ImportExportHelper",
+                    "Saved .binot to Documents: $targetUri"
+                )
+                targetUri
+            } catch (e: Exception) {
+                android.util.Log.e("ImportExportHelper", "Copy to Documents failed", e)
+                resolver.delete(targetUri, null, null)
+                null
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ImportExportHelper", "copyUriToDocuments crashed", e)
+            null
+        }
+    }
+
+    /**
+     * Escribe un archivo .binot (ZIP con data.json + obinot_meta.json + audio.mp4)
+     * al [outputStream] dado. Se usa tanto para la ruta de cache (share desde
+     * FileProvider) como para copias a Documentos vía MediaStore.
+     */
+    private fun writeBinotZip(
+        outputStream: java.io.OutputStream,
+        note: NoteEntity,
+        labelColors: Map<String, String>
+    ) {
+        val noteLabels = note.label
+            ?.split("|")
+            ?.map { it.trim() }
+            ?.filter { it.isNotBlank() }
+            ?: emptyList()
+
+        val relevantColors = if (noteLabels.isEmpty() || labelColors.isEmpty()) {
+            emptyMap()
+        } else {
+            noteLabels.mapNotNull { name ->
+                labelColors[name]?.let { hex -> name to hex }
+            }.toMap()
+        }
+
+        ZipOutputStream(BufferedOutputStream(outputStream, STREAM_BUFFER_SIZE)).use { zos ->
+            val json = JSONObject().apply {
+                put("version", BINOT_FORMAT_VERSION)
+                put("createdBy", "Obinot")
+                put("title", note.title)
+                put("rawText", note.rawText)
+                put("summary", note.summary)
+                put("highlightsInfo", note.highlightsInfo)
+                put("label", note.label)
+                put("hasAudio", note.audioPath != null)
+            }
+            val jsonBytes = json.toString().toByteArray(Charsets.UTF_8)
+            val jsonEntry = ZipEntry("data.json").apply {
+                method = ZipEntry.STORED
+                size = jsonBytes.size.toLong()
+                compressedSize = jsonBytes.size.toLong()
+                val crc = CRC32().apply { update(jsonBytes) }
+                this.crc = crc.value
+            }
+            zos.putNextEntry(jsonEntry)
+            zos.write(jsonBytes)
+            zos.closeEntry()
+
+            if (relevantColors.isNotEmpty()) {
+                val colorsObj = JSONObject().apply {
+                    relevantColors.forEach { (name, hex) -> put(name, hex) }
+                }
+                val meta = JSONObject().apply {
+                    put("formatVersion", BINOT_FORMAT_VERSION)
+                    put("exportedAt", System.currentTimeMillis())
+                    put("appVersion", "2.0.0")
+                    put("labelColors", colorsObj)
+                }
+                val metaBytes = meta.toString().toByteArray(Charsets.UTF_8)
+                val metaEntry = ZipEntry("obinot_meta.json").apply {
+                    method = ZipEntry.STORED
+                    size = metaBytes.size.toLong()
+                    compressedSize = metaBytes.size.toLong()
+                    val crc = CRC32().apply { update(metaBytes) }
+                    this.crc = crc.value
+                }
+                zos.putNextEntry(metaEntry)
+                zos.write(metaBytes)
+                zos.closeEntry()
+            }
+
+            if (note.audioPath != null) {
+                val audioFile = File(note.audioPath)
+                if (audioFile.exists()) {
+                    writeStoredFile(zos, audioFile, "audio.mp4")
+                }
+            }
+        }
+    }
+
+    /**
+     * Escribe un archivo Markdown al [outputUri] dado. A diferencia de
+     * [exportNoteToMarkdown], que escribe a cache y devuelve un FileProvider
+     * URI para compartir, esta versión escribe directo al URI destino
+     * (típicamente uno obtenido vía SAF CreateDocument).
+     */
+    suspend fun exportNoteToMarkdownUri(
+        context: Context,
+        note: NoteEntity,
+        outputUri: Uri
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
             val cleanSummary = note.summary
                 ?.replace(Regex("<!--BINOT_META:.*?-->"), "")
                 ?.trimEnd()
@@ -185,12 +266,13 @@ object ImportExportHelper {
                 append("\n")
             }
 
-            outFile.writeText(content, Charsets.UTF_8)
-
-            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", outFile)
+            context.contentResolver.openOutputStream(outputUri)?.use { output ->
+                output.write(content.toByteArray(Charsets.UTF_8))
+            }
+            true
         } catch (e: Exception) {
             e.printStackTrace()
-            null
+            false
         }
     }
 

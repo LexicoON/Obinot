@@ -11,7 +11,6 @@
 -renamesourcefileattribute SourceFile
 
 # ---------- Kotlin metadata ----------
-# Necesario para que reflection sobre data classes / sealed classes funcione.
 -keep class kotlin.Metadata { *; }
 -keepclassmembers class **$WhenMappings {
     <fields>;
@@ -26,9 +25,7 @@
 }
 -dontwarn kotlinx.coroutines.**
 
-# ---------- Moshi (usa reflection via KotlinJsonAdapterFactory) ----------
-# Los data classes de `data/` son reflejados por Moshi en runtime, así que
-# sus constructores, properties y campos deben sobrevivir el minify.
+# ---------- Moshi ----------
 -keep class com.obinot.app.data.** { *; }
 -keep class kotlin.reflect.** { *; }
 -keep class kotlin.jvm.internal.** { *; }
@@ -48,32 +45,18 @@
 }
 
 # ---------- Room ----------
-# Room genera clases _Impl en tiempo de compilación. Las reglas de retención
-# las genera el plugin automáticamente, pero por las dudas:
 -keep class * extends androidx.room.RoomDatabase
 -keep @androidx.room.Entity class * { *; }
 -keep @androidx.room.Dao class * { *; }
 -dontwarn androidx.room.paging.**
 
 # ---------- Jetpack Compose ----------
-# El compilador de Compose maneja todo, pero por las dudas:
 -dontwarn androidx.compose.**
 
-# ---------- WebView JavascriptInterface ----------
-# Las clases anónimas que exponemos con addJavascriptInterface deben
-# mantener sus métodos anotados con @JavascriptInterface, o R8 los
-# renombra y JS no puede encontrarlos.
+# ---------- WebView (Mermaid) ----------
 -keepclassmembers class * {
     @android.webkit.JavascriptInterface <methods>;
 }
--keepclassmembers class * {
-    public *;
-    @android.webkit.JavascriptInterface *;
-}
-
-# ---------- WebView internals ----------
-# Algunas versiones del WebView de Google tienen referencias que R8 no
-# puede resolver. Silenciamos los warnings.
 -dontwarn android.webkit.**
 -dontwarn org.chromium.**
 
@@ -86,53 +69,16 @@
 # ---------- Firebase AI ----------
 -dontwarn com.google.firebase.**
 
+# ---------- RaTeX (LaTeX renderer) ----------
+# RaTeX usa JNI para llamar al core de Rust. R8 no ve esas llamadas
+# porque se hacen desde el lado nativo, así que hay que preservar
+# todas las clases del paquete ratex y sus miembros.
+-keep class io.github.erweixin.ratex.** { *; }
+-keepclassmembers class io.github.erweixin.ratex.** { *; }
+-dontwarn io.github.erweixin.ratex.**
+
 # ---------- Reglas específicas de la app ----------
-# El CrashActivity se lanza vía Intent con el nombre de clase. NO debe
-# ser renombrado.
 -keep class com.obinot.app.CrashActivity { *; }
 -keep class com.obinot.app.MainActivity { *; }
 -keep class com.obinot.app.BinotApplication { *; }
 -keep class com.obinot.app.utils.RecordingService { *; }
-
-# ============================================================
-# Compose InlineTextContent + inline AndroidView
-# ============================================================
-# R8 elimina o rompe el ComposableLambda que construye el
-# AndroidView dentro de InlineTextContent. El Placeholder se
-# renderiza (reserva espacio) y el alternateText sobrevive en el
-# AnnotatedString, pero el WebView inline nunca se crea.
-#
-# Estas reglas preservan:
-#  - La clase InlineTextContent y sus métodos internos.
-#  - Los ComposableLambda generados por el compilador de Compose.
-#  - El AndroidView y sus factories.
-#  - El WebView y sus clientes (Chromium internals).
--keep class androidx.compose.foundation.text.InlineTextContent { *; }
--keep class androidx.compose.foundation.text.InlineTextContentKt { *; }
--keepclassmembers class androidx.compose.foundation.text.InlineTextContent { *; }
-
--keep class androidx.compose.ui.text.Placeholder { *; }
--keep class androidx.compose.ui.text.PlaceholderVerticalAlign { *; }
-
--keep class androidx.compose.ui.viewinterop.AndroidView* { *; }
--keepclassmembers class androidx.compose.ui.viewinterop.** { *; }
-
--keep class androidx.compose.runtime.internal.ComposableLambda* { *; }
--keepclassmembers class androidx.compose.runtime.internal.ComposableLambda* { *; }
-
--keep class androidx.compose.runtime.internal.ComposableLambdaImpl { *; }
--keepclassmembers class androidx.compose.runtime.internal.ComposableLambdaImpl { *; }
-
-# AndroidView depende de ViewFactoryHolder internamente.
--keep class androidx.compose.ui.viewinterop.ViewFactoryHolder { *; }
--keepclassmembers class androidx.compose.ui.viewinterop.ViewFactoryHolder { *; }
-
-# WebView + Chromium. R8 a veces elimina métodos que solo se
-# invocan por reflection desde Chromium.
--keep class android.webkit.WebView { *; }
--keep class android.webkit.WebViewClient { *; }
--keep class android.webkit.WebChromeClient { *; }
--keepclassmembers class android.webkit.WebView { *; }
-
-# Los addJavascriptInterface con @JavascriptInterface ya están
-# cubiertos por las reglas generales al inicio del archivo.
