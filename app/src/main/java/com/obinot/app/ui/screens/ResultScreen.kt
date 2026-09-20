@@ -133,6 +133,7 @@ import com.obinot.app.ui.components.BouncyChip
 import com.obinot.app.ui.components.BouncyIconButton
 import com.obinot.app.ui.components.ChatSheet
 import com.obinot.app.ui.components.MarkdownText
+import com.obinot.app.ui.components.SummaryEditorSheet
 import com.obinot.app.ui.components.observeBouncyPress
 import com.obinot.app.ui.theme.resolveLabelColors
 import com.obinot.app.utils.AudioRecorderManager
@@ -212,6 +213,7 @@ fun ResultScreen(
     // ============================================================
     var showChatSheet by remember { mutableStateOf(false) }
     var showChatTooltip by remember { mutableStateOf(false) }
+    var showSummaryEditor by remember { mutableStateOf(false) }
 
     val aiChatTooltipShown by viewModel.aiChatTooltipShown.collectAsState()
 
@@ -318,7 +320,7 @@ fun ResultScreen(
     // selección de texto no se "previsualiza" deslizando.
     val hasTransientState = isTextSelected || showCustomMenu || showCancelConfirmDialog ||
         (showSidePanel && !isLandscape) || isEditMode || isTitleFocused ||
-        showChatSheet || showChatTooltip
+        showChatSheet || showChatTooltip || showSummaryEditor
 
     // BackHandler normal para estados transitorios. Instantáneo, sin animación.
     BackHandler(enabled = hasTransientState) {
@@ -330,6 +332,7 @@ fun ResultScreen(
             isTitleFocused -> focusManager.clearFocus()
             showChatSheet -> showChatSheet = false
             showChatTooltip -> showChatTooltip = false
+            showSummaryEditor -> showSummaryEditor = false
         }
     }
 
@@ -582,6 +585,20 @@ fun ResultScreen(
                     item {
                         BouncyCapsule(
                             onClick = {
+                                showSummaryEditor = true
+                                showSidePanel = false
+                            },
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.result_edit_summary), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.result_edit_summary), color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    item {
+                        BouncyCapsule(
+                            onClick = {
                                 viewModel.restoreRawText()
                                 coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.result_summary_removed)) }
                                 showSidePanel = false
@@ -739,10 +756,9 @@ fun ResultScreen(
 
             if (note!!.audioPath != null) {
                 Spacer(modifier = Modifier.height(12.dp))
-                Slider(
-                    value = playbackProgress,
-                    onValueChange = { viewModel.seekAudio(it) },
-                    modifier = Modifier.fillMaxWidth()
+                ExpressiveAudioBar(
+                    progress = playbackProgress,
+                    onSeek = { viewModel.seekAudio(it) }
                 )
             }
 
@@ -1116,14 +1132,10 @@ fun ResultScreen(
                                             )
                                         }
                                         Spacer(modifier = Modifier.height(24.dp))
-                                        Slider(
-                                            value = playbackProgress,
-                                            onValueChange = { viewModel.seekAudio(it) },
-                                            colors = SliderDefaults.colors(
-                                                thumbColor = MaterialTheme.colorScheme.error,
-                                                activeTrackColor = MaterialTheme.colorScheme.error
-                                            ),
-                                            modifier = Modifier.fillMaxWidth()
+                                        ExpressiveAudioBar(
+                                            progress = playbackProgress,
+                                            onSeek = { viewModel.seekAudio(it) },
+                                            tint = MaterialTheme.colorScheme.error
                                         )
                                         Spacer(modifier = Modifier.height(24.dp))
                                         BouncyCapsule(
@@ -1397,6 +1409,22 @@ fun ResultScreen(
         ChatSheet(
             viewModel = viewModel,
             onDismiss = { showChatSheet = false }
+        )
+    }
+
+    if (showSummaryEditor && !note?.summary.isNullOrEmpty()) {
+        SummaryEditorSheet(
+            initialSummary = remember(note?.summary) {
+                note?.summary?.replace(Regex("<!--BINOT_META:.*?-->"), "")?.trimEnd() ?: ""
+            },
+            onSave = { newSummary ->
+                viewModel.updateSummary(newSummary)
+                showSummaryEditor = false
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(context.getString(R.string.summary_editor_saved))
+                }
+            },
+            onDismiss = { showSummaryEditor = false }
         )
     }
 
@@ -1924,6 +1952,56 @@ private fun ChatOptionsButton(
             imageVector = Icons.Default.MoreVert,
             contentDescription = stringResource(R.string.result_cd_options),
             tint = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+/**
+ * Barra de progreso de audio clickeable con estilo "expressive".
+ *
+ * Reemplaza el Slider estándar de Material 3 por un LinearWavyProgressIndicator
+ * con animación de onda, más acorde al resto del lenguaje visual de la app.
+ *
+ * El seeking funciona con tap: se calcula la fracción del ancho donde el
+ * usuario tocó y se pasa a [onSeek]. No hay thumb arrastrable — es más
+ * simple y visualmente más limpio.
+ */
+@Composable
+private fun ExpressiveAudioBar(
+    progress: Float,
+    onSeek: (Float) -> Unit,
+    tint: Color = MaterialTheme.colorScheme.primary,
+    modifier: Modifier = Modifier
+) {
+    val density = LocalDensity.current
+    var barWidthPx by remember { mutableIntStateOf(0) }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(40.dp)
+            .onGloballyPositioned { coords ->
+                barWidthPx = coords.size.width
+            }
+            .pointerInput(barWidthPx) {
+                detectTapGestures { offset ->
+                    if (barWidthPx > 0) {
+                        val fraction = (offset.x / barWidthPx).coerceIn(0f, 1f)
+                        onSeek(fraction)
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        LinearWavyProgressIndicator(
+            progress = { progress },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(24.dp),
+            color = tint,
+            trackColor = tint.copy(alpha = 0.20f),
+            amplitude = { 2.dp },
+            wavelength = { 28.dp }
         )
     }
 }

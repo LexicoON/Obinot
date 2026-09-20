@@ -292,6 +292,15 @@
     <string name="result_text_copied">¡Texto copiado!</string>
     <string name="result_math_copied">Fórmula copiada al portapapeles</string>
 
+    <!-- Summary editor (2.1) -->
+    <string name="result_edit_summary">Editar resumen</string>
+    <string name="summary_editor_title">Editar resumen</string>
+    <string name="summary_editor_preview">Vista previa</string>
+    <string name="summary_editor_edit">Editar</string>
+    <string name="summary_editor_save">Guardar</string>
+    <string name="summary_editor_placeholder">Escribí tu nota en Markdown…</string>
+    <string name="summary_editor_saved">Resumen actualizado</string>
+
     <!-- AI Chat about this note (2.1) -->
     <string name="chat_title">Preguntá sobre esta nota</string>
     <string name="chat_placeholder">Hacé una pregunta…</string>

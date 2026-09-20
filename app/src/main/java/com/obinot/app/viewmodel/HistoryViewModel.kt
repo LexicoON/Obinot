@@ -225,9 +225,12 @@ class HistoryViewModel(
         if (cleanOld.isBlank() || cleanNew.isBlank() || cleanOld == cleanNew) return
 
         viewModelScope.launch(Dispatchers.IO) {
-            val notes = repository.getAllNotesSync()
+            // Query dirigida: solo las notas que pueden contener el label
+            // (LIKE laxo). Filtramos por token completo en Kotlin para
+            // descartar falsos positivos (ej. "foo" matchea "foobar").
+            val candidateNotes = repository.getNotesWithLabelSync(cleanOld)
 
-            notes.filter { it.title != "[[BINOT_SYSTEM_LABELS]]" }.forEach { note ->
+            candidateNotes.forEach { note ->
                 val labels = note.label?.split("|")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
                 if (labels.contains(cleanOld)) {
                     val updatedLabels = labels.map { if (it == cleanOld) cleanNew else it }.distinct()
@@ -238,7 +241,9 @@ class HistoryViewModel(
                 }
             }
 
-            val sysNote = notes.find { it.title == "[[BINOT_SYSTEM_LABELS]]" }
+            // La system note no tiene campo `label` (guarda el catálogo en
+            // `rawText`), así que la leemos aparte.
+            val sysNote = repository.getSystemNoteSync()
             if (sysNote != null) {
                 val existingLabels = sysNote.rawText.split("|").map { it.trim() }.filter { it.isNotBlank() }.toMutableSet()
                 if (existingLabels.remove(cleanOld)) {
@@ -269,9 +274,11 @@ class HistoryViewModel(
         if (cleanLabel.isBlank()) return
 
         viewModelScope.launch(Dispatchers.IO) {
-            val notes = repository.getAllNotesSync()
+            // Mismo approach que renameLabel: query dirigida + filtro por
+            // token completo en Kotlin.
+            val candidateNotes = repository.getNotesWithLabelSync(cleanLabel)
 
-            notes.filter { it.title != "[[BINOT_SYSTEM_LABELS]]" }.forEach { note ->
+            candidateNotes.forEach { note ->
                 val labels = note.label?.split("|")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
                 if (labels.contains(cleanLabel)) {
                     val updatedLabels = labels.filter { it != cleanLabel }
@@ -283,7 +290,7 @@ class HistoryViewModel(
                 }
             }
 
-            val sysNote = notes.find { it.title == "[[BINOT_SYSTEM_LABELS]]" }
+            val sysNote = repository.getSystemNoteSync()
             if (sysNote != null) {
                 val existingLabels = sysNote.rawText.split("|").map { it.trim() }.filter { it.isNotBlank() }.toMutableSet()
                 if (existingLabels.remove(cleanLabel)) {

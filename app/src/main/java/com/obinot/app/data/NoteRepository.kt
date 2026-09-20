@@ -17,6 +17,12 @@ class NoteRepository(private val noteDao: NoteDao) {
     /** Proyección liviana: solo los strings de label, sin cargar entidades completas. */
     fun getAllLabelStrings() = noteDao.getAllLabelStrings()
 
+    /**
+     * Notas no-trasheadas con el label dado (búsqueda laxa). El caller debe
+     * verificar token completo antes de operar.
+     */
+    suspend fun getNotesWithLabelSync(label: String) = noteDao.getNotesWithLabelSync(label)
+
     suspend fun getAllNotesSync() = noteDao.getAllNotesSync()
     suspend fun deleteAllNotes() = noteDao.deleteAllNotes()
     suspend fun emptyTrash() = noteDao.emptyTrash()

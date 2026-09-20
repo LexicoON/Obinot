@@ -292,6 +292,15 @@
     <string name="result_text_copied">Text Copied!</string>
     <string name="result_math_copied">Formula copied to clipboard</string>
 
+    <!-- Summary editor (2.1) -->
+    <string name="result_edit_summary">Edit Summary</string>
+    <string name="summary_editor_title">Edit summary</string>
+    <string name="summary_editor_preview">Preview</string>
+    <string name="summary_editor_edit">Edit</string>
+    <string name="summary_editor_save">Save</string>
+    <string name="summary_editor_placeholder">Write your note in Markdown…</string>
+    <string name="summary_editor_saved">Summary updated</string>
+
     <!-- AI Chat about this note (2.1) -->
     <string name="chat_title">Ask about this note</string>
     <string name="chat_placeholder">Ask a question…</string>

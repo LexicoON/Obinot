@@ -170,7 +170,24 @@ private fun resolveRectToPosition(
 // Assets
 // ============================================================
 
+/**
+ * Caché de assets de Mermaid.
+ *
+ * Tres niveles:
+ *  1. Memoria (proceso vivo): la lectura más rápida. Se reutiliza hasta que
+ *     el proceso muere.
+ *  2. Disco (filesDir): sobrevive entre arranques. Se escribe la primera vez
+ *     que se lee del APK. En arranques siguientes se evita descomprimir el
+ *     asset del APK.
+ *  3. APK (assets): fuente de verdad. Se lee solo si los dos anteriores fallan.
+ *
+ * La razón del caché en disco: en arranques fríos, leer un asset grande del
+ * APK (comprimido con DEFLATE) es ~5x más lento que leer un archivo plano del
+ * filesystem. Para Mermaid (~500 KB), la diferencia es perceptible en
+ * dispositivos de gama baja.
+ */
 private object MermaidAssetCache {
+    private const val CACHE_FILE_NAME = "mermaid_cached.js"
     @Volatile private var cache: MermaidAssets? = null
     private val lock = Any()
 
@@ -178,11 +195,34 @@ private object MermaidAssetCache {
         cache?.let { return it }
         synchronized(lock) {
             cache?.let { return it }
-            val assets = MermaidAssets(
-                js = try { context.assets.open("mermaid/mermaid.min.js").bufferedReader().readText() } catch (e: Exception) { "" }
-            )
+            val js = loadFromDisk(context) ?: loadFromAssetsAndCacheToDisk(context)
+            val assets = MermaidAssets(js)
             cache = assets
             return assets
+        }
+    }
+
+    private fun loadFromDisk(context: android.content.Context): String? {
+        return try {
+            val file = java.io.File(context.filesDir, CACHE_FILE_NAME)
+            if (file.exists() && file.length() > 0) file.readText() else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun loadFromAssetsAndCacheToDisk(context: android.content.Context): String {
+        return try {
+            val js = context.assets.open("mermaid/mermaid.min.js").bufferedReader().readText()
+            try {
+                java.io.File(context.filesDir, CACHE_FILE_NAME).writeText(js)
+            } catch (e: Exception) {
+                // Si no se puede escribir (storage lleno, etc.), seguimos con
+                // el JS leído del APK. El caché en memoria igual funciona.
+            }
+            js
+        } catch (e: Exception) {
+            ""
         }
     }
 }

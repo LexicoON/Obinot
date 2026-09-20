@@ -496,6 +496,25 @@ class ResultViewModel(
      * el meta tag BINOT_META), que es lo que `MarkdownText` ve. Reconstruimos
      * el summary completo con el meta tag preservado al final.
      */
+    /**
+     * Actualiza el summary con el texto editado por el usuario desde el
+     * SummaryEditorSheet. Preserva el meta tag BINOT_META (que guarda las
+     * preferencias con las que se generó), re-adjuntándolo al final del
+     * nuevo contenido.
+     */
+    fun updateSummary(newCleanSummary: String) {
+        val currentNote = _note.value ?: return
+        val originalSummary = currentNote.summary ?: return
+
+        val metaTag = Regex("<!--BINOT_META:.*?-->").find(originalSummary)?.value
+        val trimmed = newCleanSummary.trimEnd()
+        val newSummary = if (metaTag != null) "$trimmed\n\n$metaTag" else trimmed
+
+        val updated = currentNote.copy(summary = newSummary, timestamp = System.currentTimeMillis())
+        _note.value = updated
+        viewModelScope.launch { noteRepository.update(updated) }
+    }
+
     fun toggleCheckbox(lineIndex: Int) {
         val currentNote = _note.value ?: return
         val originalSummary = currentNote.summary ?: return
