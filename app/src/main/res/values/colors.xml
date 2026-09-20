@@ -11,5 +11,5 @@
     <!-- Splash screen. El color de fondo del splash. Se cambia por el que
          prefieras — actualmente un gris neutro que combina con el theme
          light/dark de la app. -->
-    <color name="splash_background">#FF7A5CFF</color>
+    <color name="splash_background">#FFF7F7F9</color>
 </resources>

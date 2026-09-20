@@ -62,17 +62,21 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: gradle assembleRelease --no-daemon
 
-      - name: Locate APK
+      - name: Locate and rename APK
         id: locate
         run: |
-          APK=$(find app/build/outputs/apk/release -name "*.apk" | head -n1)
-          echo "apk_path=$APK" >> $GITHUB_OUTPUT
-          echo "Built APK: $APK"
+          TAG="${GITHUB_REF_NAME}"
+          SRC=$(find app/build/outputs/apk/release -name "*.apk" | head -n1)
+          DEST="app/build/outputs/apk/release/Obinot-${TAG}.apk"
+          mv "$SRC" "$DEST"
+          echo "apk_path=$DEST" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Built APK: $DEST"
 
       - name: Upload APK as workflow artifact
         uses: actions/upload-artifact@v7
         with:
-          name: app-release
+          name: Obinot-${{ steps.locate.outputs.tag }}
           path: ${{ steps.locate.outputs.apk_path }}
 
       - name: Create GitHub Release
