@@ -1,6 +1,3 @@
-# README — versión C completa (sin cortes)
-
-```markdown
 <p align="center">
   <img src="https://raw.githubusercontent.com/LexicoON/Obinot/dev/store-assets/icon.png" width="120" height="120" alt="Obinot" />
 </p>
@@ -101,4 +98,3 @@ We are deeply grateful to DENSLnetion for creating Binot and releasing it under 
 
 **If you enjoy Obinot, please also consider starring and supporting the original project:**
 👉 [github.com/DENSLnetion/Binot](https://github.com/DENSLnetion/Binot)
-```
