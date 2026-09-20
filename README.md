@@ -90,11 +90,12 @@ Full policy: [privacy_policy.md](privacy_policy.md). Play Store data safety note
 
 ## License & Attribution
 
-Obinot is licensed under the **MIT License**.
+Obinot is distributed under **two licenses**, depending on which part of the code you're looking at:
 
-This project is a fork of [Binot](https://github.com/DENSLnetion/Binot), originally created by [DENSLnetion](https://github.com/DENSLnetion). The original Binot was released under MIT, which requires preserving its copyright notice and license text. The [LICENSE](LICENSE) file retains DENSLnetion's copyright alongside ours.
+- **The original Binot codebase** is licensed under the **MIT License**. Copyright © 2026 DENSLnetion. See [LICENSE](LICENSE).
+- **The fork-specific code** (new features, modifications, and everything added on top of the original) is licensed under the **Apache License 2.0**. Copyright © 2026 LexicoON. See [LICENSE-OBINOT](LICENSE-OBINOT).
 
-We are deeply grateful to DENSLnetion for creating Binot and releasing it under an open license.
+This project is a fork of [Binot](https://github.com/DENSLnetion/Binot), originally created by [DENSLnetion](https://github.com/DENSLnetion). The original was released under MIT, and that license is preserved in full. We are deeply grateful to DENSLnetion for creating Binot and releasing it under an open license, which made this fork possible.
 
 **If you enjoy Obinot, please also consider starring and supporting the original project:**
 👉 [github.com/DENSLnetion/Binot](https://github.com/DENSLnetion/Binot)
