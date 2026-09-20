@@ -73,7 +73,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import io.github.erweixin.ratex.RaTeXView
+import io.ratex.RaTeXView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -1188,6 +1188,7 @@ fun BasicMarkdownLine(
             highlightTextColor = highlightTextColor,
             fontFamily = fontFamily,
             lineRegistry = lineRegistry,
+            uriHandler = uriHandler,
             modifier = modifier
         )
         return
@@ -1370,13 +1371,14 @@ private fun InlineMathMarkdownLine(
     highlightTextColor: Color,
     fontFamily: FontFamily,
     lineRegistry: MutableMap<Int, LineLayoutInfo>,
+    uriHandler: androidx.compose.ui.platform.UriHandler,
     modifier: Modifier = Modifier
 ) {
     val segments = remember(text) { splitInlineMathSegments(text) }
     val textColor = MaterialTheme.colorScheme.onBackground
 
     val inlineContent = remember(segments, textColor) {
-        buildMap {
+        buildMap<String, InlineTextContent> {
             segments.forEachIndexed { idx, seg ->
                 if (seg.kind == InlineSegmentKind.MATH) {
                     val id = "inline_math_${lineIndex}_$idx"
@@ -1436,7 +1438,7 @@ private fun InlineMathMarkdownLine(
                                                 )
                                             ),
                                             linkInteractionListener = {
-                                                try { LocalUriHandler.current.openUri(linkUrl) } catch (_: Exception) {}
+                                                try { uriHandler.openUri(linkUrl) } catch (_: Exception) {}
                                             }
                                         )
                                     ) {
