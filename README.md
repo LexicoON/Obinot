@@ -12,7 +12,7 @@
   <a href="https://github.com/DENSLnetion/Binot"><img src="https://img.shields.io/badge/upstream-DENSLnetion%2FBinot-2ea44f?style=for-the-badge&logo=github&logoColor=white" alt="Upstream" /></a>
   <img src="https://img.shields.io/badge/fork-LexicoON%2FObinot-blue?style=for-the-badge&logo=github&logoColor=white" alt="Fork" />
   <img src="https://img.shields.io/github/v/release/LexicoON/Obinot?style=for-the-badge&color=blue" alt="Release" />
-  <img src="https://img.shields.io/github/license/LexicoON/Obinot?style=for-the-badge" alt="License" />
+  <img src="https://img.shields.io/badge/license-MIT%20%2B%20Apache--2.0-blue?style=for-the-badge" alt="License: MIT + Apache 2.0" />
 </p>
 
 <p align="center">
