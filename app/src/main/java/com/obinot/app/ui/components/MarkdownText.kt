@@ -1537,9 +1537,8 @@ private fun RaTeXInlineView(
         } else {
             AndroidView(
                 modifier = Modifier.size(
-                    with(density) {
-                        measuredSize.width.toDp() to measuredSize.height.toDp()
-                    }
+                    width = with(density) { measuredSize.width.toDp() },
+                    height = with(density) { measuredSize.height.toDp() }
                 ),
                 factory = { ctx ->
                     RaTeXView(ctx).apply {

@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,8 +66,8 @@ fun ChatSheet(
     viewModel: ResultViewModel,
     onDismiss: () -> Unit
 ) {
-    val messages by viewModel.chatMessages.collectAsStateWithLifecycle()
-    val isSending by viewModel.isChatSending.collectAsStateWithLifecycle()
+    val messages by viewModel.chatMessages.collectAsState()
+    val isSending by viewModel.isChatSending.collectAsState()
 
     var input by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
