@@ -351,6 +351,8 @@
     <string name="result_play">Reproducir</string>
     <string name="result_pause">Pausar</string>
     <string name="result_share_binot">Compartir .binot</string>
+    <string name="result_share_binot_saved">Guardado en Documentos y listo para compartir</string>
+    <string name="result_share_binot_not_saved">Listo para compartir (no se pudo guardar en Documentos)</string>
     <string name="result_share_text">Nota Obinot: %1$s</string>
     <string name="result_share_chooser">Compartir nota .binot vía</string>
 

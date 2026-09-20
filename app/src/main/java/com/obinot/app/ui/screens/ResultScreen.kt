@@ -710,6 +710,9 @@ fun ResultScreen(
                             // guarda (no hay MediaStore.Downloads) — solo se comparte
                             // desde cache.
                             viewModel.shareBinotToDocuments(context) { uri, msg ->
+                                // Mostramos el snackbar SIEMPRE: informa si el
+                                // archivo se guardó en Documentos o no.
+                                coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
                                 if (uri != null) {
                                     val sendIntent = Intent(Intent.ACTION_SEND).apply {
                                         type = "application/zip"
@@ -719,8 +722,6 @@ fun ResultScreen(
                                         clipData = ClipData.newRawUri("", uri)
                                     }
                                     context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.result_share_chooser)))
-                                } else {
-                                    coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
                                 }
                             }
                             showSidePanel = false
@@ -780,12 +781,6 @@ fun ResultScreen(
                     scaleY = scale
                     alpha = 1f - p * 0.5f
                 }
-                .sharedBounds(
-                    sharedContentState = rememberSharedContentState(key = "note-$noteId"),
-                    animatedVisibilityScope = animatedVisibilityScope,
-                    resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
-                    boundsTransform = { _, _ -> tween(300) }
-                )
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
             topBar = {
                 TopAppBar(
@@ -979,6 +974,12 @@ fun ResultScreen(
                         .fillMaxSize()
                         .padding(paddingValues)
                         .imePadding()
+                        .sharedBounds(
+                            sharedContentState = rememberSharedContentState(key = "note-$noteId"),
+                            animatedVisibilityScope = animatedVisibilityScope,
+                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
+                            boundsTransform = { _, _ -> tween(300) }
+                        )
                         .onGloballyPositioned { coordinates ->
                             selectionContentBounds = coordinates.boundsInWindow()
                         }

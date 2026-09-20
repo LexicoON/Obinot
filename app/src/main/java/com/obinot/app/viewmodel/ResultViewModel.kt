@@ -247,59 +247,6 @@ class ResultViewModel(
         viewModelScope.launch { settingsRepository.saveReadingFont(mode) }
     }
 
-    fun shareBinotFile(context: Context, onResult: (Uri?, String) -> Unit) {
-        val currentNote = _note.value
-        if (currentNote == null) {
-            onResult(null, context.getString(R.string.error_note_empty))
-            return
-        }
-        // Capturamos el mapa de colores ANTES de salir del hilo principal para
-        // no leer un StateFlow desde Dispatchers.IO. Es un snapshot inmutable.
-        val colorsSnapshot = labelColors.value
-        viewModelScope.launch(Dispatchers.IO) {
-            _isLoading.value = true
-            _loadingMessage.value = context.getString(R.string.loading_generating_binot)
-            val uri = ImportExportHelper.exportNoteToBinot(context, currentNote, colorsSnapshot)
-            _isLoading.value = false
-
-            if (uri != null) {
-                launch(Dispatchers.Main) { onResult(uri, context.getString(R.string.error_file_ready)) }
-            } else {
-                launch(Dispatchers.Main) { onResult(null, context.getString(R.string.error_generate_binot_failed)) }
-            }
-        }
-    }
-
-    /**
-     * Genera un archivo .md con el título + summary de la nota, y lo deja en
-     * cache/shared_notes para ser compartido por FileProvider.
-     *
-     * Si la nota no tiene summary, exporta el rawText en su lugar.
-     */
-    fun exportMarkdownFile(context: Context, onResult: (Uri?, String) -> Unit) {
-        val currentNote = _note.value
-        if (currentNote == null) {
-            onResult(null, context.getString(R.string.error_note_empty))
-            return
-        }
-        viewModelScope.launch(Dispatchers.IO) {
-            _isLoading.value = true
-            _loadingMessage.value = context.getString(R.string.loading_generating_binot)
-            val uri = ImportExportHelper.exportNoteToMarkdown(context, currentNote)
-            _isLoading.value = false
-
-            if (uri != null) {
-                launch(Dispatchers.Main) {
-                    onResult(uri, context.getString(R.string.result_export_markdown_success))
-                }
-            } else {
-                launch(Dispatchers.Main) {
-                    onResult(null, context.getString(R.string.result_export_markdown_failed))
-                }
-            }
-        }
-    }
-
     /**
      * Genera el archivo .binot y lo guarda en la carpeta pública de Documentos
      * del usuario (API 29+). Devuelve el URI del archivo en cache listo para
@@ -324,15 +271,29 @@ class ResultViewModel(
             // 2. Si estamos en API 29+, copiamos el cache file a Documentos
             //    vía MediaStore. Este URI NO se comparte (el FileProvider URI
             //    es más confiable para intents de share).
+            var savedToDocuments = false
             if (shareUri != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val safeName = "${currentNote.title.ifBlank { "Obinot_Note" }}.binot"
-                ImportExportHelper.copyUriToDocuments(context, shareUri, safeName)
+                savedToDocuments = ImportExportHelper
+                    .copyUriToDocuments(context, shareUri, safeName) != null
             }
 
             _isLoading.value = false
             launch(Dispatchers.Main) {
                 if (shareUri != null) {
-                    onResult(shareUri, context.getString(R.string.error_file_ready))
+                    // El mensaje refleja si se guardó o no en Documentos.
+                    // En API < 29 siempre es "file ready" porque no se
+                    // intenta guardar (no hay MediaStore.Files.getContentUri).
+                    val msg = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        if (savedToDocuments) {
+                            context.getString(R.string.result_share_binot_saved)
+                        } else {
+                            context.getString(R.string.result_share_binot_not_saved)
+                        }
+                    } else {
+                        context.getString(R.string.error_file_ready)
+                    }
+                    onResult(shareUri, msg)
                 } else {
                     onResult(null, context.getString(R.string.error_generate_binot_failed))
                 }

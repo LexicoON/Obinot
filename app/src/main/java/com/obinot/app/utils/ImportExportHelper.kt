@@ -98,32 +98,59 @@ object ImportExportHelper {
         try {
             val safeName = fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
             val resolver = context.contentResolver
+
+            // MediaStore.Files.getContentUri("external") es la colección
+            // genérica que acepta cualquier RELATIVE_PATH dentro del storage
+            // primario. MediaStore.Downloads.EXTERNAL_CONTENT_URI solo acepta
+            // la carpeta "Downloads", y algunos OEMs rechazan otros paths.
+            val collection = MediaStore.Files.getContentUri("external")
+
             val values = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, safeName)
-                put(MediaStore.Downloads.MIME_TYPE, "application/zip")
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS)
-                put(MediaStore.Downloads.IS_PENDING, 1)
+                put(MediaStore.MediaColumns.DISPLAY_NAME, safeName)
+                put(MediaStore.MediaColumns.MIME_TYPE, "application/zip")
+                put(
+                    MediaStore.MediaColumns.RELATIVE_PATH,
+                    Environment.DIRECTORY_DOCUMENTS
+                )
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
 
-            val targetUri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                ?: return@withContext null
+            val targetUri = resolver.insert(collection, values)
+                ?: run {
+                    android.util.Log.w(
+                        "ImportExportHelper",
+                        "Failed to insert into MediaStore at $collection, path=${Environment.DIRECTORY_DOCUMENTS}, name=$safeName"
+                    )
+                    return@withContext null
+                }
 
             try {
                 resolver.openInputStream(sourceUri)?.use { input ->
                     resolver.openOutputStream(targetUri)?.use { output ->
                         input.copyTo(output, STREAM_BUFFER_SIZE)
                     }
+                } ?: run {
+                    android.util.Log.w("ImportExportHelper", "Failed to open streams for $targetUri")
+                    resolver.delete(targetUri, null, null)
+                    return@withContext null
                 }
+
                 values.clear()
-                values.put(MediaStore.Downloads.IS_PENDING, 0)
+                values.put(MediaStore.MediaColumns.IS_PENDING, 0)
                 resolver.update(targetUri, values, null, null)
+
+                android.util.Log.i(
+                    "ImportExportHelper",
+                    "Saved .binot to Documents: $targetUri"
+                )
                 targetUri
             } catch (e: Exception) {
+                android.util.Log.e("ImportExportHelper", "Copy to Documents failed", e)
                 resolver.delete(targetUri, null, null)
-                throw e
+                null
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("ImportExportHelper", "copyUriToDocuments crashed", e)
             null
         }
     }
@@ -246,56 +273,6 @@ object ImportExportHelper {
         } catch (e: Exception) {
             e.printStackTrace()
             false
-        }
-    }
-
-    /**
-     * Exporta una nota a un archivo .md (Markdown puro).
-     *
-     * Estructura:
-     *   # {title}
-     *
-     *   {summary sin el meta tag BINOT_META}
-     *
-     * Si la nota no tiene summary, se exporta el rawText en su lugar.
-     * El meta tag `<!--BINOT_META:...-->` nunca se incluye.
-     */
-    suspend fun exportNoteToMarkdown(
-        context: Context,
-        note: NoteEntity
-    ): Uri? = withContext(Dispatchers.IO) {
-        try {
-            val cacheDir = File(context.cacheDir, "shared_notes").apply { mkdirs() }
-            val safeTitle = note.title.ifBlank { "Obinot_Note" }.replace(Regex("[^a-zA-Z0-9.-]"), "_")
-            val fileName = "${safeTitle}.md"
-            val outFile = File(cacheDir, fileName)
-
-            val cleanSummary = note.summary
-                ?.replace(Regex("<!--BINOT_META:.*?-->"), "")
-                ?.trimEnd()
-
-            val body = when {
-                !cleanSummary.isNullOrBlank() -> cleanSummary
-                note.rawText.isNotBlank() -> note.rawText
-                else -> ""
-            }
-
-            val title = note.title.ifBlank { "Untitled" }
-
-            val content = buildString {
-                append("# ")
-                append(title)
-                append("\n\n")
-                append(body)
-                append("\n")
-            }
-
-            outFile.writeText(content, Charsets.UTF_8)
-
-            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", outFile)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
         }
     }
 

@@ -351,6 +351,8 @@
     <string name="result_play">Play</string>
     <string name="result_pause">Pause</string>
     <string name="result_share_binot">Share .binot</string>
+    <string name="result_share_binot_saved">Saved to Documents and ready to share</string>
+    <string name="result_share_binot_not_saved">Ready to share (couldn\'t save to Documents)</string>
     <string name="result_share_text">Obinot Note: %1$s</string>
     <string name="result_share_chooser">Share .binot note via</string>
 
