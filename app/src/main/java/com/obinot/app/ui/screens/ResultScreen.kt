@@ -2000,8 +2000,8 @@ private fun ExpressiveAudioBar(
                 .height(24.dp),
             color = tint,
             trackColor = tint.copy(alpha = 0.20f),
-            amplitude = { 2.dp },
-            wavelength = { 28.dp }
+            amplitude = { with(density) { 2.dp.toPx() } },
+            wavelength = 28.dp
         )
     }
 }
