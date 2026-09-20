@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import io.github.erweixin.ratex.RaTeXView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -167,53 +168,21 @@ private fun resolveRectToPosition(
 // Assets
 // ============================================================
 
-/**
- * Cache de assets a nivel de proceso.
- *
- * Los archivos de KaTeX y Mermaid son strings grandes (~1 MB total). Hoy se
- * leen del APK cada vez que se abre una nota, aunque la nota no tenga ni una
- * fórmula ni un diagrama. Este cache los lee UNA sola vez por proceso y los
- * reutiliza durante toda la vida del proceso.
- *
- * Thread-safe: doble-checked locking. La primera llamada desde múltiples
- * threads concurrentes dispara la carga una sola vez.
- */
-private object MarkdownAssetCache {
-    @Volatile private var katexCache: KaTeXAssets? = null
-    @Volatile private var mermaidCache: MermaidAssets? = null
-    private val katexLock = Any()
-    private val mermaidLock = Any()
-
-    fun getKaTeX(context: android.content.Context): KaTeXAssets {
-        katexCache?.let { return it }
-        synchronized(katexLock) {
-            katexCache?.let { return it }
-            val assets = KaTeXAssets(
-                css = try { context.assets.open("katex/katex.min.css").bufferedReader().readText() } catch (e: Exception) { "" },
-                js = try { context.assets.open("katex/katex.min.js").bufferedReader().readText() } catch (e: Exception) { "" },
-                autoRender = try { context.assets.open("katex/auto-render.min.js").bufferedReader().readText() } catch (e: Exception) { "" },
-                mhchem = try { context.assets.open("katex/mhchem.min.js").bufferedReader().readText() } catch (e: Exception) { "" }
-            )
-            katexCache = assets
-            return assets
-        }
-    }
+private object MermaidAssetCache {
+    @Volatile private var cache: MermaidAssets? = null
+    private val lock = Any()
 
     fun getMermaid(context: android.content.Context): MermaidAssets {
-        mermaidCache?.let { return it }
-        synchronized(mermaidLock) {
-            mermaidCache?.let { return it }
+        cache?.let { return it }
+        synchronized(lock) {
+            cache?.let { return it }
             val assets = MermaidAssets(
                 js = try { context.assets.open("mermaid/mermaid.min.js").bufferedReader().readText() } catch (e: Exception) { "" }
             )
-            mermaidCache = assets
+            cache = assets
             return assets
         }
     }
-}
-
-data class KaTeXAssets(val css: String, val js: String, val autoRender: String, val mhchem: String) {
-    val isReady get() = js.isNotEmpty() && mhchem.isNotEmpty()
 }
 
 data class MermaidAssets(val js: String) {
@@ -250,214 +219,139 @@ fun ShimmerBox(modifier: Modifier = Modifier) {
 }
 
 // ============================================================
-// KaTeX WebView (block)
+// RaTeX block math view
 // ============================================================
 
-@SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun KaTeXWebView(
-    mathContent: String,
-    assets: KaTeXAssets,
+fun RaTeXBlockView(
+    latex: String,
     textColor: Color,
-    fontFamily: FontFamily,
-    heightCache: SnapshotStateMap<String, Int>,
+    fontSizeDp: Float,
     modifier: Modifier = Modifier
 ) {
-    if (!assets.isReady) return
-
-    val hexColor = String.format("#%06X", 0xFFFFFF and textColor.toArgb())
-    val cssFont = when (fontFamily) {
-        FontFamily.Serif -> "serif"
-        FontFamily.Monospace -> "monospace"
-        else -> "sans-serif"
-    }
-
-    val patchedCss = remember(assets.css) {
-        assets.css.replace(Regex("""url\(['"]?(fonts/[^'"")]+)['"]?\)""")) { match ->
-            "url('file:///android_asset/katex/${match.groupValues[1]}')"
-        }
-    }
-
-    val htmlContent = remember(mathContent, hexColor, cssFont) {
-        var html = mathContent
-        html = html.replace(Regex("^### (.*)$", RegexOption.MULTILINE), "<h4>$1</h4>")
-        html = html.replace(Regex("^## (.*)$", RegexOption.MULTILINE), "<h3>$1</h3>")
-        html = html.replace(Regex("^# (.*)$", RegexOption.MULTILINE), "<h2>$1</h2>")
-        html = html.replace(Regex("\\*\\*(.*?)\\*\\*"), "<b>$1</b>")
-        html = html.replace(Regex("^- (.*)$", RegexOption.MULTILINE), "<li>$1</li>")
-        html = html.replace(Regex("^[0-9]+\\. (.*)$", RegexOption.MULTILINE), "<li>$1</li>")
-
-        """<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<style>
-${patchedCss}
-body {
-    background-color: transparent;
-    color: ${hexColor};
-    font-family: ${cssFont};
-    font-size: 16px;
-    line-height: 1.6;
-    margin: 0;
-    padding: 8px 4px;
-    word-wrap: break-word;
-    overflow-x: hidden; 
-    overflow-y: hidden;
-}
-.katex-display {
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding-bottom: 6px; 
-    -webkit-overflow-scrolling: touch;
-}
-.katex-display::-webkit-scrollbar { height: 4px; }
-.katex-display::-webkit-scrollbar-thumb { background: #88888888; border-radius: 4px; }
-li { margin-bottom: 4px; }
-</style>
-</head>
-<body>
-<div id="math-content">${html}</div>
-<script>${assets.js}</script>
-<script>${assets.autoRender}</script>
-<script>${assets.mhchem}</script>
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    var el = document.getElementById('math-content');
-    if (typeof renderMathInElement !== 'undefined') {
-        renderMathInElement(el, {
-            delimiters: [
-                {left: "$$", right: "$$", display: true},
-                {left: "\\[", right: "\\]", display: true},
-                {left: "$", right: "$", display: false},
-                {left: "\\(", right: "\\)", display: false}
-            ],
-            throwOnError: false
-        });
-    }
-    if (window.ResizeObserver) {
-        new ResizeObserver(function(entries) {
-            var h = entries[0].target.getBoundingClientRect().height;
-            if (window.HeightBridge) window.HeightBridge.onHeightReady(Math.ceil(h) + 30);
-        }).observe(el);
-    } else {
-        setTimeout(function() {
-            var h = el ? el.getBoundingClientRect().height : document.body.scrollHeight;
-            if (window.HeightBridge) window.HeightBridge.onHeightReady(Math.ceil(h) + 30);
-        }, 500);
-    }
-});
-</script>
-</body>
-</html>""".trimIndent()
-    }
-
-    var isRendered by remember(htmlContent) { mutableStateOf(false) }
-    var webViewHeightPx by remember(htmlContent) { mutableStateOf(heightCache[htmlContent] ?: -1) }
-
-    val density = LocalDensity.current
-    val targetHeightDp = remember(webViewHeightPx) {
-        if (webViewHeightPx == -1) 60.dp
-        else with(density) { webViewHeightPx.toDp() }.coerceAtLeast(1.dp)
-    }
-
-    val animatedHeight by animateDpAsState(
-        targetValue = targetHeightDp,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
-        label = "katexHeight"
-    )
-
-    val webViewAlpha by animateFloatAsState(
-        targetValue = if (isRendered) 1f else 0.01f,
-        animationSpec = tween(400),
-        label = "webviewAlpha"
-    )
-
-    val capturedHtmlContent = htmlContent
-    val capturedHeightCache = heightCache
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(animatedHeight)
-    ) {
-        AndroidView(
-            modifier = Modifier
-                .fillMaxSize()
-                .alpha(webViewAlpha),
-            factory = { ctx ->
-                android.webkit.WebView(ctx).apply {
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                    isVerticalScrollBarEnabled = false
-                    isHorizontalScrollBarEnabled = false
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    settings.defaultTextEncodingName = "utf-8"
-                    @Suppress("DEPRECATION")
-                    settings.allowFileAccessFromFileURLs = true
-                    webViewClient = android.webkit.WebViewClient()
-                    webChromeClient = android.webkit.WebChromeClient()
-
-                    addJavascriptInterface(object : Any() {
-                        @android.webkit.JavascriptInterface
-                        fun onHeightReady(height: Int) {
-                            Handler(Looper.getMainLooper()).post {
-                                val d = ctx.resources.displayMetrics.density
-                                val px = (height * d).toInt().coerceAtLeast(1)
-                                capturedHeightCache[capturedHtmlContent] = px
-                                webViewHeightPx = px
-                                isRendered = true
-                            }
-                        }
-                    }, "HeightBridge")
-                    tag = ""
-                }
-            },
-            update = { webView ->
-                if (webView.tag != capturedHtmlContent) {
-                    webView.tag = capturedHtmlContent
-                    webView.loadDataWithBaseURL(
-                        "file:///android_asset/katex/",
-                        capturedHtmlContent,
-                        "text/html",
-                        "UTF-8",
-                        null
-                    )
-                }
-            },
-            onRelease = { webView ->
-                // Sin este release, el WebView nativo queda vivo en memoria
-                // aunque el composable ya no esté en el árbol. Es un leak de
-                // ~2-5 MB por WebView que se acumula al abrir/cerrar notas.
-                try {
-                    webView.stopLoading()
-                    webView.loadUrl("about:blank")
-                    webView.clearHistory()
-                    webView.removeAllViews()
-                    webView.destroy()
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+    AndroidView(
+        modifier = modifier.fillMaxWidth(),
+        factory = { ctx ->
+            RaTeXView(ctx).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+                displayMode = true
+                fontSize = fontSizeDp
+                this.latex = latex
+                color = textColor.toArgb()
             }
-        )
-
-        AnimatedVisibility(
-            visible = !isRendered,
-            enter = fadeIn(),
-            exit = fadeOut(animationSpec = tween(400))
-        ) {
-            ShimmerBox(modifier = Modifier.fillMaxSize().padding(vertical = 4.dp))
+        },
+        update = { view ->
+            view.fontSize = fontSizeDp
+            view.latex = latex
+            view.color = textColor.toArgb()
         }
-    }
+    )
 }
 
 // ============================================================
-// Mermaid WebView
+// Inline math — segment splitting & size estimation
+// ============================================================
+
+private enum class InlineSegmentKind { TEXT, MATH }
+
+private data class InlineSegment(
+    val kind: InlineSegmentKind,
+    val text: String
+)
+
+/**
+ * Divide una línea en segmentos alternando texto y math inline.
+ *
+ * Detecta `$...$` y `$$...$$` embebidos en texto. Aplica validación mínima
+ * al dólar simple para evitar falsos positivos (precios como "$100").
+ *
+ * Los `$$...$$` se aceptan siempre. Los `$...$` deben cumplir:
+ *   - No empezar ni terminar con espacio.
+ *   - No contener doble espacio.
+ *   - Longitud máxima de 80 caracteres.
+ */
+private fun splitInlineMathSegments(line: String): List<InlineSegment> {
+    val pattern = Regex("""\$\$([^$\n]+?)\$\$|(?<!\$)\$(?!\$)([^$\n]+?)\$(?!\$)""")
+    val segments = mutableListOf<InlineSegment>()
+    var cursor = 0
+
+    for (match in pattern.findAll(line)) {
+        val isDouble = match.groups[1] != null
+        val content = if (isDouble) match.groups[1]!!.value else match.groups[2]!!.value
+
+        val valid = if (isDouble) {
+            content.isNotBlank()
+        } else {
+            content.isNotBlank()
+                && !content.startsWith(" ")
+                && !content.endsWith(" ")
+                && !content.contains("  ")
+                && content.length <= 80
+        }
+        if (!valid) continue
+
+        if (match.range.first > cursor) {
+            val before = line.substring(cursor, match.range.first)
+            if (before.isNotEmpty()) {
+                segments.add(InlineSegment(InlineSegmentKind.TEXT, before))
+            }
+        }
+        segments.add(InlineSegment(InlineSegmentKind.MATH, content))
+        cursor = match.range.last + 1
+    }
+
+    if (cursor < line.length) {
+        val after = line.substring(cursor)
+        if (after.isNotEmpty()) {
+            segments.add(InlineSegment(InlineSegmentKind.TEXT, after))
+        }
+    }
+
+    return segments.ifEmpty { listOf(InlineSegment(InlineSegmentKind.TEXT, line)) }
+}
+
+/**
+ * Estima el ancho y alto de una fórmula inline en `em`.
+ *
+ * Heurística basada en la cantidad de "unidades" del LaTeX. No es perfecta,
+ * pero da un placeholder de tamaño razonable para que el `Text` calcule el
+ * layout sin tener que esperar a que el `RaTeXView` se mida.
+ */
+private fun estimateInlineMathSize(latex: String): Pair<Float, Float> {
+    var units = 0
+    var i = 0
+    while (i < latex.length) {
+        val c = latex[i]
+        when {
+            c == '\\' -> {
+                i++
+                while (i < latex.length && latex[i].isLetter()) i++
+                units += 1
+            }
+            c.isWhitespace() -> i++
+            c == '{' || c == '}' -> i++
+            else -> {
+                units += 1
+                i++
+            }
+        }
+    }
+    val width = (units * 0.7f).coerceIn(0.5f, 20f)
+    val extraHeight = when {
+        latex.contains("\\frac") || latex.contains("\\dfrac") || latex.contains("\\tfrac") -> 0.7f
+        latex.contains("\\sum") || latex.contains("\\int") || latex.contains("\\prod") -> 0.5f
+        latex.contains("\\sqrt") -> 0.3f
+        else -> 0f
+    }
+    val height = 1.2f + extraHeight
+    return width to height
+}
+
+// ============================================================
+// Mermaid WebView (unchanged)
 // ============================================================
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -666,292 +560,6 @@ document.addEventListener("DOMContentLoaded", function() {
 }
 
 // ============================================================
-// Inline math — data & helpers
-// ============================================================
-
-private enum class InlineSegmentKind { TEXT, MATH }
-
-private data class InlineSegment(
-    val kind: InlineSegmentKind,
-    val text: String
-)
-
-/**
- * Divide una línea en segmentos alternando texto y math inline.
- *
- * Detecta `$...$` y `$$...$$` embebidos en texto. Aplica validación mínima
- * al dólar simple para evitar falsos positivos (precios como "$100").
- *
- * Los `$$...$$` se aceptan siempre. Los `$...$` deben cumplir:
- *   - No empezar ni terminar con espacio.
- *   - No contener doble espacio.
- *   - Longitud máxima de 80 caracteres.
- */
-private fun splitInlineMathSegments(line: String): List<InlineSegment> {
-    val pattern = Regex("""\$\$([^$\n]+?)\$\$|(?<!\$)\$(?!\$)([^$\n]+?)\$(?!\$)""")
-    val segments = mutableListOf<InlineSegment>()
-    var cursor = 0
-
-    for (match in pattern.findAll(line)) {
-        val isDouble = match.groups[1] != null
-        val content = if (isDouble) match.groups[1]!!.value else match.groups[2]!!.value
-
-        val valid = if (isDouble) {
-            content.isNotBlank()
-        } else {
-            content.isNotBlank()
-                && !content.startsWith(" ")
-                && !content.endsWith(" ")
-                && !content.contains("  ")
-                && content.length <= 80
-        }
-        if (!valid) continue
-
-        if (match.range.first > cursor) {
-            val before = line.substring(cursor, match.range.first)
-            if (before.isNotEmpty()) {
-                segments.add(InlineSegment(InlineSegmentKind.TEXT, before))
-            }
-        }
-        segments.add(InlineSegment(InlineSegmentKind.MATH, content))
-        cursor = match.range.last + 1
-    }
-
-    if (cursor < line.length) {
-        val after = line.substring(cursor)
-        if (after.isNotEmpty()) {
-            segments.add(InlineSegment(InlineSegmentKind.TEXT, after))
-        }
-    }
-
-    return segments.ifEmpty { listOf(InlineSegment(InlineSegmentKind.TEXT, line)) }
-}
-
-/**
- * Estima el ancho y alto de una fórmula inline en `em`.
- *
- * Heurística basada en la cantidad de "unidades" del LaTeX. No es perfecta,
- * pero da un placeholder de tamaño razonable para que el `Text` calcule el
- * layout sin tener que esperar al WebView.
- *
- * Si la fórmula real es más ancha que el placeholder, el CSS interno la
- * escala con `transform: scale(...)` para encajar.
- */
-private fun estimateInlineMathSize(latex: String): Pair<Float, Float> {
-    var units = 0
-    var i = 0
-    while (i < latex.length) {
-        val c = latex[i]
-        when {
-            c == '\\' -> {
-                i++
-                while (i < latex.length && latex[i].isLetter()) i++
-                units += 1
-            }
-            c.isWhitespace() -> i++
-            c == '{' || c == '}' -> i++
-            else -> {
-                units += 1
-                i++
-            }
-        }
-    }
-    val width = (units * 0.7f).coerceIn(0.5f, 20f)
-    val extraHeight = when {
-        latex.contains("\\frac") || latex.contains("\\dfrac") || latex.contains("\\tfrac") -> 0.7f
-        latex.contains("\\sum") || latex.contains("\\int") || latex.contains("\\prod") -> 0.5f
-        latex.contains("\\sqrt") -> 0.3f
-        else -> 0f
-    }
-    val height = 1.2f + extraHeight
-    return width to height
-}
-
-/**
- * Procesa links/bold/italic dentro de un segmento de texto plano.
- */
-private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlineFormatted(text: String) {
-    val pattern = Regex("\\[([^\\]]+)\\]\\(([^)]+)\\)|\\*\\*(.*?)\\*\\*|\\*(.*?)\\*|_(.*?)_")
-    var currentIndex = 0
-    for (match in pattern.findAll(text)) {
-        append(text.substring(currentIndex, match.range.first))
-        when {
-            match.groups[1] != null && match.groups[2] != null -> {
-                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                    append(match.groups[1]!!.value)
-                }
-            }
-            match.groups[3] != null -> {
-                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                    append(match.groups[3]!!.value)
-                }
-            }
-            match.groups[4] != null -> {
-                withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
-                    append(match.groups[4]!!.value)
-                }
-            }
-            match.groups[5] != null -> {
-                withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
-                    append(match.groups[5]!!.value)
-                }
-            }
-        }
-        currentIndex = match.range.last + 1
-    }
-    if (currentIndex < text.length) append(text.substring(currentIndex))
-}
-
-// ============================================================
-// Inline math — WebView compacto
-// ============================================================
-
-@SuppressLint("SetJavaScriptEnabled")
-@Composable
-fun KaTeXInlineWebView(
-    latex: String,
-    assets: KaTeXAssets,
-    textColor: Color,
-    fontFamily: FontFamily,
-    modifier: Modifier = Modifier
-) {
-    if (!assets.isReady) {
-        // Fallback: sin assets, mostramos el LaTeX crudo con un estilo math.
-        Text(
-            text = latex,
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontFamily = FontFamily.Monospace
-            ),
-            color = textColor,
-            modifier = modifier
-        )
-        return
-    }
-
-    val hexColor = String.format("#%06X", 0xFFFFFF and textColor.toArgb())
-    val cssFont = when (fontFamily) {
-        FontFamily.Serif -> "serif"
-        FontFamily.Monospace -> "monospace"
-        else -> "sans-serif"
-    }
-
-    val patchedCss = remember(assets.css) {
-        assets.css.replace(Regex("""url\(['"]?(fonts/[^'"")]+)['"]?\)""")) { match ->
-            "url('file:///android_asset/katex/${match.groupValues[1]}')"
-        }
-    }
-
-    val htmlContent = remember(latex, hexColor, cssFont, patchedCss) {
-        """<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<style>
-${patchedCss}
-html, body {
-    background-color: transparent;
-    color: ${hexColor};
-    font-family: ${cssFont};
-    font-size: 18px;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-#math-content {
-    display: inline-block;
-    white-space: nowrap;
-}
-.katex { font-size: 1em !important; }
-.katex-display { margin: 0 !important; }
-</style>
-</head>
-<body>
-<div id="math-content">${'$'}${'$'}$latex${'$'}${'$'}</div>
-<script>${assets.js}</script>
-<script>${assets.autoRender}</script>
-<script>${assets.mhchem}</script>
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    var el = document.getElementById('math-content');
-    if (typeof renderMathInElement !== 'undefined') {
-        renderMathInElement(el, {
-            delimiters: [
-                {left: "${'$'}${'$'}", right: "${'$'}${'$'}", display: false},
-                {left: "${'$'}", right: "${'$'}", display: false}
-            ],
-            throwOnError: false
-        });
-    }
-    // Solo escalar cuando la fórmula desborda significativamente.
-    // Si el placeholder (viewportWidth) es un poco más chico que el ancho
-    // real, dejamos que se vea a tamaño natural — es mejor que achicarlo.
-    var naturalWidth = el.scrollWidth;
-    var viewportWidth = document.documentElement.clientWidth;
-    if (viewportWidth > 0 && naturalWidth > viewportWidth * 1.15) {
-        var scale = viewportWidth / naturalWidth;
-        el.style.transformOrigin = 'left center';
-        el.style.transform = 'scale(' + scale + ')';
-    }
-});
-</script>
-</body>
-</html>""".trimIndent()
-    }
-
-    AndroidView(
-        modifier = modifier.fillMaxSize(),
-        factory = { ctx ->
-            android.webkit.WebView(ctx).apply {
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-                setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                isVerticalScrollBarEnabled = false
-                isHorizontalScrollBarEnabled = false
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                settings.defaultTextEncodingName = "utf-8"
-                @Suppress("DEPRECATION")
-                settings.allowFileAccessFromFileURLs = true
-                webViewClient = android.webkit.WebViewClient()
-                webChromeClient = android.webkit.WebChromeClient()
-                tag = ""
-            }
-        },
-        update = { webView ->
-            if (webView.tag != htmlContent) {
-                webView.tag = htmlContent
-                webView.loadDataWithBaseURL(
-                    "file:///android_asset/katex/",
-                    htmlContent,
-                    "text/html",
-                    "UTF-8",
-                    null
-                )
-            }
-        },
-        onRelease = { webView ->
-            try {
-                webView.stopLoading()
-                webView.loadUrl("about:blank")
-                webView.clearHistory()
-                webView.removeAllViews()
-                webView.destroy()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    )
-}
-
-// ============================================================
 // Markdown parser
 // ============================================================
 
@@ -1063,21 +671,14 @@ fun MarkdownText(
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
 
-    var katexAssets by remember { mutableStateOf(KaTeXAssets("", "", "", "")) }
     var mermaidAssets by remember { mutableStateOf(MermaidAssets("")) }
 
-    // Analizamos el texto una sola vez para saber qué assets hacen falta.
-    // Evitamos cargar ~1 MB de KaTeX + Mermaid cuando la nota es de texto simple.
-    val needsKatex = remember(text) { text.contains('$') }
     val needsMermaid = remember(text) { text.contains("```mermaid", ignoreCase = true) }
 
-    LaunchedEffect(needsKatex, needsMermaid) {
+    LaunchedEffect(needsMermaid) {
         withContext(Dispatchers.IO) {
-            if (needsKatex) {
-                katexAssets = MarkdownAssetCache.getKaTeX(context)
-            }
             if (needsMermaid) {
-                mermaidAssets = MarkdownAssetCache.getMermaid(context)
+                mermaidAssets = MermaidAssetCache.getMermaid(context)
             }
         }
     }
@@ -1112,13 +713,6 @@ fun MarkdownText(
     val highlightBgColor = MaterialTheme.colorScheme.tertiaryContainer
     val highlightTextColor = MaterialTheme.colorScheme.onTertiaryContainer
 
-    // Defer de la creación de WebViews. Chromium tarda ~500ms en inicializar
-    // el primer WebView del proceso y eso bloquea el main thread. Si los
-    // montamos durante la animación de apertura de la nota, los frames de la
-    // animación se skipean y la app se siente trabada.
-    //
-    // Estrategia: los primeros 200ms mostramos un skeleton vacío (mismo tamaño,
-    // sin WebView). Cuando termina la animación, montamos los WebViews reales.
     var webViewsReady by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(200)
@@ -1159,24 +753,16 @@ fun MarkdownText(
             ) {
                 when (item) {
                     is MarkdownItem.MathBlock -> {
-                        if (webViewsReady) {
-                            KaTeXWebView(
-                                mathContent = item.rawText,
-                                assets = katexAssets,
-                                textColor = MaterialTheme.colorScheme.onBackground,
-                                fontFamily = fontFamily,
-                                heightCache = webViewHeightCache,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                        } else {
-                            // Skeleton con altura razonable para que el layout no salte.
-                            ShimmerBox(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(80.dp)
-                                    .padding(bottom = 8.dp)
-                            )
-                        }
+                        RaTeXBlockView(
+                            latex = item.rawText
+                                .trim()
+                                .removePrefix("$$")
+                                .removeSuffix("$$")
+                                .trim(),
+                            textColor = MaterialTheme.colorScheme.onBackground,
+                            fontSizeDp = 18f,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
                     }
 
                     is MarkdownItem.MermaidBlock -> {
@@ -1270,9 +856,7 @@ fun MarkdownText(
                                     highlightBgColor = highlightBgColor,
                                     highlightTextColor = highlightTextColor,
                                     fontFamily = fontFamily,
-                                    lineRegistry = lineRegistry,
-                                    katexAssets = katexAssets,
-                                    webViewsReady = webViewsReady
+                                    lineRegistry = lineRegistry
                                 )
                             }
 
@@ -1309,8 +893,6 @@ fun MarkdownText(
                                         fontFamily = fontFamily,
                                         lineRegistry = lineRegistry,
                                         uriHandler = uriHandler,
-                                        katexAssets = katexAssets,
-                                        webViewsReady = webViewsReady,
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
@@ -1339,8 +921,6 @@ fun MarkdownText(
                                         fontFamily = fontFamily,
                                         lineRegistry = lineRegistry,
                                         uriHandler = uriHandler,
-                                        katexAssets = katexAssets,
-                                        webViewsReady = webViewsReady,
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
@@ -1374,8 +954,6 @@ fun MarkdownText(
                                         fontFamily = fontFamily,
                                         lineRegistry = lineRegistry,
                                         uriHandler = uriHandler,
-                                        katexAssets = katexAssets,
-                                        webViewsReady = webViewsReady,
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
@@ -1396,8 +974,6 @@ fun MarkdownText(
                                 fontFamily = fontFamily,
                                 lineRegistry = lineRegistry,
                                 uriHandler = uriHandler,
-                                katexAssets = katexAssets,
-                                webViewsReady = webViewsReady,
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
                         }
@@ -1540,9 +1116,7 @@ private fun BlockQuoteLine(
     highlightBgColor: Color,
     highlightTextColor: Color,
     fontFamily: FontFamily,
-    lineRegistry: MutableMap<Int, LineLayoutInfo>,
-    katexAssets: KaTeXAssets,
-    webViewsReady: Boolean
+    lineRegistry: MutableMap<Int, LineLayoutInfo>
 ) {
     val uriHandler = LocalUriHandler.current
     Row(
@@ -1572,15 +1146,13 @@ private fun BlockQuoteLine(
             fontFamily = fontFamily,
             lineRegistry = lineRegistry,
             uriHandler = uriHandler,
-            katexAssets = katexAssets,
-            webViewsReady = webViewsReady,
             modifier = Modifier.weight(1f)
         )
     }
 }
 
 // ============================================================
-// Basic line renderer (with link support + inline math dispatch)
+// Basic line renderer — inline math via InlineTextContent
 // ============================================================
 
 @Composable
@@ -1597,13 +1169,8 @@ fun BasicMarkdownLine(
     fontFamily: FontFamily,
     lineRegistry: MutableMap<Int, LineLayoutInfo>,
     uriHandler: androidx.compose.ui.platform.UriHandler,
-    katexAssets: KaTeXAssets = KaTeXAssets("", "", "", ""),
-    webViewsReady: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    // Dispatch: si la línea tiene math inline, va por un path que usa
-    // InlineTextContent para embeber los WebViews de KaTeX dentro del texto.
-    // Si no, sigue el path original (más liviano).
     val hasInlineMath = remember(text) {
         Regex("""\$\$[^$\n]+?\$\$|(?<!\$)\$(?!\$)[^$\n]+?\$(?!\$)""").containsMatchIn(text)
     }
@@ -1621,8 +1188,6 @@ fun BasicMarkdownLine(
             highlightTextColor = highlightTextColor,
             fontFamily = fontFamily,
             lineRegistry = lineRegistry,
-            katexAssets = katexAssets,
-            webViewsReady = webViewsReady,
             modifier = modifier
         )
         return
@@ -1789,7 +1354,7 @@ fun BasicMarkdownLine(
 }
 
 // ============================================================
-// Inline math renderer
+// Inline math line — InlineTextContent + RaTeXView (displayMode = false)
 // ============================================================
 
 @Composable
@@ -1805,14 +1370,12 @@ private fun InlineMathMarkdownLine(
     highlightTextColor: Color,
     fontFamily: FontFamily,
     lineRegistry: MutableMap<Int, LineLayoutInfo>,
-    katexAssets: KaTeXAssets,
-    webViewsReady: Boolean,
     modifier: Modifier = Modifier
 ) {
     val segments = remember(text) { splitInlineMathSegments(text) }
     val textColor = MaterialTheme.colorScheme.onBackground
 
-    val inlineContent = remember(segments, katexAssets, textColor) {
+    val inlineContent = remember(segments, textColor) {
         buildMap {
             segments.forEachIndexed { idx, seg ->
                 if (seg.kind == InlineSegmentKind.MATH) {
@@ -1825,17 +1388,24 @@ private fun InlineMathMarkdownLine(
                             placeholderVerticalAlign = PlaceholderVerticalAlign.TextCenter
                         )
                     ) { _ ->
-                        if (webViewsReady) {
-                            KaTeXInlineWebView(
-                                latex = seg.text,
-                                assets = katexAssets,
-                                textColor = textColor,
-                                fontFamily = fontFamily
-                            )
-                        } else {
-                            // Placeholder vacío: solo mantiene el espacio reservado.
-                            Box(modifier = Modifier.fillMaxSize())
-                        }
+                        AndroidView(
+                            factory = { ctx ->
+                                RaTeXView(ctx).apply {
+                                    layoutParams = ViewGroup.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        ViewGroup.LayoutParams.MATCH_PARENT
+                                    )
+                                    displayMode = false
+                                    fontSize = 16f
+                                    latex = seg.text
+                                    color = textColor.toArgb()
+                                }
+                            },
+                            update = { view ->
+                                view.latex = seg.text
+                                view.color = textColor.toArgb()
+                            }
+                        )
                     })
                 }
             }
@@ -1846,7 +1416,41 @@ private fun InlineMathMarkdownLine(
         buildAnnotatedString {
             segments.forEachIndexed { idx, seg ->
                 when (seg.kind) {
-                    InlineSegmentKind.TEXT -> appendInlineFormatted(seg.text)
+                    InlineSegmentKind.TEXT -> {
+                        val pattern = Regex("\\[([^\\]]+)\\]\\(([^)]+)\\)|\\*\\*(.*?)\\*\\*|\\*(.*?)\\*|_(.*?)_")
+                        var currentIndex = 0
+                        val matches = pattern.findAll(seg.text)
+                        for (match in matches) {
+                            append(seg.text.substring(currentIndex, match.range.first))
+                            when {
+                                match.groups[1] != null && match.groups[2] != null -> {
+                                    val linkText = match.groups[1]!!.value
+                                    val linkUrl = match.groups[2]!!.value
+                                    withLink(
+                                        LinkAnnotation.Url(
+                                            url = linkUrl,
+                                            styles = TextLinkStyles(
+                                                style = SpanStyle(
+                                                    color = Color(0xFF64B5F6),
+                                                    textDecoration = TextDecoration.Underline
+                                                )
+                                            ),
+                                            linkInteractionListener = {
+                                                try { LocalUriHandler.current.openUri(linkUrl) } catch (_: Exception) {}
+                                            }
+                                        )
+                                    ) {
+                                        append(linkText)
+                                    }
+                                }
+                                match.groups[3] != null -> withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(match.groups[3]!!.value) }
+                                match.groups[4] != null -> withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append(match.groups[4]!!.value) }
+                                match.groups[5] != null -> withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append(match.groups[5]!!.value) }
+                            }
+                            currentIndex = match.range.last + 1
+                        }
+                        append(seg.text.substring(currentIndex))
+                    }
                     InlineSegmentKind.MATH -> {
                         val id = "inline_math_${lineIndex}_$idx"
                         appendInlineContent(id, alternateText = seg.text)

@@ -7,16 +7,10 @@ plugins {
 }
 
 android {
-  // Namespace migrado a com.obinot.app en A3.2.
-  // A3.2 lo cambia a com.obinot.app junto con todos los .kt.
   namespace = "com.obinot.app"
   compileSdk { version = release(37) }
 
   defaultConfig {
-    // Obinot 2.0 se distribuye como app independiente. El package es
-    // propio, distinto del Binot original, así ambas apps coexisten sin
-    // colisiones en el launcher, en las asociaciones de archivos, ni en
-    // futuras distribuciones (Play Store, F-Droid, etc.).
     applicationId = "com.obinot.app"
     minSdk = 24
     targetSdk = 36
@@ -76,7 +70,6 @@ dependencies {
   implementation(platform(libs.firebase.bom))
   implementation(libs.androidx.appcompat)
   implementation(libs.androidx.activity.compose)
-  implementation("androidx.webkit:webkit:1.11.0")
   implementation(libs.androidx.compose.material.icons.core)
   implementation(libs.androidx.compose.material.icons.extended)
   implementation(libs.androidx.compose.material3)
@@ -100,6 +93,7 @@ dependencies {
   implementation(libs.okhttp)
   implementation(libs.retrofit)
   implementation(libs.material.kolor)
+  implementation(libs.ratex.android)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
