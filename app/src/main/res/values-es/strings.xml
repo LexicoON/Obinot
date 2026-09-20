@@ -290,6 +290,7 @@
     <string name="result_copied_clipboard">Copiado al portapapeles</string>
     <string name="result_summary_removed">¡Resumen de IA eliminado!</string>
     <string name="result_text_copied">¡Texto copiado!</string>
+    <string name="result_math_copied">Fórmula copiada al portapapeles</string>
 
     <!-- AI Explain sheet -->
     <string name="result_ai_explain_title">Explicación con IA</string>

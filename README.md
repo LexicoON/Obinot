@@ -42,10 +42,9 @@ Obinot 2.0 is distributed as a **completely independent app** (`com.obinot.app`)
 - 🎙️ **Voice capture** — Fast mode (on-device) or Accurate mode (full audio + AI transcription). Background recording, live waveform, optional live transcript.
 - 🤖 **Multi-provider AI** — Bring your own Gemini or Groq API key, or use Dynamic mode to route tasks automatically and stretch free quotas.
 - 🧠 **Tidy · Summary · Analyze** — Clean up rough transcripts, extract key points, or identify sentiments and action items. 23 output languages.
-- 📖 **Custom Markdown reader** — Headers, lists, tables, code blocks, blockquotes, links, and offline KaTeX math + Mermaid diagrams.
+- 📖 **Custom Markdown reader** — Headers, lists, tables, code blocks, blockquotes, links, and offline RaTeX math (block + inline) + Mermaid diagrams. Long-press any formula block to copy its LaTeX source.
 - ✅ **Interactive checkboxes** — Tappable Markdown checklists that persist.
 - ✏️ **Highlights with notes** — Select any text to highlight it and attach a personal note.
-- 💡 **AI Explain** — Select any text and ask AI to explain it in context.
 - 🔍 **Full-text search** — Room FTS4 with prefix matching, instant across the entire database.
 - 🏷️ **Colored labels** — Assign a color to each label for easy scanning.
 - 🗂️ **Local-first organization** — Custom labels, multi-select, pin, duplicate, trash with recovery.
@@ -94,6 +93,11 @@ Obinot is distributed under **two licenses**, depending on which part of the cod
 
 - **The original Binot codebase** is licensed under the **MIT License**. Copyright © 2026 DENSLnetion. See [LICENSE](LICENSE).
 - **The fork-specific code** (new features, modifications, and everything added on top of the original) is licensed under the **Apache License 2.0**. Copyright © 2026 LexicoON. See [LICENSE-OBINOT](LICENSE-OBINOT).
+
+Obinot also bundles third-party libraries under their own permissive licenses:
+- **[RaTeX](https://github.com/erweixin/RaTeX)** — MIT License. Native LaTeX rendering engine (Rust core + Android JNI bindings), used for block and inline math.
+- **[Mermaid](https://github.com/mermaid-js/mermaid)** — MIT License. Diagram rendering, bundled as a JS asset.
+- **Jetpack Compose, Room, Retrofit, Moshi, MaterialKolor, and other AndroidX / Kotlin libraries** — Apache License 2.0 or MIT, as declared by their respective maintainers.
 
 This project is a fork of [Binot](https://github.com/DENSLnetion/Binot), originally created by [DENSLnetion](https://github.com/DENSLnetion). The original was released under MIT, and that license is preserved in full. We are deeply grateful to DENSLnetion for creating Binot and releasing it under an open license, which made this fork possible.
 

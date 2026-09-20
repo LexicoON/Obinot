@@ -33,16 +33,6 @@ jobs:
         with:
           gradle-version: '9.7.1'
 
-      - name: Inspect RaTeX AAR packages
-        # Diagnóstico: si el import de RaTeXView falla, este paso revela
-        # el paquete real de las clases dentro del AAR descargado por Gradle.
-        # Una vez confirmado el paquete, este paso se puede eliminar.
-        run: |
-          echo "=== Buscando AAR de ratex-android ==="
-          find ~/.gradle/caches -name "ratex-android-*.aar" 2>/dev/null | head -5
-          echo "=== Contenido de clases (primeras 30) ==="
-          find ~/.gradle/caches -name "ratex-android-*.aar" 2>/dev/null | head -1 | xargs -I{} unzip -l {} | grep -E "\.class$" | head -30 || true
-
       - name: Create debug keystore
         # Used as a fallback if no upload keystore secrets are configured.
         run: |

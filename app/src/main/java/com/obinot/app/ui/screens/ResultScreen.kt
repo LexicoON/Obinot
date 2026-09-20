@@ -1119,6 +1119,13 @@ fun ResultScreen(
                                                 onResolveSelection = { resolver -> resolveMarkdownSelection = resolver },
                                                 highlightQuery = temporaryHighlight,
                                                 onCheckboxToggle = { lineIndex -> viewModel.toggleCheckbox(lineIndex) },
+                                                onMathCopy = { latex ->
+                                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                    clipboard.setPrimaryClip(ClipData.newPlainText("LaTeX", latex))
+                                                    coroutineScope.launch {
+                                                        snackbarHostState.showSnackbar(context.getString(R.string.result_math_copied))
+                                                    }
+                                                },
                                                 fontFamily = selectedFont,
                                                 linePositions = markdownLinePositions,
                                                 modifier = Modifier.weight(1f).padding(horizontal = 4.dp)

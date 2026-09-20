@@ -290,6 +290,7 @@
     <string name="result_copied_clipboard">Copied to clipboard</string>
     <string name="result_summary_removed">AI summary removed!</string>
     <string name="result_text_copied">Text Copied!</string>
+    <string name="result_math_copied">Formula copied to clipboard</string>
 
     <!-- AI Explain sheet -->
     <string name="result_ai_explain_title">AI Explain</string>

@@ -22,6 +22,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -227,10 +228,17 @@ fun RaTeXBlockView(
     latex: String,
     textColor: Color,
     fontSizeDp: Float,
+    onCopy: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     AndroidView(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .pointerInput(latex) {
+                detectTapGestures(
+                    onLongPress = { onCopy(latex) }
+                )
+            },
         factory = { ctx ->
             RaTeXView(ctx).apply {
                 layoutParams = ViewGroup.LayoutParams(
@@ -339,14 +347,14 @@ private fun estimateInlineMathSize(latex: String): Pair<Float, Float> {
             }
         }
     }
-    val width = (units * 0.7f).coerceIn(0.5f, 20f)
+    val width = (units * 0.90f).coerceIn(0.9f, 24f)
     val extraHeight = when {
-        latex.contains("\\frac") || latex.contains("\\dfrac") || latex.contains("\\tfrac") -> 0.7f
-        latex.contains("\\sum") || latex.contains("\\int") || latex.contains("\\prod") -> 0.5f
-        latex.contains("\\sqrt") -> 0.3f
-        else -> 0f
+        latex.contains("\\frac") || latex.contains("\\dfrac") || latex.contains("\\tfrac") -> 1.0f
+        latex.contains("\\sum") || latex.contains("\\int") || latex.contains("\\prod") -> 0.7f
+        latex.contains("\\sqrt") -> 0.5f
+        else -> 0.2f
     }
-    val height = 1.2f + extraHeight
+    val height = 1.9f + extraHeight
     return width to height
 }
 
@@ -664,6 +672,7 @@ fun MarkdownText(
     onResolveSelection: (resolver: (Rect, String) -> Triple<Int, Int, Int>?) -> Unit = {},
     highlightQuery: String = "",
     onCheckboxToggle: (Int) -> Unit = {},
+    onMathCopy: (String) -> Unit = {},
     fontFamily: FontFamily = FontFamily.SansSerif,
     linePositions: SnapshotStateMap<Int, Int>? = null,
     modifier: Modifier = Modifier
@@ -753,14 +762,16 @@ fun MarkdownText(
             ) {
                 when (item) {
                     is MarkdownItem.MathBlock -> {
+                        val latexContent = item.rawText
+                            .trim()
+                            .removePrefix("$$")
+                            .removeSuffix("$$")
+                            .trim()
                         RaTeXBlockView(
-                            latex = item.rawText
-                                .trim()
-                                .removePrefix("$$")
-                                .removeSuffix("$$")
-                                .trim(),
+                            latex = latexContent,
                             textColor = MaterialTheme.colorScheme.onBackground,
                             fontSizeDp = 18f,
+                            onCopy = { onMathCopy(latexContent) },
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
                     }
@@ -1391,14 +1402,11 @@ private fun InlineMathMarkdownLine(
                         )
                     ) { _ ->
                         AndroidView(
+                            modifier = Modifier.wrapContentSize(Alignment.Center),
                             factory = { ctx ->
                                 RaTeXView(ctx).apply {
-                                    layoutParams = ViewGroup.LayoutParams(
-                                        ViewGroup.LayoutParams.MATCH_PARENT,
-                                        ViewGroup.LayoutParams.MATCH_PARENT
-                                    )
                                     displayMode = false
-                                    fontSize = 16f
+                                    fontSize = 18f
                                     latex = seg.text
                                     color = textColor.toArgb()
                                 }
