@@ -13,15 +13,15 @@ android {
   compileSdk { version = release(37) }
 
   defaultConfig {
-    // applicationId se mantiene igual en A3.1 y A3.2 para permitir
-    // actualización in-place durante el desarrollo.
-    // A3.3 (junto con Play Store prep) lo cambia a com.obinot.app,
-    // momento en el que Obinot se instala como app independiente.
-    applicationId = "com.aistudio.binot.xrztp"
+    // Obinot 2.0 se distribuye como app independiente. El package es
+    // propio, distinto del Binot original, así ambas apps coexisten sin
+    // colisiones en el launcher, en las asociaciones de archivos, ni en
+    // futuras distribuciones (Play Store, F-Droid, etc.).
+    applicationId = "com.obinot.app"
     minSdk = 24
     targetSdk = 36
-    versionCode = 21
-    versionName = "2.0.0-dev"
+    versionCode = 1
+    versionName = "2.0.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
