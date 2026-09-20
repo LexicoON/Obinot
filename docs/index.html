@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0F0F1A" />
+  <meta name="description" content="Obinot is a community-maintained fork of Binot. AI voice notes for Android: record, transcribe, and turn audio into clean Markdown. Material 3 Expressive, offline-first, open source." />
+  <meta name="keywords" content="Obinot, Binot, AI voice notes, voice transcription, markdown notes, Android, Material 3 Expressive, Gemini, Groq, offline, open source" />
+  <meta property="og:title" content="Obinot — AI voice notes for Android" />
+  <meta property="og:description" content="Speak naturally. Get clean Markdown notes. Powered by Gemini or Groq, rendered offline with Material 3 Expressive." />
+  <meta property="og:image" content="assets/cover.png" />
+  <meta property="og:type" content="website" />
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>Obinot — AI voice notes for Android</title>
+</head>
+<body>
+
+  <!-- Animated background blobs -->
+  <div class="bg-blobs" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <!-- Theme toggle (floating) -->
+  <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+    <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 0 0 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
+    <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M21.64 13a9 9 0 1 1-10.63-10.6 1 1 0 0 1 1.05 1.37 7 7 0 0 0 8.21 8.21 1 1 0 0 1 1.37 1.02z"/></svg>
+  </button>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-icon" data-float>
+        <div class="hero-icon-glow"></div>
+        <img src="assets/icon.png" alt="Obinot icon" />
+      </div>
+
+      <h1 class="hero-title">
+        <span class="word" data-reveal>Obinot</span>
+      </h1>
+
+      <p class="hero-tagline" data-reveal>
+        Speak naturally. Get clean <span class="text-gradient">Markdown</span> notes.
+      </p>
+
+      <p class="hero-sub" data-reveal>
+        Community-maintained fork of Binot — rebuilt for the Material 3 Expressive + AI era.
+      </p>
+
+      <div class="hero-cta" data-reveal>
+        <a href="https://github.com/LexicoON/Obinot/releases" class="btn btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          Download APK
+        </a>
+        <a href="https://github.com/LexicoON/Obinot" class="btn btn-secondary">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57v-2c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.3 3.5 1 .11-.78.42-1.31.76-1.61-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.11-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.62-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .31.22.7.83.58A12 12 0 0 0 12 .3"/></svg>
+          View on GitHub
+        </a>
+      </div>
+
+      <!-- Scroll hint -->
+      <a href="#features" class="scroll-hint" aria-label="Scroll to features">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+      </a>
+    </div>
+
+    <!-- Wave divider -->
+    <svg class="wave-divider" viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0,40 C320,100 720,0 1440,60 L1440,100 L0,100 Z" fill="currentColor"></path>
+    </svg>
+  </section>
+
+  <!-- ===== FEATURES ===== -->
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow" data-reveal>What it does</span>
+        <h2 data-reveal>Voice in, Markdown out.</h2>
+        <p data-reveal>No friction between thought and note. Hit record, talk, done.</p>
+      </div>
+
+      <div class="features-grid">
+        <article class="feature-card" data-lift>
+          <div class="feature-icon icon-violet">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
+          </div>
+          <h3>Voice capture</h3>
+          <p>Fast mode for on-device transcription or Accurate mode for full audio + AI transcription. Background recording with live waveform.</p>
+        </article>
+
+        <article class="feature-card" data-lift>
+          <div class="feature-icon icon-cyan">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>
+          </div>
+          <h3>Multi-provider AI</h3>
+          <p>Bring your own Gemini or Groq API key. Dynamic mode routes tasks across providers to stretch free quotas.</p>
+        </article>
+
+        <article class="feature-card" data-lift>
+          <div class="feature-icon icon-coral">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14H6v-2h4v2zm0-4H6v-2h4v2zm0-4H6V7h4v2zm6 8h-4v-2h4v2zm0-4h-4v-2h4v2zm0-4h-4V7h4v2z"/></svg>
+          </div>
+          <h3>Markdown reader</h3>
+          <p>Headers, tables, code blocks. Native LaTeX via RaTeX (offline, no WebView). Mermaid diagrams rendered with one tap.</p>
+        </article>
+
+        <article class="feature-card" data-lift>
+          <div class="feature-icon icon-amber">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+          </div>
+          <h3>Chat with your notes</h3>
+          <p>Long-press the menu to ask follow-up questions about any note. Conversation saves with the note itself.</p>
+        </article>
+
+        <article class="feature-card" data-lift>
+          <div class="feature-icon icon-mint">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 3H5c-1.11 0-2 .89-2 2v14c0 1.11.89 2 2 2h14c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+          </div>
+          <h3>Local-first</h3>
+          <p>Notes, audio, and settings live on your device. No account. No telemetry. AI features call your provider directly with your key.</p>
+        </article>
+
+        <article class="feature-card" data-lift>
+          <div class="feature-icon icon-rose">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+          </div>
+          <h3>Material 3 Expressive</h3>
+          <p>Spring physics on every button, animated bouncy components, wavy audio progress bar, 7 color palettes, dark + AMOLED themes.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SCREENSHOTS ===== -->
+  <section class="screenshots">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow" data-reveal>Look &amp; feel</span>
+        <h2 data-reveal>Modern, expressive, native.</h2>
+      </div>
+
+      <div class="shot-grid">
+        <figure class="shot" data-reveal>
+          <div class="shot-frame">
+            <img src="assets/cover.png" alt="Obinot — voice notes, structured by AI" loading="lazy" />
+          </div>
+          <figcaption>Voice notes, structured by AI.</figcaption>
+        </figure>
+
+        <figure class="shot" data-reveal>
+          <div class="shot-frame">
+            <img src="assets/features.png" alt="Dark mode, colored labels, offline diagrams" loading="lazy" />
+          </div>
+          <figcaption>Dark mode, colored labels, offline diagrams.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FROM BINOT ===== -->
+  <section class="from-binot">
+    <div class="container">
+      <div class="migration-card" data-reveal>
+        <div class="migration-badge">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M16 1H8C6.34 1 5 2.34 5 4v16c0 1.66 1.34 3 3 3h8c1.66 0 3-1.34 3-3V4c0-1.66-1.34-3-3-3zm-2 20h-4v-1h4v1zm3.25-3H6.75V4h10.5v14z"/></svg>
+          Migrating from Binot
+        </div>
+
+        <h2>Coming from Binot 1.x?</h2>
+        <p>Obinot is a community fork of <a href="https://github.com/DENSLnetion/Binot">Binot</a> by DENSLnetion. Your data moves with you — both apps can read each other's files.</p>
+
+        <ol class="migration-steps">
+          <li>Open Binot 1.x → <strong>Settings → Data &amp; System → Backup</strong></li>
+          <li>Save the <code>.binotbak</code> file</li>
+          <li>Open Obinot → <strong>Settings → Data &amp; System → Import</strong></li>
+          <li>Select the backup. Done — notes, audio, labels, preferences &amp; chat history restored.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FINAL CTA ===== -->
+  <section class="final-cta">
+    <div class="container">
+      <h2 data-reveal>Ready to start talking to your notes?</h2>
+      <div class="hero-cta" data-reveal>
+        <a href="https://github.com/LexicoON/Obinot/releases" class="btn btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          Download APK
+        </a>
+        <a href="https://github.com/LexicoON/Obinot" class="btn btn-secondary">
+          Star on GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <img src="assets/icon.png" alt="" class="footer-icon" />
+          <div>
+            <strong>Obinot</strong>
+            <span>AI voice notes for Android.</span>
+          </div>
+        </div>
+
+        <div class="footer-links">
+          <h4>Project</h4>
+          <a href="https://github.com/LexicoON/Obinot">GitHub</a>
+          <a href="https://github.com/LexicoON/Obinot/releases">Releases</a>
+          <a href="https://github.com/LexicoON/Obinot/blob/main/CHANGELOG_2.1.md">Changelog</a>
+          <a href="https://github.com/LexicoON/Obinot/issues">Issues</a>
+        </div>
+
+        <div class="footer-links">
+          <h4>Original</h4>
+          <a href="https://github.com/DENSLnetion/Binot">Binot</a>
+          <a href="https://github.com/DENSLnetion/Binot/releases">Binot releases</a>
+        </div>
+
+        <div class="footer-links">
+          <h4>Built with</h4>
+          <a href="https://www.jetbrains.com/lp/compose-multiplatform/">Jetpack Compose</a>
+          <a href="https://m3.material.io/">Material 3</a>
+          <a href="https://ai.google.dev/">Gemini</a>
+          <a href="https://groq.com/">Groq</a>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p>Licensed under MIT + Apache 2.0. A fork of <a href="https://github.com/DENSLnetion/Binot">Binot</a> by DENSLnetion.</p>
+        <p class="footer-mono">Obinot 2.1 · versionCode 3 · made with care</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
