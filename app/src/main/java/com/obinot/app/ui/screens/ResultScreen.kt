@@ -212,7 +212,6 @@ fun ResultScreen(
     // ============================================================
     var showChatSheet by remember { mutableStateOf(false) }
     var showChatTooltip by remember { mutableStateOf(false) }
-    var showMoreMenu by remember { mutableStateOf(false) }
 
     val aiChatTooltipShown by viewModel.aiChatTooltipShown.collectAsState()
 
@@ -285,6 +284,19 @@ fun ResultScreen(
         }
     }
 
+    // Launcher para exportar Markdown: SAF CreateDocument pide al usuario
+    // dónde guardar, y después escribimos directo a ese URI sin disparar
+    // ningún share intent.
+    val exportMarkdownLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/markdown")
+    ) { uri ->
+        uri?.let {
+            viewModel.exportMarkdownToUri(context, it) { _, msg ->
+                coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
+            }
+        }
+    }
+
     var showContent by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(60)
@@ -306,7 +318,7 @@ fun ResultScreen(
     // selección de texto no se "previsualiza" deslizando.
     val hasTransientState = isTextSelected || showCustomMenu || showCancelConfirmDialog ||
         (showSidePanel && !isLandscape) || isEditMode || isTitleFocused ||
-        showChatSheet || showChatTooltip || showMoreMenu
+        showChatSheet || showChatTooltip
 
     // BackHandler normal para estados transitorios. Instantáneo, sin animación.
     BackHandler(enabled = hasTransientState) {
@@ -318,7 +330,6 @@ fun ResultScreen(
             isTitleFocused -> focusManager.clearFocus()
             showChatSheet -> showChatSheet = false
             showChatTooltip -> showChatTooltip = false
-            showMoreMenu -> showMoreMenu = false
         }
     }
 
@@ -439,6 +450,29 @@ fun ResultScreen(
                         Text(stringResource(R.string.result_new_label_chip), color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold)
                     }
                 }
+            }
+
+            SectionSpacer()
+
+            PanelSectionHeader(icon = Icons.Default.AutoAwesome, title = stringResource(R.string.chat_menu_item))
+
+            BouncyButton(
+                onClick = {
+                    showSidePanel = false
+                    showChatSheet = true
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.chat_menu_item),
+                    fontWeight = FontWeight.Bold
+                )
             }
 
             SectionSpacer()
@@ -654,13 +688,18 @@ fun ResultScreen(
                 item {
                     BouncyCapsule(
                         onClick = {
-                            viewModel.shareBinotFile(context) { uri, msg ->
+                            // Guarda el .binot en Documentos y luego abre el share
+                            // dialog del sistema con el archivo. En API < 29 no se
+                            // guarda (no hay MediaStore.Downloads) — solo se comparte
+                            // desde cache.
+                            viewModel.shareBinotToDocuments(context) { uri, msg ->
                                 if (uri != null) {
                                     val sendIntent = Intent(Intent.ACTION_SEND).apply {
                                         type = "application/zip"
                                         putExtra(Intent.EXTRA_STREAM, uri)
                                         putExtra(Intent.EXTRA_TEXT, context.getString(R.string.result_share_text, note!!.title))
                                         flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                        clipData = ClipData.newRawUri("", uri)
                                     }
                                     context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.result_share_chooser)))
                                 } else {
@@ -680,19 +719,13 @@ fun ResultScreen(
                 item {
                     BouncyCapsule(
                         onClick = {
-                            viewModel.exportMarkdownFile(context) { uri, msg ->
-                                if (uri != null) {
-                                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/markdown"
-                                        putExtra(Intent.EXTRA_STREAM, uri)
-                                        putExtra(Intent.EXTRA_TEXT, context.getString(R.string.result_share_text_markdown, note!!.title))
-                                        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                    }
-                                    context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.result_share_markdown_chooser)))
-                                } else {
-                                    coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
-                                }
-                            }
+                            // SAF CreateDocument abre el picker "guardar como…".
+                            // Cuando el usuario confirma, escribimos el Markdown
+                            // directo al URI elegido. Sin share intent.
+                            val safeTitle = note!!.title
+                                .ifBlank { "Obinot_Note" }
+                                .replace(Regex("[^a-zA-Z0-9.-]"), "_")
+                            exportMarkdownLauncher.launch("${safeTitle}.md")
                             showSidePanel = false
                         },
                         containerColor = MaterialTheme.colorScheme.surfaceVariant
@@ -845,7 +878,7 @@ fun ResultScreen(
                                 // Tap: abre el menú normal.
                                 // Long press: abre el chat directamente.
                                 ChatOptionsButton(
-                                    onClick = { showMoreMenu = true },
+                                    onClick = { showSidePanel = true },
                                     onLongPress = {
                                         if (!aiChatTooltipShown) {
                                             showChatTooltip = true
@@ -1341,30 +1374,8 @@ fun ResultScreen(
     }
 
     // ============================================================
-    // AI Chat about this note (2.1) — menú, tooltip, sheet
+    // AI Chat about this note (2.1) — tooltip + sheet
     // ============================================================
-
-    DropdownMenu(
-        expanded = showMoreMenu,
-        onDismissRequest = { showMoreMenu = false }
-    ) {
-        DropdownMenuItem(
-            text = { Text(stringResource(R.string.chat_menu_item)) },
-            leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
-            onClick = {
-                showMoreMenu = false
-                showChatSheet = true
-            }
-        )
-        DropdownMenuItem(
-            text = { Text(stringResource(R.string.result_cd_options)) },
-            leadingIcon = { Icon(Icons.Default.Tune, contentDescription = null) },
-            onClick = {
-                showMoreMenu = false
-                showSidePanel = true
-            }
-        )
-    }
 
     if (showChatTooltip) {
         AlertDialog(

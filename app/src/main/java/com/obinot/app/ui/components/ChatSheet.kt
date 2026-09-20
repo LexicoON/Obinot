@@ -1,24 +1,20 @@
 package com.obinot.app.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -42,13 +38,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.obinot.app.R
 import com.obinot.app.viewmodel.ChatMessage
 import com.obinot.app.viewmodel.ResultViewModel
+import kotlinx.coroutines.launch
 
 /**
  * ModalBottomSheet con el chat sobre la nota.
@@ -56,9 +55,6 @@ import com.obinot.app.viewmodel.ResultViewModel
  * El historial NO se persiste: vive en el ResultViewModel y se limpia
  * cuando el sheet se cierra. Límite duro de 20 mensajes por sesión
  * (impuesto en el ViewModel).
- *
- * Ancho máximo: 560dp. En tablets y landscape, el sheet queda centrado
- * en vez de estirarse a lo ancho de la pantalla.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,9 +68,6 @@ fun ChatSheet(
     var input by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
-    // Auto-scroll al final cuando llega un mensaje nuevo o cuando aparece
-    // el indicador de "pensando". Usamos el tamaño total como key para que
-    // dispare en cada cambio de lista.
     LaunchedEffect(messages.size, isSending) {
         if (messages.isNotEmpty() || isSending) {
             val target = messages.size + if (isSending) 1 else 0
@@ -97,7 +90,6 @@ fun ChatSheet(
                 .widthIn(max = 560.dp)
                 .padding(horizontal = 16.dp)
         ) {
-            // Header
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
@@ -120,10 +112,8 @@ fun ChatSheet(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             Spacer(Modifier.height(8.dp))
 
-            // Lista de mensajes
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 if (messages.isEmpty() && !isSending) {
-                    // Estado vacío
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -143,7 +133,7 @@ fun ChatSheet(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
-                        items(messages) { msg ->
+                        items(messages, key = { it.hashCode() }) { msg ->
                             ChatBubble(message = msg)
                         }
                         if (isSending) {
@@ -157,13 +147,8 @@ fun ChatSheet(
 
             Spacer(Modifier.height(8.dp))
 
-            // Aviso de límite
             val atLimit = messages.size >= 20
-            AnimatedVisibility(
-                visible = atLimit,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
-            ) {
+            if (atLimit) {
                 Text(
                     text = stringResource(R.string.chat_limit_reached),
                     style = MaterialTheme.typography.labelSmall,
@@ -172,7 +157,6 @@ fun ChatSheet(
                 )
             }
 
-            // Input
             ChatInputRow(
                 value = input,
                 onValueChange = { input = it },
@@ -195,8 +179,46 @@ fun ChatSheet(
 private fun ChatBubble(message: ChatMessage) {
     val isUser = message.role == "user"
 
+    // Expressive entrance: la burbuja entra con un spring bouncy desde
+    // un estado contraído, y un fade corto en paralelo. La animación se
+    // dispara cada vez que el mensaje se compone (nuevo ítem en la lista).
+    val scale = remember { Animatable(0.85f) }
+    val alpha = remember { Animatable(0f) }
+    val translateY = remember { Animatable(16f) }
+
+    LaunchedEffect(message) {
+        launch {
+            scale.animateTo(
+                1f,
+                spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            )
+        }
+        launch {
+            alpha.animateTo(1f, tween(durationMillis = 220))
+        }
+        launch {
+            translateY.animateTo(
+                0f,
+                spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            )
+        }
+    }
+
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = scale.value
+                scaleY = scale.value
+                this.alpha = alpha.value
+                translationY = translateY.value
+            },
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
         Box(
@@ -216,20 +238,77 @@ private fun ChatBubble(message: ChatMessage) {
                 )
                 .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
-            Text(
-                text = message.content,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (isUser) {
+                // Mensaje del usuario: texto plano. No necesita markdown.
+                Text(
+                    text = message.content,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            } else {
+                // Respuesta del asistente: MarkdownText en modo compacto
+                // para que renderice LaTeX (inline y block), bold, italic,
+                // listas y links. Sin scroll propio (vive dentro del
+                // LazyColumn del chat).
+                MarkdownText(
+                    text = message.content,
+                    scrollState = rememberScrollState(),
+                    highlightsInfo = null,
+                    onSavedHighlightClick = { _, _, _, _, _ -> },
+                    onResolveSelection = { null },
+                    highlightQuery = "",
+                    onCheckboxToggle = {},
+                    onMathCopy = {},
+                    fontFamily = FontFamily.SansSerif,
+                    linePositions = null,
+                    enableScroll = false,
+                    compact = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun ThinkingBubble() {
+    val scale = remember { Animatable(0.85f) }
+    val alpha = remember { Animatable(0f) }
+    val translateY = remember { Animatable(16f) }
+
+    LaunchedEffect(Unit) {
+        launch {
+            scale.animateTo(
+                1f,
+                spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            )
+        }
+        launch {
+            alpha.animateTo(1f, tween(durationMillis = 220))
+        }
+        launch {
+            translateY.animateTo(
+                0f,
+                spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            )
+        }
+    }
+
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = scale.value
+                scaleY = scale.value
+                this.alpha = alpha.value
+                translationY = translateY.value
+            },
         horizontalArrangement = Arrangement.Start
     ) {
         Box(
@@ -239,7 +318,7 @@ private fun ThinkingBubble() {
                 .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
             val infiniteTransition = rememberInfiniteTransition(label = "thinking")
-            val alpha by infiniteTransition.animateFloat(
+            val thinkingAlpha by infiniteTransition.animateFloat(
                 initialValue = 0.4f,
                 targetValue = 1f,
                 animationSpec = infiniteRepeatable(
@@ -251,7 +330,7 @@ private fun ThinkingBubble() {
             Text(
                 text = stringResource(R.string.chat_thinking),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = thinkingAlpha)
             )
         }
     }

@@ -2,6 +2,7 @@ package com.obinot.app.viewmodel
 
 import android.content.Context
 import android.media.MediaMetadataRetriever
+import android.os.Build
 import android.media.MediaPlayer
 import android.net.Uri
 import androidx.lifecycle.ViewModel
@@ -289,6 +290,69 @@ class ResultViewModel(
             } else {
                 launch(Dispatchers.Main) {
                     onResult(null, context.getString(R.string.result_export_markdown_failed))
+                }
+            }
+        }
+    }
+
+    /**
+     * Genera el archivo .binot y lo guarda en la carpeta pública de Documentos
+     * del usuario (API 29+). Devuelve el URI del archivo en cache listo para
+     * ser compartido vía FileProvider. En API < 29 no se guarda en Documentos,
+     * solo se comparte desde cache (comportamiento previo).
+     */
+    fun shareBinotToDocuments(context: Context, onResult: (Uri?, String) -> Unit) {
+        val currentNote = _note.value
+        if (currentNote == null) {
+            onResult(null, context.getString(R.string.error_note_empty))
+            return
+        }
+        val colorsSnapshot = labelColors.value
+        viewModelScope.launch(Dispatchers.IO) {
+            _isLoading.value = true
+            _loadingMessage.value = context.getString(R.string.loading_generating_binot)
+
+            // 1. Generamos el .binot en cache y obtenemos el FileProvider URI
+            //    para compartir (funciona en todas las versiones de Android).
+            val shareUri = ImportExportHelper.exportNoteToBinot(context, currentNote, colorsSnapshot)
+
+            // 2. Si estamos en API 29+, copiamos el cache file a Documentos
+            //    vía MediaStore. Este URI NO se comparte (el FileProvider URI
+            //    es más confiable para intents de share).
+            if (shareUri != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val safeName = "${currentNote.title.ifBlank { "Obinot_Note" }}.binot"
+                ImportExportHelper.copyUriToDocuments(context, shareUri, safeName)
+            }
+
+            _isLoading.value = false
+            launch(Dispatchers.Main) {
+                if (shareUri != null) {
+                    onResult(shareUri, context.getString(R.string.error_file_ready))
+                } else {
+                    onResult(null, context.getString(R.string.error_generate_binot_failed))
+                }
+            }
+        }
+    }
+
+    /**
+     * Escribe el archivo Markdown al [outputUri] dado (típicamente uno obtenido
+     * vía SAF CreateDocument, que ya preguntó al usuario dónde guardar). No
+     * dispara ningún share intent.
+     */
+    fun exportMarkdownToUri(context: Context, outputUri: Uri, onResult: (Boolean, String) -> Unit) {
+        val currentNote = _note.value
+        if (currentNote == null) {
+            onResult(false, context.getString(R.string.error_note_empty))
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val success = ImportExportHelper.exportNoteToMarkdownUri(context, currentNote, outputUri)
+            launch(Dispatchers.Main) {
+                if (success) {
+                    onResult(true, context.getString(R.string.result_export_markdown_success))
+                } else {
+                    onResult(false, context.getString(R.string.result_export_markdown_failed))
                 }
             }
         }

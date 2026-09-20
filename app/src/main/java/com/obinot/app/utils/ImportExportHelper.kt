@@ -1,7 +1,11 @@
 package com.obinot.app.utils
 
+import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import com.obinot.app.data.LabelRepository
 import com.obinot.app.data.NoteEntity
@@ -63,84 +67,185 @@ object ImportExportHelper {
             val fileName = "${safeTitle}.binot"
             val outFile = File(cacheDir, fileName)
 
-            // Filtrar el mapa global al subset de labels que esta nota usa.
-            val noteLabels = note.label
-                ?.split("|")
-                ?.map { it.trim() }
-                ?.filter { it.isNotBlank() }
-                ?: emptyList()
-
-            val relevantColors = if (noteLabels.isEmpty() || labelColors.isEmpty()) {
-                emptyMap()
-            } else {
-                noteLabels.mapNotNull { name ->
-                    labelColors[name]?.let { hex -> name to hex }
-                }.toMap()
-            }
-
-            ZipOutputStream(BufferedOutputStream(FileOutputStream(outFile), STREAM_BUFFER_SIZE)).use { zos ->
-                // --- data.json ---
-                val json = JSONObject().apply {
-                    put("version", BINOT_FORMAT_VERSION)
-                    put("createdBy", "Obinot")
-                    put("title", note.title)
-                    put("rawText", note.rawText)
-                    put("summary", note.summary)
-                    put("highlightsInfo", note.highlightsInfo)
-                    put("label", note.label)
-                    put("hasAudio", note.audioPath != null)
-                }
-                val jsonBytes = json.toString().toByteArray(Charsets.UTF_8)
-                val jsonEntry = ZipEntry("data.json").apply {
-                    method = ZipEntry.STORED
-                    size = jsonBytes.size.toLong()
-                    compressedSize = jsonBytes.size.toLong()
-                    val crc = CRC32().apply { update(jsonBytes) }
-                    this.crc = crc.value
-                }
-                zos.putNextEntry(jsonEntry)
-                zos.write(jsonBytes)
-                zos.closeEntry()
-
-                // --- obinot_meta.json (solo si hay algo que meter) ---
-                // Se omite si no hay colores, para no agregar peso a notas simples.
-                // El importador trata la ausencia como "todos los labels con color default".
-                if (relevantColors.isNotEmpty()) {
-                    val colorsObj = JSONObject().apply {
-                        relevantColors.forEach { (name, hex) -> put(name, hex) }
-                    }
-                    val meta = JSONObject().apply {
-                        put("formatVersion", BINOT_FORMAT_VERSION)
-                        put("exportedAt", System.currentTimeMillis())
-                        put("appVersion", "2.0.0")
-                        put("labelColors", colorsObj)
-                    }
-                    val metaBytes = meta.toString().toByteArray(Charsets.UTF_8)
-                    val metaEntry = ZipEntry("obinot_meta.json").apply {
-                        method = ZipEntry.STORED
-                        size = metaBytes.size.toLong()
-                        compressedSize = metaBytes.size.toLong()
-                        val crc = CRC32().apply { update(metaBytes) }
-                        this.crc = crc.value
-                    }
-                    zos.putNextEntry(metaEntry)
-                    zos.write(metaBytes)
-                    zos.closeEntry()
-                }
-
-                // --- audio.mp4 ---
-                if (note.audioPath != null) {
-                    val audioFile = File(note.audioPath)
-                    if (audioFile.exists()) {
-                        writeStoredFile(zos, audioFile, "audio.mp4")
-                    }
-                }
+            FileOutputStream(outFile).use { output ->
+                writeBinotZip(output, note, labelColors)
             }
 
             FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", outFile)
         } catch (e: Exception) {
             e.printStackTrace()
             null
+        }
+    }
+
+    /**
+     * Copia el contenido de [sourceUri] (típicamente un FileProvider URI del
+     * cache) a un archivo nuevo en la carpeta pública de Documentos del usuario
+     * vía MediaStore. Solo funciona en API 29+ (Q). En versiones anteriores
+     * devuelve null y el caller debe caer al share desde cache.
+     *
+     * Se usa para que "Share .binot" no solo comparta, sino que además deje el
+     * archivo guardado en Documentos para que el usuario lo encuentre después.
+     */
+    suspend fun copyUriToDocuments(
+        context: Context,
+        sourceUri: Uri,
+        fileName: String
+    ): Uri? = withContext(Dispatchers.IO) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return@withContext null
+        }
+        try {
+            val safeName = fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+            val resolver = context.contentResolver
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, safeName)
+                put(MediaStore.Downloads.MIME_TYPE, "application/zip")
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS)
+                put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+
+            val targetUri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: return@withContext null
+
+            try {
+                resolver.openInputStream(sourceUri)?.use { input ->
+                    resolver.openOutputStream(targetUri)?.use { output ->
+                        input.copyTo(output, STREAM_BUFFER_SIZE)
+                    }
+                }
+                values.clear()
+                values.put(MediaStore.Downloads.IS_PENDING, 0)
+                resolver.update(targetUri, values, null, null)
+                targetUri
+            } catch (e: Exception) {
+                resolver.delete(targetUri, null, null)
+                throw e
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    /**
+     * Escribe un archivo .binot (ZIP con data.json + obinot_meta.json + audio.mp4)
+     * al [outputStream] dado. Se usa tanto para la ruta de cache (share desde
+     * FileProvider) como para copias a Documentos vía MediaStore.
+     */
+    private fun writeBinotZip(
+        outputStream: java.io.OutputStream,
+        note: NoteEntity,
+        labelColors: Map<String, String>
+    ) {
+        val noteLabels = note.label
+            ?.split("|")
+            ?.map { it.trim() }
+            ?.filter { it.isNotBlank() }
+            ?: emptyList()
+
+        val relevantColors = if (noteLabels.isEmpty() || labelColors.isEmpty()) {
+            emptyMap()
+        } else {
+            noteLabels.mapNotNull { name ->
+                labelColors[name]?.let { hex -> name to hex }
+            }.toMap()
+        }
+
+        ZipOutputStream(BufferedOutputStream(outputStream, STREAM_BUFFER_SIZE)).use { zos ->
+            val json = JSONObject().apply {
+                put("version", BINOT_FORMAT_VERSION)
+                put("createdBy", "Obinot")
+                put("title", note.title)
+                put("rawText", note.rawText)
+                put("summary", note.summary)
+                put("highlightsInfo", note.highlightsInfo)
+                put("label", note.label)
+                put("hasAudio", note.audioPath != null)
+            }
+            val jsonBytes = json.toString().toByteArray(Charsets.UTF_8)
+            val jsonEntry = ZipEntry("data.json").apply {
+                method = ZipEntry.STORED
+                size = jsonBytes.size.toLong()
+                compressedSize = jsonBytes.size.toLong()
+                val crc = CRC32().apply { update(jsonBytes) }
+                this.crc = crc.value
+            }
+            zos.putNextEntry(jsonEntry)
+            zos.write(jsonBytes)
+            zos.closeEntry()
+
+            if (relevantColors.isNotEmpty()) {
+                val colorsObj = JSONObject().apply {
+                    relevantColors.forEach { (name, hex) -> put(name, hex) }
+                }
+                val meta = JSONObject().apply {
+                    put("formatVersion", BINOT_FORMAT_VERSION)
+                    put("exportedAt", System.currentTimeMillis())
+                    put("appVersion", "2.0.0")
+                    put("labelColors", colorsObj)
+                }
+                val metaBytes = meta.toString().toByteArray(Charsets.UTF_8)
+                val metaEntry = ZipEntry("obinot_meta.json").apply {
+                    method = ZipEntry.STORED
+                    size = metaBytes.size.toLong()
+                    compressedSize = metaBytes.size.toLong()
+                    val crc = CRC32().apply { update(metaBytes) }
+                    this.crc = crc.value
+                }
+                zos.putNextEntry(metaEntry)
+                zos.write(metaBytes)
+                zos.closeEntry()
+            }
+
+            if (note.audioPath != null) {
+                val audioFile = File(note.audioPath)
+                if (audioFile.exists()) {
+                    writeStoredFile(zos, audioFile, "audio.mp4")
+                }
+            }
+        }
+    }
+
+    /**
+     * Escribe un archivo Markdown al [outputUri] dado. A diferencia de
+     * [exportNoteToMarkdown], que escribe a cache y devuelve un FileProvider
+     * URI para compartir, esta versión escribe directo al URI destino
+     * (típicamente uno obtenido vía SAF CreateDocument).
+     */
+    suspend fun exportNoteToMarkdownUri(
+        context: Context,
+        note: NoteEntity,
+        outputUri: Uri
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val cleanSummary = note.summary
+                ?.replace(Regex("<!--BINOT_META:.*?-->"), "")
+                ?.trimEnd()
+
+            val body = when {
+                !cleanSummary.isNullOrBlank() -> cleanSummary
+                note.rawText.isNotBlank() -> note.rawText
+                else -> ""
+            }
+
+            val title = note.title.ifBlank { "Untitled" }
+
+            val content = buildString {
+                append("# ")
+                append(title)
+                append("\n\n")
+                append(body)
+                append("\n")
+            }
+
+            context.contentResolver.openOutputStream(outputUri)?.use { output ->
+                output.write(content.toByteArray(Charsets.UTF_8))
+            }
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
         }
     }
 

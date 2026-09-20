@@ -676,6 +676,8 @@ fun MarkdownText(
     onMathCopy: (String) -> Unit = {},
     fontFamily: FontFamily = FontFamily.SansSerif,
     linePositions: SnapshotStateMap<Int, Int>? = null,
+    enableScroll: Boolean = true,
+    compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -746,12 +748,16 @@ fun MarkdownText(
         }
     }
 
-    Column(
-        modifier = modifier
-            .verticalScroll(scrollState)
-            .padding(horizontal = 12.dp)
-    ) {
-        Spacer(modifier = Modifier.height(8.dp))
+    val columnModifier = if (enableScroll) {
+        modifier.verticalScroll(scrollState).padding(horizontal = 12.dp)
+    } else {
+        modifier.padding(horizontal = 2.dp)
+    }
+
+    Column(modifier = columnModifier) {
+        if (!compact) {
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         markdownItems.forEach { item ->
             val lineKey = item.lineKey()
@@ -835,25 +841,25 @@ fun MarkdownText(
                             trimmedLine.startsWith("# ") -> {
                                 Text(
                                     text = trimmedLine.removePrefix("# ").trim(),
-                                    style = MaterialTheme.typography.displaySmall.copy(fontFamily = fontFamily),
+                                    style = (if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.displaySmall).copy(fontFamily = fontFamily),
                                     color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(top = 32.dp, bottom = 16.dp)
+                                    modifier = if (compact) Modifier.padding(top = 8.dp, bottom = 4.dp) else Modifier.padding(top = 32.dp, bottom = 16.dp)
                                 )
                             }
                             trimmedLine.startsWith("## ") -> {
                                 Text(
                                     text = trimmedLine.removePrefix("## ").trim(),
-                                    style = MaterialTheme.typography.headlineMedium.copy(fontFamily = fontFamily),
+                                    style = (if (compact) MaterialTheme.typography.titleSmall else MaterialTheme.typography.headlineMedium).copy(fontFamily = fontFamily),
                                     color = MaterialTheme.colorScheme.secondary,
-                                    modifier = Modifier.padding(top = 24.dp, bottom = 12.dp)
+                                    modifier = if (compact) Modifier.padding(top = 6.dp, bottom = 3.dp) else Modifier.padding(top = 24.dp, bottom = 12.dp)
                                 )
                             }
                             trimmedLine.startsWith("### ") -> {
                                 Text(
                                     text = trimmedLine.removePrefix("### ").trim(),
-                                    style = MaterialTheme.typography.titleLarge.copy(fontFamily = fontFamily),
+                                    style = (if (compact) MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold) else MaterialTheme.typography.titleLarge).copy(fontFamily = fontFamily),
                                     color = MaterialTheme.colorScheme.tertiary,
-                                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                                    modifier = if (compact) Modifier.padding(top = 4.dp, bottom = 2.dp) else Modifier.padding(top = 16.dp, bottom = 8.dp)
                                 )
                             }
 
@@ -994,7 +1000,9 @@ fun MarkdownText(
             }
         }
 
-        Spacer(modifier = Modifier.height(40.dp))
+        if (!compact) {
+            Spacer(modifier = Modifier.height(40.dp))
+        }
     }
 }
 
@@ -1508,14 +1516,10 @@ private fun InlineMathMarkdownLine(
 /**
  * RaTeX inline view con auto-sizing y centrado vertical.
  *
- * Problema: RaTeXView con displayMode = false dibuja su contenido pegado
- * arriba-izquierda de su propio rectángulo. Dentro del InlineTextContent
- * eso se traduce en una fórmula que aparece "volando" arriba.
- *
- * Solución: medimos el RaTeXView con un OnLayoutChangeListener, ajustamos
- * el tamaño del AndroidView al tamaño medido exacto, y lo centramos dentro
- * del Placeholder con un Box. Es un frame de delay (medición inicial), pero
- * imperceptible.
+ * El AndroidView SIEMPRE se crea (si no, el onGloballyPositioned nunca
+ * dispara y la fórmula queda invisible). La primera pasada se mide con
+ * wrapContentSize (tamaño natural del RaTeXView), y una vez medido, se
+ * le fija ese tamaño exacto y se centra dentro del Placeholder.
  */
 @Composable
 private fun RaTeXInlineView(
@@ -1530,36 +1534,34 @@ private fun RaTeXInlineView(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        if (measuredSize == IntSize.Zero) {
-            // Primer frame: reservamos un mínimo. En cuanto el View mida,
-            // se muestra el tamaño real. Es invisible para el usuario.
-            Spacer(Modifier.size(1.dp))
+        val sizeModifier = if (measuredSize == IntSize.Zero) {
+            Modifier
         } else {
-            AndroidView(
-                modifier = Modifier.size(
-                    width = with(density) { measuredSize.width.toDp() },
-                    height = with(density) { measuredSize.height.toDp() }
-                ),
-                factory = { ctx ->
-                    RaTeXView(ctx).apply {
-                        displayMode = false
-                        this.fontSize = fontSizeDp
-                        this.latex = latex
-                        color = textColor.toArgb()
-                        addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->
-                            val w = r - l
-                            val h = b - t
-                            if (w > 0 && h > 0 && (w != measuredSize.width || h != measuredSize.height)) {
-                                measuredSize = IntSize(w, h)
-                            }
-                        }
-                    }
-                },
-                update = { view ->
-                    view.latex = latex
-                    view.color = textColor.toArgb()
-                }
+            Modifier.size(
+                width = with(density) { measuredSize.width.toDp() },
+                height = with(density) { measuredSize.height.toDp() }
             )
         }
+
+        AndroidView(
+            modifier = sizeModifier.onGloballyPositioned { coords ->
+                val size = coords.size
+                if (size.width > 0 && size.height > 0 && size != measuredSize) {
+                    measuredSize = size
+                }
+            },
+            factory = { ctx ->
+                RaTeXView(ctx).apply {
+                    displayMode = false
+                    this.fontSize = fontSizeDp
+                    this.latex = latex
+                    color = textColor.toArgb()
+                }
+            },
+            update = { view ->
+                view.latex = latex
+                view.color = textColor.toArgb()
+            }
+        )
     }
 }
