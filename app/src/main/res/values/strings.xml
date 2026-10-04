@@ -398,16 +398,16 @@
     <string name="settings_fast">Fast</string>
     <string name="settings_accurate">Accurate</string>
 
-    <string name="settings_live_transcript">Live Transcript</string>
+    <string name="settings_live_transcript">Live Text</string>
     <string name="settings_live_transcript_desc">Shows your phone\'s live speech-to-text while recording. Faster feedback, but the recognizer fails or freezes on many devices. When off, only the audio is recorded and the AI transcribes it later.</string>
 
-    <string name="settings_record_background">Record in Background</string>
+    <string name="settings_record_background">Background Rec</string>
     <string name="settings_record_background_desc">Keep recording with the screen off or the app minimized. Shows a persistent notification with the elapsed time while it\'s active.</string>
 
-    <string name="settings_native_picker">Native Audio Picker</string>
+    <string name="settings_native_picker">Audio Browser</string>
     <string name="settings_native_picker_desc">Use Obinot\'s own audio browser (with duration, size and sorting) instead of the system file picker. Requires permission to read audio on this device.</string>
 
-    <string name="settings_auto_compression">Auto Compression</string>
+    <string name="settings_auto_compression">Compression</string>
     <string name="settings_auto_compression_desc">Reduces audio size automatically when it exceeds an API\'s limit. Keeps long recordings usable with providers that have tight size caps.</string>
     <string name="settings_compression_off">Off</string>
     <string name="settings_compression_balanced">Balanced</string>
@@ -430,7 +430,7 @@
     <string name="settings_backup">Backup</string>
     <string name="settings_legacy_backup">Legacy Backup</string>
     <string name="settings_legacy_backup_desc">Only notes and audio, in the original Binot 1.x format. Use this if you need to restore the backup on Binot 1.x itself.</string>
-    <string name="settings_backup_legacy_button">Backup Legacy (.binotbak)</string>
+    <string name="settings_backup_legacy_button">Backup Legacy</string>
     <string name="settings_app_version">App Version</string>
     <string name="settings_check_update">Check Update</string>
     <string name="settings_update_app">Update App</string>
@@ -585,6 +585,12 @@
     <string name="settings_language_device">Device language</string>
     <string name="settings_language_english">English</string>
     <string name="settings_language_spanish">Spanish</string>
+
+    <!-- Language names, translated to the app's current language.
+         Used by AppLanguage.displayLabel() in the language selector. -->
+    <string name="language_name_english">English</string>
+    <string name="language_name_spanish">Spanish</string>
+    <string name="language_name_german">German</string>
     <string name="settings_select_app_language">Select App Language</string>
 
     <!-- ============================================================ -->
@@ -599,7 +605,7 @@
     <!-- D1b — Auto-process + Analyze manual                           -->
     <!-- ============================================================ -->
 
-    <string name="settings_auto_process">Auto-process transcriptions</string>
+    <string name="settings_auto_process">Auto-process</string>
     <string name="settings_auto_process_desc">Automatically process notes with AI when they\'re ready. If off, you can process each note manually with the Analyze chip.</string>
     <string name="result_analyze_chip">Analyze</string>
 

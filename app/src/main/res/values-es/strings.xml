@@ -383,7 +383,7 @@
     <string name="settings_groq_key_label">Clave API de Groq</string>
     <string name="settings_get_api_key_hint">Tocá acá para obtener la clave API</string>
     <string name="settings_save_key">Guardar clave</string>
-    <string name="settings_dynamic_desc">El modo Dinámico elige automáticamente el mejor proveedor para cada tarea, así ambas cuotas gratuitas duran más.</string>
+    <string name="settings_dynamic_desc">El modo Estándar elige automáticamente el mejor proveedor para cada tarea, así ambas cuotas gratuitas duran más.</string>
     <string name="settings_dynamic_bullets">• Audio corto (&lt;20MB) → Groq Whisper (más rápido)\n• Audio largo (≥20MB) → Gemini (sin límite de tamaño)\n• Texto largo → Gemini Flash (mejor contexto)\n• Texto corto → alterna entre proveedores\n• Títulos y explicaciones → alterna entre proveedores</string>
     <string name="settings_dynamic_gemini_status">Clave API de Gemini: %1$s</string>
     <string name="settings_dynamic_groq_status">Clave API de Groq: %1$s</string>
@@ -392,22 +392,22 @@
     <string name="settings_save_selection">Guardar selección</string>
     <string name="snackbar_gemini_saved">¡Configuración de Gemini guardada!</string>
     <string name="snackbar_groq_saved">¡Configuración de Groq guardada!</string>
-    <string name="snackbar_dynamic_enabled">¡Modo Dinámico activado!</string>
-    <string name="snackbar_dynamic_needs_keys">Modo Dinámico activado, pero necesitás ambas claves API para que funcione bien.</string>
+    <string name="snackbar_dynamic_enabled">¡Modo Estándar activado!</string>
+    <string name="snackbar_dynamic_needs_keys">Modo Estándar activado, pero necesitás ambas claves API para que funcione bien.</string>
 
     <string name="settings_fast">Rápido</string>
     <string name="settings_accurate">Preciso</string>
 
-    <string name="settings_live_transcript">Transcripción en vivo</string>
+    <string name="settings_live_transcript">Texto en vivo</string>
     <string name="settings_live_transcript_desc">Muestra el reconocimiento de voz en vivo del teléfono mientras grabás. Da feedback más rápido, pero el reconocedor falla o se traba en muchos dispositivos. Cuando está apagado, solo se graba el audio y la IA lo transcribe después.</string>
 
-    <string name="settings_record_background">Grabar en segundo plano</string>
+    <string name="settings_record_background">Grabación fondo</string>
     <string name="settings_record_background_desc">Seguí grabando con la pantalla apagada o la app minimizada. Muestra una notificación persistente con el tiempo transcurrido mientras está activo.</string>
 
-    <string name="settings_native_picker">Selector de audio nativo</string>
+    <string name="settings_native_picker">Navegador audio</string>
     <string name="settings_native_picker_desc">Usá el explorador de audio propio de Obinot (con duración, tamaño y ordenamiento) en lugar del selector de archivos del sistema. Requiere permiso para leer audio en este dispositivo.</string>
 
-    <string name="settings_auto_compression">Compresión automática</string>
+    <string name="settings_auto_compression">Compresión</string>
     <string name="settings_auto_compression_desc">Reduce automáticamente el tamaño del audio cuando supera el límite de una API. Mantiene utilizables las grabaciones largas con proveedores que tienen límites ajustados.</string>
     <string name="settings_compression_off">Apagada</string>
     <string name="settings_compression_balanced">Equilibrada</string>
@@ -430,7 +430,7 @@
     <string name="settings_backup">Respaldar</string>
     <string name="settings_legacy_backup">Respaldo heredado</string>
     <string name="settings_legacy_backup_desc">Solo notas y audio, en el formato original de Binot 1.x. Usalo solo si necesitás restaurar el respaldo en el propio Binot 1.x. No se incluyen etiquetas ni preferencias.</string>
-    <string name="settings_backup_legacy_button">Respaldo heredado (.binotbak)</string>
+    <string name="settings_backup_legacy_button">Respaldo heredado</string>
     <string name="settings_app_version">Versión de la app</string>
     <string name="settings_check_update">Buscar actualización</string>
     <string name="settings_update_app">Actualizar app</string>
@@ -457,7 +457,7 @@
     <string name="settings_dialog_gemini_body">Ideal para contenido complejo: matemática, química y diagramas de Mermaid. Maneja audios muy largos sin límite de tamaño. Capa gratuita generosa.</string>
     <string name="settings_dialog_groq_title">Groq AI</string>
     <string name="settings_dialog_groq_body">Extremadamente rápido, ideal para el uso diario. Funciona con modelos de código abierto. Las cargas de audio están limitadas a 25 MB por archivo.</string>
-    <string name="settings_dialog_dynamic_title">Dinámico (Beta)</string>
+    <string name="settings_dialog_dynamic_title">Estándar (Beta)</string>
     <string name="settings_dialog_dynamic_body">Elige automáticamente el mejor proveedor para cada tarea, así ambas cuotas gratuitas duran más. Requiere que ambas claves API estén configuradas. Antes se llamaba "Mix" — es la misma función.</string>
 
     <string name="settings_dialog_tasks">Tareas de procesamiento</string>
@@ -513,6 +513,12 @@
     <string name="settings_language_device">Idioma del dispositivo</string>
     <string name="settings_language_english">Inglés</string>
     <string name="settings_language_spanish">Español</string>
+
+    <!-- Nombres de idioma, traducidos al idioma actual de la app.
+         Los usa AppLanguage.displayLabel() en el selector de idiomas. -->
+    <string name="language_name_english">Inglés</string>
+    <string name="language_name_spanish">Español</string>
+    <string name="language_name_german">Alemán</string>
     <string name="settings_select_app_language">Seleccionar idioma de la app</string>
 
     <!-- ============================================================ -->
@@ -599,7 +605,7 @@
     <!-- D1b — Auto-process + Analyze manual                           -->
     <!-- ============================================================ -->
 
-    <string name="settings_auto_process">Procesar transcripciones automáticamente</string>
+    <string name="settings_auto_process">Auto-procesar</string>
     <string name="settings_auto_process_desc">Procesa las notas con IA automáticamente cuando están listas. Si está apagado, podés procesar cada nota manualmente con el chip Analizar.</string>
     <string name="result_analyze_chip">Analizar</string>
 

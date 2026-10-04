@@ -70,8 +70,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.obinot.app.R
+import com.obinot.app.ui.components.AppLanguage
 import com.obinot.app.ui.components.BouncyButton
 import com.obinot.app.ui.components.BouncyIconButton
+import com.obinot.app.ui.components.displayLabel
 import com.obinot.app.ui.components.BouncyOutlinedButton
 import com.obinot.app.ui.components.BouncyToggleButton
 import com.obinot.app.ui.components.bouncyClickable
@@ -426,13 +428,10 @@ fun SettingsScreen(
         ).sorted()
     }
 
-    val appLanguageOptions = remember(context) {
-        listOf(
-            context.getString(R.string.settings_language_device) to "device",
-            context.getString(R.string.settings_language_english) to "en",
-            context.getString(R.string.settings_language_spanish) to "es",
-        )
-    }
+    // Idiomas soportados. El label se computa con displayLabel() en el
+    // momento de la composición, así respeta cambios de locale.
+    val supportedAppLanguages = remember { AppLanguage.entries.toList() }
+    val currentAppLanguage = remember(appLanguage) { AppLanguage.fromCode(appLanguage) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -674,16 +673,17 @@ fun SettingsScreen(
     }
 
     if (showAppLanguageSheet) {
-        val currentLabel = appLanguageOptions.firstOrNull { it.second == appLanguage }?.first
-            ?: stringResource(R.string.settings_language_device)
+        val currentLabel = currentAppLanguage.displayLabel()
+        val optionLabels = supportedAppLanguages.map { it.displayLabel() }
         SettingsSelectionSheet(
             title = stringResource(R.string.settings_select_app_language),
-            options = appLanguageOptions.map { it.first },
+            options = optionLabels,
             selected = currentLabel,
             searchable = false,
             onDismiss = { showAppLanguageSheet = false },
             onSelect = { label ->
-                val code = appLanguageOptions.firstOrNull { it.first == label }?.second ?: "device"
+                val index = optionLabels.indexOf(label)
+                val code = supportedAppLanguages.getOrNull(index)?.code ?: "device"
                 viewModel.saveAppLanguage(code)
                 showAppLanguageSheet = false
             }
@@ -745,8 +745,7 @@ fun SettingsScreen(
                 SettingsSelectorRow(
                     icon = Icons.Default.Language,
                     label = stringResource(R.string.settings_app_language),
-                    value = appLanguageOptions.firstOrNull { it.second == appLanguage }?.first
-                        ?: stringResource(R.string.settings_language_device),
+                    value = currentAppLanguage.displayLabel(),
                     onClick = { showAppLanguageSheet = true }
                 )
             }

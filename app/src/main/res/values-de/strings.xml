@@ -1,0 +1,643 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Obinot</string>
+
+    <!-- ============================================================ -->
+    <!-- Existing strings from Binot original                          -->
+    <!-- ============================================================ -->
+
+    <string name="recording_mode_title">Aufnahmemodus</string>
+    <string name="mode_fast">Schnell (Google)</string>
+    <string name="mode_accurate">Genau (Gemini)</string>
+    <string name="mode_info_title">Aufnahmemodi</string>
+    <string name="mode_info_desc">Schnell (Google):\nSchneller, akkuschonend, mittlere Genauigkeit. Echtzeit-Transkription.\n\nGenau (Gemini):\nHöhere Genauigkeit, benötigt Internet. Die Transkription läuft später, wenn du die Notiz öffnest. Live-Transkription ist deaktiviert.</string>
+    <string name="direct_record_live_text">Direkter Aufnahmemodus ist aktiv.\nLive-Transkription ist deaktiviert.</string>
+    <string name="pending_transcription_text">Transkription ausstehend</string>
+
+    <!-- ============================================================ -->
+    <!-- Common (shared across screens)                                -->
+    <!-- ============================================================ -->
+
+    <string name="common_cancel">Abbrechen</string>
+    <string name="common_delete">Löschen</string>
+    <string name="common_back">Zurück</string>
+    <string name="common_restore">Wiederherstellen</string>
+    <string name="common_search">Suchen</string>
+    <string name="common_undo">Rückgängig</string>
+    <string name="common_options_cd">Optionen</string>
+    <string name="common_selected_cd">Ausgewählt</string>
+
+    <!-- ============================================================ -->
+    <!-- Trash screen                                                  -->
+    <!-- ============================================================ -->
+
+    <string name="trash_title">Papierkorb</string>
+    <string name="trash_selected_count">%1$d ausgewählt</string>
+    <string name="trash_empty_state">Der Papierkorb ist leer.</string>
+    <string name="trash_empty_button">Papierkorb leeren</string>
+    <string name="trash_empty_dialog_title">Papierkorb leeren?</string>
+    <string name="trash_empty_dialog_body">Alle Notizen im Papierkorb werden endgültig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.</string>
+    <string name="trash_empty_dialog_confirm">Leeren</string>
+    <string name="trash_delete_dialog_title">Endgültig löschen?</string>
+    <string name="trash_delete_dialog_body">Die ausgewählten Notizen werden endgültig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.</string>
+    <string name="trash_delete_forever_cd">Endgültig löschen</string>
+    <string name="trash_empty_note">Leere Notiz</string>
+
+    <!-- ============================================================ -->
+    <!-- File picker (Audio + .binot notes)                            -->
+    <!-- ============================================================ -->
+
+    <string name="picker_title">In Obinot importieren</string>
+    <string name="picker_tab_audio">Audio</string>
+    <string name="picker_tab_notes">.binot-Notizen</string>
+    <string name="picker_browse_files">Dateien durchsuchen</string>
+    <string name="picker_permission_message">Obinot benötigt die Berechtigung, Dateien auf diesem Gerät zu lesen.</string>
+    <string name="picker_grant_access">Zugriff gewähren</string>
+    <string name="picker_no_audio">Keine Audiodateien gefunden.</string>
+    <string name="picker_no_notes">Keine .binot-Notizen hier gefunden. In neueren Android-Versionen erscheinen nur Notizen, die Obinot selbst exportiert hat, automatisch — nutze „Dateien durchsuchen" oben für alles andere.</string>
+    <string name="picker_load_more">Mehr laden</string>
+    <string name="picker_binot_permission_aviso">Um deine .binot- und .zip-Notizen im nativen Auswahldialog zu sehen, benötigt Obinot Speicherberechtigung.</string>
+    <string name="picker_binot_permission_continue">Weiter</string>
+
+    <!-- Sort orders for the audio tab -->
+    <string name="sort_newest">Neueste</string>
+    <string name="sort_oldest">Älteste</string>
+    <string name="sort_name_asc">Name (A-Z)</string>
+    <string name="sort_name_desc">Name (Z-A)</string>
+    <string name="sort_longest">Längste</string>
+    <string name="sort_shortest">Kürzeste</string>
+    <string name="sort_largest">Größte</string>
+    <string name="sort_smallest">Kleinste</string>
+
+    <!-- ============================================================ -->
+    <!-- Record screen                                                 -->
+    <!-- ============================================================ -->
+
+    <string name="record_greeting_morning_1">Guten Morgen,</string>
+    <string name="record_greeting_morning_2">Frisch ans Werk,</string>
+    <string name="record_greeting_morning_3">Ein neuer Anfang,</string>
+    <string name="record_greeting_morning_4">Morgeninspiration,</string>
+    <string name="record_greeting_morning_5">Starte gut in den Tag,</string>
+
+    <string name="record_greeting_afternoon_1">Guten Nachmittag,</string>
+    <string name="record_greeting_afternoon_2">Mittagsgedanken,</string>
+    <string name="record_greeting_afternoon_3">Weiter so,</string>
+    <string name="record_greeting_afternoon_4">Bleib produktiv,</string>
+    <string name="record_greeting_afternoon_5">Nachmittags-Check-in,</string>
+
+    <string name="record_greeting_evening_1">Guten Abend,</string>
+    <string name="record_greeting_evening_2">Ausklang,</string>
+    <string name="record_greeting_evening_3">Abendreflexion,</string>
+    <string name="record_greeting_evening_4">Zeit zum Entspannen,</string>
+    <string name="record_greeting_evening_5">Sonnenuntergangsgedanken,</string>
+
+    <string name="record_greeting_night_1">Späte Gedanken,</string>
+    <string name="record_greeting_night_2">Mitternachtsnotizen,</string>
+    <string name="record_greeting_night_3">Noch wach?,</string>
+    <string name="record_greeting_night_4">Stille Stunden,</string>
+    <string name="record_greeting_night_5">Schlaf gut,</string>
+
+    <string name="record_guest">Gast</string>
+    <string name="record_listening">Zuhören… (Audio wird für die KI-Analyse gespeichert)</string>
+    <string name="record_recording_for_ai">Audio wird aufgenommen… es wird von der KI transkribiert, wenn du die Notiz öffnest.</string>
+    <string name="record_waiting_voice">Warte auf Spracheingabe…</string>
+    <string name="record_live_transcription">Live-Transkription</string>
+    <string name="record_record_button">Aufnehmen</string>
+    <string name="record_pause_cd">Pausieren</string>
+    <string name="record_resume_cd">Fortsetzen</string>
+    <string name="record_record_cd">Aufnehmen</string>
+    <string name="record_stop_cd">Stoppen</string>
+    <string name="record_import_audio_cd">Audio importieren</string>
+    <string name="record_importing">Wird importiert…</string>
+    <string name="record_drop_to_import">Zum Importieren ablegen</string>
+    <string name="record_drop_subtitle">Audiodateien oder .binot-Backups</string>
+    <string name="record_note_saved">Notiz gespeichert</string>
+    <string name="record_no_text_to_save">Kein Text zum Speichern</string>
+    <string name="record_import_failed_audio">Audiodatei konnte nicht importiert werden.</string>
+    <string name="record_imported_multiple">%1$d Dateien importiert!</string>
+    <string name="record_imported_success">Erfolgreich importiert!</string>
+    <string name="record_imported_none">Keine Dateien konnten importiert werden. Prüfe, ob das Format unterstützt wird.</string>
+    <string name="record_imported_partial">%1$d importiert, %2$d fehlgeschlagen.</string>
+
+    <!-- Easter egg (visible after 5 taps on greeting) -->
+    <string name="record_egg_question_title">✨ Geheime Frage</string>
+    <string name="record_egg_question_body">Wer ist die Herzdame des Entwicklers?</string>
+    <string name="record_egg_answer_hint">Deine Antwort…</string>
+    <string name="record_egg_submit">Senden</string>
+    <string name="record_egg_poem_title">Für Dinda</string>
+    <string name="record_egg_poem">In jeder Zeile Code, die ich schreib,\nin jedem Bug, den ich nachts vertreib —\nbist immer du es, an die ich denk.\nDu bist mein liebstes Feature,\nmeine schönste Ausnahme.\n\nFür immer dein,\nDer Entwickler 👨‍💻</string>
+    <string name="record_egg_signature">💻 Mit der ganzen Liebe im Code 💻</string>
+    <string name="record_egg_close">✨ Schließen</string>
+
+    <!-- ============================================================ -->
+    <!-- Onboarding                                                    -->
+    <!-- ============================================================ -->
+
+    <string name="onboarding_welcome_title">Willkommen bei Obinot.</string>
+    <string name="onboarding_welcome_body">Dein intelligenter Sprach-Arbeitsbereich. Sprich natürlich und lass die KI deine Gedanken perfekt strukturieren.</string>
+    <string name="onboarding_name_title">Lernen wir uns kennen.</string>
+    <string name="onboarding_name_question">Wie sollen wir dich nennen?</string>
+    <string name="onboarding_name_hint">Gib deinen Namen ein</string>
+    <string name="onboarding_personalize_title">Passe dein Erlebnis an.</string>
+    <string name="onboarding_personalize_body">Wie soll Obinot deine Stimme standardmäßig verarbeiten? Du kannst das später ändern.</string>
+    <string name="onboarding_task_label">Verarbeitungsaufgabe</string>
+    <string name="onboarding_task_tidy">Aufräumen</string>
+    <string name="onboarding_task_summary">Zusammenfassen</string>
+    <string name="onboarding_task_analyze">Analysieren</string>
+    <string name="onboarding_format_label">Ausgabeformat</string>
+    <string name="onboarding_format_paragraphs">Absätze</string>
+    <string name="onboarding_format_bullets">Aufzählung</string>
+    <string name="onboarding_provider_title">Verbinde das Gehirn.</string>
+    <string name="onboarding_provider_body">Obinot braucht eine KI-Engine, um zu funktionieren. Wähle einen Anbieter und hole dir deinen kostenlosen Zugangsschlüssel.</string>
+    <string name="onboarding_provider_gemini">Google Gemini</string>
+    <string name="onboarding_provider_groq">Groq AI</string>
+    <string name="onboarding_provider_groq_hint">Groq wird wegen seiner blitzschnellen Geschwindigkeit sehr empfohlen.</string>
+    <string name="onboarding_provider_gemini_hint">Gemini eignet sich hervorragend für sehr lange Audioaufnahmen.</string>
+    <string name="onboarding_get_api_key">Kostenlosen API-Schlüssel holen</string>
+    <string name="onboarding_api_key_hint">Füge deinen API-Schlüssel hier ein</string>
+    <string name="onboarding_last_thing_title">Eine letzte Sache.</string>
+    <string name="onboarding_last_thing_body">Manche KI-Anbieter haben eine Größenbegrenzung für Audio-Uploads. Obinot kann lange Aufnahmen vor dem Senden automatisch verkleinern, damit nichts abgelehnt wird.</string>
+    <string name="onboarding_compression_label">Automatische Kompression</string>
+    <string name="onboarding_compression_off">Aus</string>
+    <string name="onboarding_compression_balanced">Ausgewogen</string>
+    <string name="onboarding_compression_max">Maximal</string>
+    <string name="onboarding_compression_off_desc">Keine Kompression. Dateien über 25 MB schlagen bei Groq fehl.</string>
+    <string name="onboarding_compression_balanced_desc">Beste Qualität. Zielt knapp unter das Upload-Limit. Empfohlen.</string>
+    <string name="onboarding_compression_max_desc">Kleinere Dateien. Immer noch ideal für Stimme. Am besten für langsame Verbindungen.</string>
+    <string name="onboarding_connecting">Verbindung mit %1$s…</string>
+    <string name="onboarding_verifying">Dein Zugangsschlüssel wird überprüft. Das dauert nur einen Moment.</string>
+    <string name="onboarding_connected_title">Verbindung hergestellt</string>
+    <string name="onboarding_connected_body">Dein API-Schlüssel ist aktiv. Die KI-Engine ist vollständig konfiguriert und bereit, deine Gedanken zu ordnen.</string>
+    <string name="onboarding_start_workspace">Arbeitsbereich starten</string>
+    <string name="onboarding_failed_title">Verbindung fehlgeschlagen</string>
+    <string name="onboarding_review_key">API-Schlüssel prüfen</string>
+    <string name="onboarding_next">Weiter</string>
+    <string name="onboarding_verify_key">Schlüssel prüfen</string>
+
+    <!-- Onboarding error messages -->
+    <string name="onboarding_error_400_gemini">Ungültiger API-Schlüssel. Google hat ihn abgelehnt.</string>
+    <string name="onboarding_error_400_groq">Der Server hat den Test abgelehnt. Prüfe deinen Schlüssel.</string>
+    <string name="onboarding_error_401">Der Schlüssel ist ungültig oder nicht autorisiert.</string>
+    <string name="onboarding_error_403">Zugriff verweigert. Möglicherweise ist dein Schlüssel eingeschränkt.</string>
+    <string name="onboarding_error_429">Nutzungslimit überschritten. Der Server des Anbieters ist ausgelastet.</string>
+    <string name="onboarding_error_server_code">Der Server hat den Test abgelehnt (Code: %1$d). Prüfe deinen Schlüssel.</string>
+    <string name="onboarding_error_network">Netzwerkfehler. Der Server konnte nicht erreicht werden.</string>
+    <string name="onboarding_error_unexpected">Unerwarteter Fehler: %1$s</string>
+
+    <!-- ============================================================ -->
+    <!-- History screen                                                -->
+    <!-- ============================================================ -->
+
+    <string name="history_sort_by">Sortieren nach</string>
+    <string name="history_sort_alpha">A–Z</string>
+    <string name="history_labels_header">Labels</string>
+    <string name="history_labels_delete_cd">Ausgewählte Labels löschen</string>
+    <string name="history_labels_multiselect_cd">Mehrfachauswahl umschalten</string>
+    <string name="history_all_notes">Alle Notizen</string>
+    <string name="history_label_edit_cd">Label und Farbe bearbeiten</string>
+    <string name="history_create_label">Neues Label erstellen</string>
+    <string name="history_selected_count">%1$d ausgewählt</string>
+    <string name="history_search_placeholder">Notizen suchen…</string>
+    <string name="history_toggle_view_cd">Ansichtsmodus umschalten</string>
+    <string name="history_no_results">Keine Ergebnisse gefunden.</string>
+    <string name="history_no_notes">Noch keine Notizen.\nFang an aufzunehmen oder importiere Audio!</string>
+    <string name="history_section_pinned">Angeheftet</string>
+    <string name="history_section_collection">Sammlung</string>
+    <string name="history_fab_import">Datei importieren</string>
+    <string name="history_drop_to_import">Audio zum Importieren ablegen</string>
+    <string name="history_drop_subtitle">Audiodateien oder .binot-Backups</string>
+    <string name="history_label_name">Label-Name</string>
+    <string name="history_label_color">Farbe</string>
+    <string name="history_create">Erstellen</string>
+    <string name="history_edit_label">Label bearbeiten</string>
+    <string name="history_delete_label">Label löschen</string>
+    <string name="history_save">Speichern</string>
+    <string name="history_delete_labels_title">Labels löschen</string>
+    <string name="history_delete_labels_body">%1$d Label(s) werden aus allen Notizen entfernt. Das kann nicht rückgängig gemacht werden.</string>
+    <string name="history_delete_notes_title">Notizen löschen</string>
+    <string name="history_delete_notes_body">Willst du wirklich %1$d Notizen löschen?</string>
+    <string name="history_waiting_ai">⏳ Warte auf KI-Transkription…</string>
+    <string name="history_menu_cd">Menü</string>
+    <string name="history_close_cd">Schließen</string>
+
+    <!-- Selection dropdown menu (History, in selection mode) -->
+    <string name="select_all">Alle auswählen</string>
+    <string name="pin">Anheften</string>
+    <string name="unpin">Loslösen</string>
+    <string name="clone">Duplizieren</string>
+    <string name="share">Teilen</string>
+
+    <!-- ============================================================ -->
+    <!-- Snackbars & sharing                                           -->
+    <!-- ============================================================ -->
+
+    <string name="snackbar_importing">Datei wird importiert…</string>
+    <string name="snackbar_import_failed">Datei konnte nicht importiert werden! Prüfe, ob das Format unterstützt wird.</string>
+    <string name="snackbar_generating_binot">.binot-Datei wird erstellt…</string>
+    <string name="snackbar_generate_failed">Datei konnte nicht erstellt werden.</string>
+    <string name="snackbar_note_moved_to_trash">Notiz in den Papierkorb verschoben</string>
+    <string name="share_chooser_title">.binot-Notiz teilen über</string>
+    <string name="share_text_binot">Binot-Notiz: %1$s</string>
+
+    <!-- ============================================================ -->
+    <!-- Update sheet                                                  -->
+    <!-- ============================================================ -->
+
+    <string name="update_available_title">Neues Update verfügbar!</string>
+    <string name="update_version_ready">Version %1$s steht zum Download bereit.</string>
+    <string name="update_default_body">Leistungsverbesserungen und neue Funktionen.</string>
+    <string name="update_download_button">Update herunterladen (APK)</string>
+    <string name="update_view_github">Auf GitHub ansehen</string>
+    <string name="update_icon_cd">Update</string>
+
+    <!-- ============================================================ -->
+    <!-- Plurals                                                       -->
+    <!-- ============================================================ -->
+
+    <plurals name="notes_moved_to_trash">
+        <item quantity="one">1 Notiz in den Papierkorb verschoben</item>
+        <item quantity="other">%1$d Notizen in den Papierkorb verschoben</item>
+    </plurals>
+
+    <!-- ============================================================ -->
+    <!-- Result screen                                                 -->
+    <!-- ============================================================ -->
+
+    <string name="result_title_placeholder">Zum Hinzufügen eines Titels tippen…</string>
+    <string name="result_cd_back">Zurück</string>
+    <string name="result_cd_undo">Rückgängig</string>
+    <string name="result_cd_redo">Wiederholen</string>
+    <string name="result_cd_options">Optionen</string>
+    <string name="result_edit">Bearbeiten</string>
+    <string name="result_process">Verarbeiten</string>
+    <string name="result_processing">KI-Engine verarbeitet…</string>
+    <string name="result_error_api_title">API-Limit erreicht</string>
+    <string name="result_cd_play_pause">Abspielen/Pause</string>
+    <string name="result_save_audio">Originalaudio speichern</string>
+    <string name="result_highlight_title">Notiz hervorheben</string>
+    <string name="result_highlight_note">Deine Notiz</string>
+    <string name="result_highlight_remove">Entfernen</string>
+    <string name="result_cancel_edit_title">Bearbeitung abbrechen?</string>
+    <string name="result_cancel_edit_body">Du hast ungespeicherte Änderungen. Willst du sie wirklich verwerfen?</string>
+    <string name="result_discard">Verwerfen</string>
+    <string name="result_keep_editing">Weiter bearbeiten</string>
+    <string name="result_overwrite_title">Überschreiben und verarbeiten?</string>
+    <string name="result_overwrite_body">Der Originaltext wird dauerhaft überschrieben und von der KI-Engine verarbeitet. Fortfahren?</string>
+    <string name="result_process_confirm">Verarbeiten</string>
+    <string name="result_new_label_title">Neues Label</string>
+    <string name="result_create_assign">Erstellen und zuweisen</string>
+    <string name="result_replacing_audio">Audio wird ersetzt…</string>
+    <string name="result_replace_success">Audio ersetzt. Wird erneut verarbeitet…</string>
+    <string name="result_replace_failed">Audio konnte nicht ersetzt werden.</string>
+    <string name="result_copied_clipboard">In die Zwischenablage kopiert</string>
+    <string name="result_summary_removed">KI-Zusammenfassung entfernt!</string>
+    <string name="result_text_copied">Text kopiert!</string>
+    <string name="result_math_copied">Formel in die Zwischenablage kopiert</string>
+
+    <!-- Summary editor (2.1) -->
+    <string name="result_edit_summary">Zusammenfassung bearbeiten</string>
+    <string name="summary_editor_title">Zusammenfassung bearbeiten</string>
+    <string name="summary_editor_preview">Vorschau</string>
+    <string name="summary_editor_edit">Bearbeiten</string>
+    <string name="summary_editor_save">Speichern</string>
+    <string name="summary_editor_placeholder">Schreibe deine Notiz in Markdown…</string>
+    <string name="summary_editor_saved">Zusammenfassung aktualisiert</string>
+
+    <!-- AI Chat about this note (2.1) -->
+    <string name="chat_title">Frag zu dieser Notiz</string>
+    <string name="chat_placeholder">Stell eine Frage…</string>
+    <string name="chat_send_cd">Senden</string>
+    <string name="chat_menu_item">KI zu dieser Notiz fragen</string>
+    <string name="chat_tooltip_title">Lang drücken für Schnellzugriff</string>
+    <string name="chat_tooltip_body">Halte die Optionen-Schaltfläche gedrückt, um direkt in einen Chat zu dieser Notiz zu springen. Tippe sie an, um das normale Menü zu sehen.</string>
+    <string name="chat_tooltip_got_it">Verstanden</string>
+    <string name="chat_limit_reached">Nachrichtenlimit erreicht (40 pro Notiz). Lösche die Unterhaltung, um neu zu starten.</string>
+    <string name="chat_thinking">Denkt nach…</string>
+    <string name="chat_empty_state">Frag alles zu dieser Notiz. Die KI sieht Titel, Zusammenfassung und Originaltext. Deine Unterhaltung wird mit der Notiz gespeichert.</string>
+    <string name="chat_clear_cd">Unterhaltung löschen</string>
+    <string name="chat_clear_confirm_title">Unterhaltung löschen?</string>
+    <string name="chat_clear_confirm_body">Alle Nachrichten dieser Unterhaltung werden gelöscht. Die Notiz selbst bleibt unberührt.</string>
+    <string name="chat_clear_confirm_yes">Löschen</string>
+
+    <!-- AI Explain sheet -->
+    <string name="result_ai_explain_title">KI-Erklärung</string>
+    <string name="result_ai_explain_empty">Keine Erklärung verfügbar.</string>
+    <string name="result_cd_ai_explain">KI-Erklärung</string>
+
+    <!-- Custom text selection menu -->
+    <string name="result_cd_highlight">Hervorheben</string>
+    <string name="result_cd_copy">Kopieren</string>
+    <string name="result_cd_select_all">Alle auswählen</string>
+
+    <!-- Phone transcription banner -->
+    <string name="result_phone_banner_title">Telefon-Transkription</string>
+    <string name="result_phone_banner_body">Das hat die integrierte Spracherkennung deines Telefons live erfasst. Sie ist schneller, aber weniger genau als die KI-Engine. Wenn du eine sauberere Transkription willst, lass das gespeicherte Audio erneut von der KI analysieren.</string>
+    <string name="result_phone_banner_button">Mit KI erneut analysieren</string>
+
+    <!-- Side panel -->
+    <string name="result_section_labels">Labels</string>
+    <string name="result_new_label_chip">Neues Label</string>
+    <string name="result_section_find_format">Suchen &amp; Format</string>
+    <string name="result_find_placeholder">Wort in Notiz suchen…</string>
+    <string name="result_section_reading_font">Leseschrift</string>
+    <string name="result_font_sans">Sans</string>
+    <string name="result_font_serif">Serif</string>
+    <string name="result_font_mono">Mono</string>
+    <string name="result_section_export_media">Export &amp; Medien</string>
+    <string name="result_no_audio_info">Kein Audio angehängt. Du kannst über die Schaltfläche unten eines hinzufügen; Obinot transkribiert und verarbeitet es dann.</string>
+    <string name="result_restore_original">Original wiederherstellen</string>
+    <string name="result_add_audio">Audio hinzufügen</string>
+    <string name="result_replace_audio">Audio ersetzen</string>
+    <string name="result_save_audio_button">Audio speichern</string>
+    <string name="result_copy">Kopieren</string>
+    <string name="result_play">Abspielen</string>
+    <string name="result_pause">Pause</string>
+    <string name="result_share_binot">.binot teilen</string>
+    <string name="result_share_binot_saved">In Dokumente gespeichert und bereit zum Teilen</string>
+    <string name="result_share_binot_not_saved">Bereit zum Teilen (konnte nicht in Dokumente gespeichert werden)</string>
+    <string name="result_share_text">Obinot-Notiz: %1$s</string>
+    <string name="result_share_chooser">.binot-Notiz teilen über</string>
+
+    <!-- ============================================================ -->
+    <!-- Settings screen                                               -->
+    <!-- ============================================================ -->
+
+    <string name="settings_title">Einstellungen</string>
+    <string name="settings_personalization">Personalisierung</string>
+    <string name="settings_your_name">Dein Name</string>
+    <string name="settings_save_name">Namen speichern</string>
+    <string name="snackbar_name_saved">Name erfolgreich gespeichert!</string>
+
+    <string name="settings_global_ai_prefs">Globale KI-Einstellungen</string>
+    <string name="settings_global_ai_prefs_desc">Notizen werden mit diesen Einstellungen automatisch verarbeitet.</string>
+    <string name="settings_output_language">Ausgabesprache</string>
+    <string name="settings_processing_task">Verarbeitungsaufgabe</string>
+    <string name="settings_output_format">Ausgabeformat</string>
+    <string name="settings_save_apply_all">Speichern &amp; auf alle Notizen anwenden</string>
+
+    <string name="settings_ai_configuration">KI-Konfiguration</string>
+    <string name="settings_provider_gemini">Gemini</string>
+    <string name="settings_provider_groq">Groq</string>
+    <string name="settings_provider_dynamic">Standard</string>
+    <string name="settings_gemini_key_label">Gemini API-Schlüssel</string>
+    <string name="settings_groq_key_label">Groq API-Schlüssel</string>
+    <string name="settings_get_api_key_hint">Hier tippen, um den API-Schlüssel zu erhalten</string>
+    <string name="settings_save_key">Schlüssel speichern</string>
+    <string name="settings_dynamic_desc">Standard wählt automatisch den besten Anbieter für jede Aufgabe, damit beide kostenlosen Kontingente länger halten.</string>
+    <string name="settings_dynamic_bullets">• Kurzes Audio (&lt;20MB) → Groq Whisper (am schnellsten)\n• Langes Audio (≥20MB) → Gemini (kein Größenlimit)\n• Langer Text → Gemini Flash (besserer Kontext)\n• Kurzer Text → wechselt zwischen Anbietern\n• Titel &amp; Erklärungen → wechselt zwischen Anbietern</string>
+    <string name="settings_dynamic_gemini_status">Gemini API-Schlüssel: %1$s</string>
+    <string name="settings_dynamic_groq_status">Groq API-Schlüssel: %1$s</string>
+    <string name="settings_status_configured">✓ Konfiguriert</string>
+    <string name="settings_status_not_set">✗ Nicht gesetzt</string>
+    <string name="settings_save_selection">Auswahl speichern</string>
+    <string name="snackbar_gemini_saved">Gemini-Konfiguration gespeichert!</string>
+    <string name="snackbar_groq_saved">Groq-Konfiguration gespeichert!</string>
+    <string name="snackbar_dynamic_enabled">Standardmodus aktiviert!</string>
+    <string name="snackbar_dynamic_needs_keys">Standard aktiviert, aber du brauchst beide API-Schlüssel, damit es richtig funktioniert.</string>
+
+    <string name="settings_fast">Schnell</string>
+    <string name="settings_accurate">Genau</string>
+
+    <string name="settings_live_transcript">Live-Text</string>
+    <string name="settings_live_transcript_desc">Zeigt während der Aufnahme die Live-Spracherkennung deines Telefons. Schnelleres Feedback, aber die Erkennung schlägt auf vielen Geräten fehl oder friert ein. Wenn aus, wird nur das Audio aufgenommen und die KI transkribiert es später.</string>
+
+    <string name="settings_record_background">Hintergrundaufnahme</string>
+    <string name="settings_record_background_desc">Nimm weiter auf, auch wenn der Bildschirm aus oder die App minimiert ist. Zeigt eine dauerhafte Benachrichtigung mit der verstrichenen Zeit, solange sie aktiv ist.</string>
+
+    <string name="settings_native_picker">Audio-Browser</string>
+    <string name="settings_native_picker_desc">Nutze Obinots eigenen Audio-Browser (mit Dauer, Größe und Sortierung) statt der Systemdateiauswahl. Erfordert die Berechtigung, Audio auf diesem Gerät zu lesen.</string>
+
+    <string name="settings_auto_compression">Kompression</string>
+    <string name="settings_auto_compression_desc">Reduziert die Audiogröße automatisch, wenn sie das Limit einer API überschreitet. Hält lange Aufnahmen bei Anbietern mit engen Größenlimits nutzbar.</string>
+    <string name="settings_compression_off">Aus</string>
+    <string name="settings_compression_balanced">Ausgewogen</string>
+    <string name="settings_compression_max">Maximal</string>
+
+    <string name="settings_appearance">Erscheinungsbild</string>
+    <string name="settings_theme_auto">Auto</string>
+    <string name="settings_theme_light">Hell</string>
+    <string name="settings_theme_dark">Dunkel</string>
+    <string name="settings_theme_amoled">Amoled</string>
+
+    <string name="settings_color_palette">Farbpalette</string>
+    <string name="settings_color_palette_desc">Ändert die Stimmung der ganzen App. Jeder Stil erzeugt ein komplettes Farbschema aus demselben Ausgangswert.</string>
+    <string name="settings_color_style">Stil</string>
+
+    <string name="settings_data_system">Daten &amp; System</string>
+    <string name="settings_full_backup">Vollständiges Backup</string>
+    <string name="settings_full_backup_desc">Notizen, Audio, Labels und Einstellungen. Empfohlen für die Migration von Binot 1.x.</string>
+    <string name="settings_import">Importieren</string>
+    <string name="settings_backup">Backup</string>
+    <string name="settings_legacy_backup">Legacy-Backup</string>
+    <string name="settings_legacy_backup_desc">Nur Notizen und Audio, im Originalformat von Binot 1.x. Verwende dies, wenn du das Backup in Binot 1.x selbst wiederherstellen musst.</string>
+    <string name="settings_backup_legacy_button">Legacy-Backup</string>
+    <string name="settings_app_version">App-Version</string>
+    <string name="settings_check_update">Update prüfen</string>
+    <string name="settings_update_app">App aktualisieren</string>
+    <string name="settings_downloading">Wird heruntergeladen</string>
+    <string name="settings_install">Installieren</string>
+    <string name="settings_retry">Erneut versuchen</string>
+    <string name="settings_downloading_progress">Wird heruntergeladen… %1$d%%</string>
+    <string name="settings_new_version_ready">Neue Version bereit: %1$s</string>
+    <string name="settings_update_failed">Fehlgeschlagen: %1$s</string>
+    <string name="settings_up_to_date">App ist aktuell.</string>
+
+    <string name="settings_github_repo">GitHub-Repository</string>
+    <string name="settings_github_repo_desc">Gib dem Repo einen Stern oder melde ein Problem</string>
+
+    <string name="settings_search_placeholder">Suchen…</string>
+
+    <string name="settings_dialog_fast_title">Schneller Modus</string>
+    <string name="settings_dialog_fast_body">Nutzt die integrierte Spracherkennung deines Telefons. Schnell und akkuschonend, aber die Genauigkeit variiert je nach Gerät und Sprache. Audio wird nicht gespeichert.</string>
+    <string name="settings_dialog_accurate_title">Genauer Modus</string>
+    <string name="settings_dialog_accurate_body">Nimmt das komplette Audio auf und sendet es an die KI (Gemini oder Groq) für eine genaue Transkription. Benötigt Internetverbindung und wird beim Öffnen der Notiz verarbeitet. Audio wird auf deinem Gerät gespeichert.</string>
+
+    <string name="settings_dialog_providers">KI-Anbieter</string>
+    <string name="settings_dialog_gemini_title">Google Gemini</string>
+    <string name="settings_dialog_gemini_body">Am besten für komplexe Inhalte: Mathematik, Chemie und Mermaid-Diagramme. Bewältigt sehr lange Audiodateien ohne Größenlimit. Großzügiger kostenloser Tarif.</string>
+    <string name="settings_dialog_groq_title">Groq AI</string>
+    <string name="settings_dialog_groq_body">Blitzschnell, ideal für den täglichen Gebrauch. Basiert auf Open-Source-Modellen. Audio-Uploads sind auf 25 MB pro Datei begrenzt.</string>
+    <string name="settings_dialog_dynamic_title">Standard (Beta)</string>
+    <string name="settings_dialog_dynamic_body">Wählt automatisch den besten Anbieter für jede Aufgabe, damit beide kostenlosen Kontingente länger halten. Erfordert beide API-Schlüssel. Früher „Mix" genannt — dieselbe Funktion.</string>
+
+    <string name="settings_dialog_tasks">Verarbeitungsaufgaben</string>
+    <string name="settings_dialog_tidy_title">Aufräumen</string>
+    <string name="settings_dialog_tidy_body">Korrigiert Tippfehler, Grammatik und entfernt Füllwörter. Behält deine ursprüngliche Bedeutung und deinen Ton bei. Am besten für raue Entwürfe.</string>
+    <string name="settings_dialog_summary_title">Zusammenfassen</string>
+    <string name="settings_dialog_summary_body">Extrahiert die Kerninformationen in eine knappe Zusammenfassung. Am besten für lange Notizen, bei denen du nur die Kernpunkte willst.</string>
+    <string name="settings_dialog_analyze_title">Analysieren</string>
+    <string name="settings_dialog_analyze_body">Identifiziert Kernpunkte, zugrunde liegende Stimmungen und alle Aufgaben oder Entscheidungen. Am besten für Meeting-Notizen oder Lernmaterial.</string>
+
+    <string name="settings_dialog_formats">Ausgabeformate</string>
+    <string name="settings_dialog_paragraphs_title">Absätze</string>
+    <string name="settings_dialog_paragraphs_body">Fortlaufende Prosa mit Zwischenüberschriften. Ideal zum Lesen und für Inhalte, die natürlich fließen (Essays, Tagebücher, Geschichten).</string>
+    <string name="settings_dialog_bullets_title">Aufzählung</string>
+    <string name="settings_dialog_bullets_body">Kurze, schnell erfassbare Punkte, nach Überschrift gegliedert. Am besten für Schnellreferenz, Aufgaben und strukturierte Daten.</string>
+    <string name="settings_dialog_formats_tip">Tipp: Kombiniere Aufräumen + Aufzählung für saubere Checklisten. Kombiniere Zusammenfassen + Absätze für eine lesbare Management-Zusammenfassung.</string>
+
+    <string name="settings_dialog_compression_body">Wenn Audio das Größenlimit einer API überschreitet, kann Obinot es vor dem Upload automatisch komprimieren. So funktionieren lange Aufnahmen auch bei Anbietern mit engen Limits.</string>
+    <string name="settings_dialog_compression_off_title">Aus</string>
+    <string name="settings_dialog_compression_off_body">Keine Kompression. Dateien über 25 MB schlagen bei Groq fehl.</string>
+    <string name="settings_dialog_compression_balanced_title">Ausgewogen (24 MB)</string>
+    <string name="settings_dialog_compression_balanced_body">Beste Qualität. Minimale Kompression, zielt knapp unter das Limit.</string>
+    <string name="settings_dialog_compression_max_title">Maximal (15 MB)</string>
+    <string name="settings_dialog_compression_max_body">Kleinere Dateien, immer noch ideal für Stimme. Nützlich für langsame Verbindungen.</string>
+    <string name="settings_dialog_compression_tip">Tipp: Gemini hat kein Größenlimit. Wenn du Gemini konfiguriert hast, kannst du die automatische Kompression für maximale Audioqualität ausschalten.</string>
+
+    <string name="settings_dialog_color_palette">Farbpalette</string>
+    <string name="settings_dialog_color_palette_body">Material 3 erzeugt ein vollständiges Farbschema aus einem Ausgangswert. Jeder Stil verändert die Stimmung, während Kontrast und Barrierefreiheit erhalten bleiben.\n\n• Tonal Spot: ausgewogen, der Material-Standard.\n• Vibrant: satter, lebendiger.\n• Expressive: höherer Kontrast, kräftigere Akzente.\n• Fruit Salad: bunt, drei unterschiedliche Farbfamilien.\n• Neutral: weiche, gedämpfte Farben mit niedriger Sättigung.\n• Fidelity: hält die Ausgangsfarbe nah an der Quelle.\n• Monochrome: Graustufen, gar keine Farbe.</string>
+
+    <string name="settings_dialog_backup">Notiz-Backup</string>
+    <string name="settings_dialog_backup_full_title">Vollständiges Backup (.obinotbak)</string>
+    <string name="settings_dialog_backup_full_body">Exportiert alle deine Notizen, Audio, Labels (mit ihren Farben) und deine Einstellungen. API-Schlüssel werden nie eingeschlossen. Dies ist das Format, das Obinot 2.0+ verwendet, und die empfohlene Wahl für die Migration von Binot 1.x zu Obinot.</string>
+    <string name="settings_dialog_backup_legacy_title">Legacy-Backup (.binotbak)</string>
+    <string name="settings_dialog_backup_legacy_body">Exportiert nur Notizen und Audio, im Originalformat von Binot 1.x. Verwende dies nur, wenn du das Backup in Binot 1.x selbst wiederherstellen musst. Labels und Einstellungen sind nicht enthalten.</string>
+
+    <string name="settings_dialog_got_it">Verstanden</string>
+
+    <string name="settings_dialog_warning">Warnung</string>
+    <string name="settings_dialog_warning_body">Die Aufnahme wird gestoppt und verworfen. Fortfahren?</string>
+    <string name="settings_dialog_warning_continue">Fortfahren</string>
+    <string name="settings_dialog_apply_title">Speichern &amp; auf alle Notizen anwenden?</string>
+    <string name="settings_dialog_apply_body">Damit werden deine neuen Einstellungen gespeichert und die KI-generierten Ergebnisse aller vorherigen Notizen zurückgesetzt. Sie werden mit deinen neuen Einstellungen neu verarbeitet, wenn du sie das nächste Mal öffnest. Deine Originaltranskripte sind völlig sicher.\n\nFortfahren?</string>
+    <string name="settings_dialog_apply_button">Speichern &amp; anwenden</string>
+
+    <string name="settings_select_language">Sprache auswählen</string>
+
+    <!-- ============================================================ -->
+    <!-- ResultViewModel — errors & loading messages                  -->
+    <!-- ============================================================ -->
+
+    <string name="error_audio_not_found_pending">Fehlgeschlagen: Audiodatei nicht gefunden. Der Text ist ausstehend, aber es gibt keinen Audiopfad.</string>
+    <string name="error_no_audio_to_reanalyze">Keine Audiodatei zum erneuten Analysieren.</string>
+    <string name="error_audio_too_long_groq">Audio ist zu lang für Groq. Wechsle zu Gemini oder aktiviere die automatische Kompression.</string>
+    <string name="error_compression_failed">Audiokompression fehlgeschlagen.</string>
+    <string name="error_file_exceeds_groq">Datei überschreitet Groqs 25-MB-Limit. Aktiviere die automatische Kompression oder wechsle zu Gemini.</string>
+    <string name="error_api_key_required_transcribe">API-Schlüssel ist erforderlich, um genaues Audio zu transkribieren. Bitte lege ihn in den Einstellungen fest.</string>
+    <string name="error_api_key_required_engine">Die KI-Engine benötigt einen API-Schlüssel. Bitte konfiguriere ihn in den Einstellungen.</string>
+    <string name="error_api_key_missing">API-Schlüssel fehlt. Bitte lege ihn in den Einstellungen fest.</string>
+    <string name="error_ai_empty_transcript">Die KI konnte die Transkription nicht verarbeiten. Die Serverantwort war leer.</string>
+    <string name="error_ai_empty_text">Die KI konnte den Text nicht verarbeiten. Die Serverantwort war leer.</string>
+    <string name="error_no_speech_detected">In der Audioaufnahme wurde keine klare Sprache erkannt.</string>
+    <string name="error_explain_failed">Erklärung konnte nicht erstellt werden. Leere Antwort.</string>
+    <string name="error_note_empty">Notiz ist leer!</string>
+    <string name="error_generate_binot_failed">.binot-Datei konnte nicht erstellt werden</string>
+    <string name="error_file_ready">Datei bereit!</string>
+
+    <string name="http_400">Ungültige Anfrage (400). Dateiformat oder Daten nicht erkannt.</string>
+    <string name="http_401">Ungültiger API-Schlüssel (401). Prüfe deinen API-Schlüssel in den Einstellungen.</string>
+    <string name="http_403">Zugriff verweigert (403). Dein API-Schlüssel hat keine Berechtigung.</string>
+    <string name="http_413">Nutzlast zu groß (413). Die Datei ist zu groß für den Server.</string>
+    <string name="http_429">API-Ratenlimit überschritten (429). Du machst zu viele Anfragen. Bitte warte.</string>
+    <string name="http_500">Interner Serverfehler (500). Der Anbieter hat Probleme. Bitte später erneut versuchen.</string>
+    <string name="http_503">Dienst nicht verfügbar (503). Der KI-Server ist derzeit überlastet.</string>
+    <string name="http_generic">HTTP-Fehler: %1$d – Prüfe deine Verbindung oder deinen API-Schlüssel.</string>
+    <string name="processing_failed">Verarbeitung fehlgeschlagen: %1$s</string>
+
+    <string name="loading_generating_binot">Sicheres .binot-Paket wird erstellt…</string>
+    <string name="loading_compressing">Audio wird komprimiert…</string>
+    <string name="loading_compressing_pct">Audio wird komprimiert… %1$d%%</string>
+    <string name="loading_transcribing_groq">Transkription mit Groq…</string>
+    <string name="loading_uploading_google">Audio wird zu Google hochgeladen…</string>
+    <string name="loading_gemini_processing">Audio hochgeladen. Gemini verarbeitet…</string>
+    <string name="loading_ai_structuring">Die KI-Engine strukturiert deine Notiz…</string>
+
+    <!-- ============================================================ -->
+    <!-- SettingsViewModel — backup, update & preferences              -->
+    <!-- ============================================================ -->
+
+    <string name="prefs_applied">Einstellungen angewendet! Alte KI-Ergebnisse wurden zurückgesetzt.</string>
+    <string name="prefs_apply_failed">Einstellungen konnten nicht angewendet werden: %1$s</string>
+
+    <string name="backup_successful">Backup erfolgreich!</string>
+    <string name="backup_failed">Backup fehlgeschlagen: %1$s</string>
+    <string name="backup_legacy_successful">Legacy-Backup erfolgreich!</string>
+    <string name="backup_legacy_failed">Legacy-Backup fehlgeschlagen: %1$s</string>
+    <string name="restore_successful">Wiederherstellung erfolgreich!</string>
+    <string name="restore_successful_legacy">Wiederherstellung erfolgreich! (Legacy-Format)</string>
+    <string name="restore_invalid">Ungültige Backup-Datei.</string>
+    <string name="restore_failed">Wiederherstellung fehlgeschlagen: %1$s</string>
+
+    <string name="update_no_apk">Keine APK-Datei im Release gefunden</string>
+    <string name="update_server_limit">Serverlimit (versuche es in 1 Stunde erneut)</string>
+    <string name="update_no_release">Kein Release verfügbar</string>
+    <string name="update_http_error">HTTP-Fehler: %1$d</string>
+    <string name="update_network_error">Netzwerkfehler (prüfe deine Internetverbindung)</string>
+    <string name="update_download_failed">System-Download fehlgeschlagen</string>
+    <string name="update_install_failed">Installation fehlgeschlagen</string>
+
+    <!-- ============================================================ -->
+    <!-- MainActivity — nav bar & import overlay                       -->
+    <!-- ============================================================ -->
+
+    <string name="nav_record">Aufnehmen</string>
+    <string name="nav_history">Verlauf</string>
+    <string name="nav_settings">Einstellungen</string>
+    <string name="main_import_failed">Notiz konnte nicht geöffnet oder importiert werden.</string>
+    <string name="main_unpacking">Obinot wird entpackt…</string>
+
+    <!-- ============================================================ -->
+    <!-- App language (per-app locale selector)                        -->
+    <!-- ============================================================ -->
+
+    <string name="settings_app_language">App-Sprache</string>
+    <string name="settings_app_language_desc">Wähle die Sprache der App-Oberfläche. Die KI-Ausgabesprache wird separat in den globalen KI-Einstellungen gesteuert.</string>
+    <string name="settings_language_device">Gerätesprache</string>
+    <string name="settings_language_english">Englisch</string>
+    <string name="settings_language_spanish">Spanisch</string>
+    <string name="settings_select_app_language">App-Sprache auswählen</string>
+
+    <!-- Language names, translated to the app's current language.
+         Used by AppLanguage.displayLabel() in the language selector. -->
+    <string name="language_name_english">Englisch</string>
+    <string name="language_name_spanish">Spanisch</string>
+    <string name="language_name_german">Deutsch</string>
+
+    <!-- ============================================================ -->
+    <!-- Onboarding — skip without API key                             -->
+    <!-- ============================================================ -->
+
+    <string name="onboarding_no_key_title">Kein API-Schlüssel</string>
+    <string name="onboarding_no_key_body">Du kannst ohne API-Schlüssel fortfahren und später einen in den Einstellungen hinzufügen. KI-Funktionen funktionieren bis dahin nicht, aber Aufnahmen im Schnellmodus und das Lesen vorhandener Notizen funktionieren weiterhin.</string>
+    <string name="onboarding_start_workspace_no_key">Ohne KI fortfahren</string>
+
+    <!-- ============================================================ -->
+    <!-- D1b — Auto-process + Analyze manual                           -->
+    <!-- ============================================================ -->
+
+    <string name="settings_auto_process">Auto-Verarbeitung</string>
+    <string name="settings_auto_process_desc">Verarbeitet Notizen automatisch mit KI, sobald sie bereit sind. Wenn aus, kannst du jede Notiz manuell über den Analysieren-Chip verarbeiten.</string>
+    <string name="result_analyze_chip">Analysieren</string>
+
+    <!-- ============================================================ -->
+    <!-- D3 — Export Markdown + Checkboxes                             -->
+    <!-- ============================================================ -->
+
+    <string name="result_export_markdown">Als Markdown exportieren</string>
+    <string name="result_export_markdown_success">Markdown-Datei bereit</string>
+    <string name="result_export_markdown_failed">Markdown-Export fehlgeschlagen</string>
+    <string name="result_share_text_markdown">Obinot-Notiz (Markdown): %1$s</string>
+    <string name="result_share_markdown_chooser">Markdown-Datei teilen über</string>
+
+    <!-- ============================================================ -->
+    <!-- B3 — Advanced section + About                                 -->
+    <!-- ============================================================ -->
+
+    <string name="settings_advanced">Erweitert</string>
+    <string name="settings_advanced_desc">Seltenere Einstellungen und Beta-Funktionen. Zum Aufklappen tippen.</string>
+    <string name="settings_about">Über</string>
+    <string name="settings_about_fork_notice">Obinot ist ein Community-Fork von Binot, ursprünglich erstellt von DENSLnetion (github.com/DENSLnetion/Binot), lizenziert unter MIT.</string>
+
+    <!-- ============================================================ -->
+    <!-- Crash screen                                                  -->
+    <!-- ============================================================ -->
+
+    <string name="crash_title">App ist abgestürzt</string>
+    <string name="crash_subtitle">Ein unerwarteter Fehler ist aufgetreten. Du kannst das Protokoll unten kopieren und mit den Entwicklern teilen.</string>
+    <string name="crash_copy">Protokoll kopieren</string>
+    <string name="crash_share">Teilen</string>
+    <string name="crash_close">App schließen</string>
+    <string name="crash_copied">Protokoll in die Zwischenablage kopiert</string>
+    <string name="crash_no_log">Kein Absturzprotokoll verfügbar.</string>
+
+</resources>
