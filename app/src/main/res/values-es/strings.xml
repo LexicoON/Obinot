@@ -54,9 +54,9 @@
     <string name="picker_permission_message">Obinot necesita permiso para leer archivos en este dispositivo.</string>
     <string name="picker_grant_access">Conceder acceso</string>
     <string name="picker_no_audio">No se encontraron archivos de audio.</string>
-    <string name="picker_no_notes">No se encontraron notas .binot acá. En versiones recientes de Android, solo aparecen automáticamente las notas exportadas por el propio Obinot — usá "Buscar archivos" arriba para cualquier otro caso.</string>
+    <string name="picker_no_notes">No hay notas acá. Solo aparecen las exportadas por Obinot — usá Buscar archivos para el resto.</string>
     <string name="picker_load_more">Cargar más</string>
-    <string name="picker_binot_permission_aviso">Para ver tus notas .binot y .zip en el selector nativo, Obinot necesita permiso de almacenamiento.</string>
+    <string name="picker_binot_permission_aviso">Para ver tus archivos .binot y .zip, Obinot necesita permiso de almacenamiento.</string>
     <string name="picker_binot_permission_continue">Continuar</string>
 
     <!-- Sort orders for the audio tab -->
@@ -98,8 +98,8 @@
     <string name="record_greeting_night_5">Que descanses,</string>
 
     <string name="record_guest">Invitado</string>
-    <string name="record_listening">Escuchando… (el audio se está guardando para el análisis con IA)</string>
-    <string name="record_recording_for_ai">Grabando audio… se transcribirá con IA cuando abras la nota.</string>
+    <string name="record_listening">Escuchando… (el audio se guarda para el análisis con IA)</string>
+    <string name="record_recording_for_ai">Grabando audio… se transcribirá con IA al abrir la nota.</string>
     <string name="record_waiting_voice">Esperando entrada de voz…</string>
     <string name="record_live_transcription">Transcripción en vivo</string>
     <string name="record_record_button">Grabar</string>
@@ -113,10 +113,10 @@
     <string name="record_drop_subtitle">Archivos de audio o respaldos .binot</string>
     <string name="record_note_saved">Nota guardada</string>
     <string name="record_no_text_to_save">No hay texto para guardar</string>
-    <string name="record_import_failed_audio">No se pudo importar el archivo de audio.</string>
+    <string name="record_import_failed_audio">No se pudo importar el audio.</string>
     <string name="record_imported_multiple">¡Se importaron %1$d archivos!</string>
-    <string name="record_imported_success">¡Importado correctamente!</string>
-    <string name="record_imported_none">No se pudo importar ningún archivo. Verificá que el formato esté soportado.</string>
+    <string name="record_imported_success">¡Importado!</string>
+    <string name="record_imported_none">No se pudo importar ningún archivo.</string>
     <string name="record_imported_partial">Se importaron %1$d, fallaron %2$d.</string>
 
     <!-- Easter egg (visible after 5 taps on greeting) -->
@@ -134,12 +134,12 @@
     <!-- ============================================================ -->
 
     <string name="onboarding_welcome_title">Bienvenido a Obinot.</string>
-    <string name="onboarding_welcome_body">Tu espacio de trabajo inteligente por voz. Hablá naturalmente y dejá que la IA avanzada estructure tus ideas a la perfección.</string>
+    <string name="onboarding_welcome_body">Hablá natural. Dejá que la IA estructure tus notas.</string>
     <string name="onboarding_name_title">Conozcámonos.</string>
     <string name="onboarding_name_question">¿Cómo querés que te llamemos?</string>
     <string name="onboarding_name_hint">Ingresá tu nombre</string>
     <string name="onboarding_personalize_title">Personalizá tu experiencia.</string>
-    <string name="onboarding_personalize_body">¿Cómo querés que Obinot procese tu voz por defecto? Podés cambiarlo después.</string>
+    <string name="onboarding_personalize_body">¿Cómo querés que Obinot procese tu voz por defecto?</string>
     <string name="onboarding_task_label">Tarea de procesamiento</string>
     <string name="onboarding_task_tidy">Ordenar</string>
     <string name="onboarding_task_summary">Resumir</string>
@@ -148,26 +148,26 @@
     <string name="onboarding_format_paragraphs">Párrafos</string>
     <string name="onboarding_format_bullets">Puntos</string>
     <string name="onboarding_provider_title">Conectá el cerebro.</string>
-    <string name="onboarding_provider_body">Obinot necesita un motor de IA para funcionar. Elegí un proveedor y obtené tu clave de acceso gratuita.</string>
+    <string name="onboarding_provider_body">Elegí un proveedor de IA. Los dos tienen capa gratis.</string>
     <string name="onboarding_provider_gemini">Google Gemini</string>
     <string name="onboarding_provider_groq">Groq AI</string>
-    <string name="onboarding_provider_groq_hint">Groq es muy recomendable por su velocidad excepcional.</string>
-    <string name="onboarding_provider_gemini_hint">Gemini es ideal para procesar grabaciones de audio muy extensas.</string>
+    <string name="onboarding_provider_groq_hint">Recomendado por su velocidad excepcional.</string>
+    <string name="onboarding_provider_gemini_hint">Ideal para grabaciones de audio muy largas.</string>
     <string name="onboarding_get_api_key">Obtener clave API gratis</string>
     <string name="onboarding_api_key_hint">Pegá tu clave API acá</string>
     <string name="onboarding_last_thing_title">Una última cosa.</string>
-    <string name="onboarding_last_thing_body">Algunos proveedores de IA tienen un límite de tamaño para los audios. Obinot puede reducir automáticamente las grabaciones largas antes de enviarlas, para que nada sea rechazado.</string>
+    <string name="onboarding_last_thing_body">Obinot puede achicar grabaciones largas para que entren en el límite.</string>
     <string name="onboarding_compression_label">Compresión automática</string>
     <string name="onboarding_compression_off">Apagada</string>
     <string name="onboarding_compression_balanced">Equilibrada</string>
     <string name="onboarding_compression_max">Máxima</string>
-    <string name="onboarding_compression_off_desc">Sin compresión. Los archivos de más de 25 MB fallan en Groq.</string>
-    <string name="onboarding_compression_balanced_desc">La mejor calidad. Apunta justo por debajo del límite de carga. Recomendada.</string>
-    <string name="onboarding_compression_max_desc">Archivos más chicos. Sigue siendo ideal para voz. Ideal para conexiones lentas.</string>
+    <string name="onboarding_compression_off_desc">Sin compresión. Archivos de más de 25 MB fallan en Groq.</string>
+    <string name="onboarding_compression_balanced_desc">Mejor calidad, justo debajo del límite. Recomendada.</string>
+    <string name="onboarding_compression_max_desc">Archivos más chicos. Ideal para voz y conexiones lentas.</string>
     <string name="onboarding_connecting">Conectando con %1$s…</string>
-    <string name="onboarding_verifying">Verificando tu clave de acceso. Solo tomará un momento.</string>
+    <string name="onboarding_verifying">Verificando tu clave. Solo tomará un momento.</string>
     <string name="onboarding_connected_title">Conexión establecida</string>
-    <string name="onboarding_connected_body">Tu clave API está activa. El motor de IA está completamente configurado y listo para organizar tus ideas.</string>
+    <string name="onboarding_connected_body">Tu clave API está activa. El motor de IA está listo.</string>
     <string name="onboarding_start_workspace">Comenzar</string>
     <string name="onboarding_failed_title">Conexión fallida</string>
     <string name="onboarding_review_key">Revisar clave API</string>
@@ -178,8 +178,8 @@
     <string name="onboarding_error_400_gemini">Clave API inválida. Google la rechazó.</string>
     <string name="onboarding_error_400_groq">El servidor rechazó la prueba. Verificá tu clave.</string>
     <string name="onboarding_error_401">La clave es inválida o no está autorizada.</string>
-    <string name="onboarding_error_403">Acceso denegado. Puede que el proveedor haya restringido tu clave.</string>
-    <string name="onboarding_error_429">Límite de uso excedido. El servidor del proveedor está saturado.</string>
+    <string name="onboarding_error_403">Acceso denegado. Puede que tu clave esté restringida.</string>
+    <string name="onboarding_error_429">Límite de uso excedido. El servidor está saturado.</string>
     <string name="onboarding_error_server_code">El servidor rechazó la prueba (Código: %1$d). Verificá tu clave.</string>
     <string name="onboarding_error_network">Error de red. No pudimos comunicarnos con el servidor.</string>
     <string name="onboarding_error_unexpected">Error inesperado: %1$s</string>
@@ -216,7 +216,7 @@
     <string name="history_delete_labels_body">%1$d etiqueta(s) se eliminarán de todas las notas. Esto no se puede deshacer.</string>
     <string name="history_delete_notes_title">Eliminar notas</string>
     <string name="history_delete_notes_body">¿Seguro que querés eliminar %1$d notas?</string>
-    <string name="history_waiting_ai">⏳ Esperando la transcripción de la IA…</string>
+    <string name="history_waiting_ai">⏳ Esperando la transcripción…</string>
     <string name="history_menu_cd">Menú</string>
     <string name="history_close_cd">Cerrar</string>
 
@@ -232,7 +232,7 @@
     <!-- ============================================================ -->
 
     <string name="snackbar_importing">Importando archivo…</string>
-    <string name="snackbar_import_failed">¡No se pudo importar el archivo! Verificá que el formato esté soportado.</string>
+    <string name="snackbar_import_failed">¡No se pudo importar el archivo!</string>
     <string name="snackbar_generating_binot">Generando paquete .binot…</string>
     <string name="snackbar_generate_failed">No se pudo generar el archivo.</string>
     <string name="snackbar_note_moved_to_trash">Nota movida a la papelera</string>
@@ -290,7 +290,7 @@
     <string name="result_replace_success">Audio reemplazado. Reprocesando…</string>
     <string name="result_replace_failed">No se pudo reemplazar el audio.</string>
     <string name="result_copied_clipboard">Copiado al portapapeles</string>
-    <string name="result_summary_removed">¡Resumen de IA eliminado!</string>
+    <string name="result_summary_removed">¡Resumen eliminado!</string>
     <string name="result_text_copied">¡Texto copiado!</string>
     <string name="result_math_copied">Fórmula copiada al portapapeles</string>
 
@@ -309,14 +309,14 @@
     <string name="chat_send_cd">Enviar</string>
     <string name="chat_menu_item">Preguntarle a la IA sobre esta nota</string>
     <string name="chat_tooltip_title">Mantené presionado para acceso rápido</string>
-    <string name="chat_tooltip_body">Mantené presionado el botón de opciones para abrir directamente un chat sobre esta nota. Tocalo para ver el menú normal.</string>
+    <string name="chat_tooltip_body">Mantené presionado el botón de opciones para abrir un chat sobre esta nota. Tocalo para el menú normal.</string>
     <string name="chat_tooltip_got_it">Entendido</string>
     <string name="chat_limit_reached">Límite de mensajes alcanzado (40 por nota). Limpiá la conversación para empezar de nuevo.</string>
     <string name="chat_thinking">Pensando…</string>
-    <string name="chat_empty_state">Preguntá lo que quieras sobre esta nota. La IA puede ver el título, el resumen y el texto original. La conversación se guarda con la nota.</string>
+    <string name="chat_empty_state">Preguntá lo que quieras sobre esta nota. El chat se guarda con la nota.</string>
     <string name="chat_clear_cd">Limpiar conversación</string>
     <string name="chat_clear_confirm_title">¿Limpiar la conversación?</string>
-    <string name="chat_clear_confirm_body">Se eliminarán todos los mensajes de esta conversación. La nota en sí no se modifica.</string>
+    <string name="chat_clear_confirm_body">Se eliminarán todos los mensajes de esta conversación. La nota no se modifica.</string>
     <string name="chat_clear_confirm_yes">Limpiar</string>
 
     <!-- AI Explain sheet -->
@@ -331,8 +331,8 @@
 
     <!-- Phone transcription banner -->
     <string name="result_phone_banner_title">Transcripción del teléfono</string>
-    <string name="result_phone_banner_body">Esto es lo que capturó en vivo el reconocedor integrado de tu teléfono. Es más rápido pero menos preciso que el motor de IA. Si querés una transcripción más limpia, volvé a analizar el audio guardado con IA.</string>
-    <string name="result_phone_banner_button">Volver a analizar con IA</string>
+    <string name="result_phone_banner_body">Esto capturó en vivo el reconocedor de tu teléfono. Es más rápido pero menos preciso que la IA. Para una transcripción más limpia, reanalizá el audio con IA.</string>
+    <string name="result_phone_banner_button">Reanalizar con IA</string>
 
     <!-- Side panel -->
     <string name="result_section_labels">Etiquetas</string>
@@ -344,7 +344,7 @@
     <string name="result_font_serif">Serif</string>
     <string name="result_font_mono">Mono</string>
     <string name="result_section_export_media">Exportar y multimedia</string>
-    <string name="result_no_audio_info">No hay audio adjunto. Podés agregar uno desde el botón de abajo y Obinot lo transcribirá y procesará.</string>
+    <string name="result_no_audio_info">Sin audio adjunto. Podés agregar uno desde el botón de abajo y Obinot lo procesará.</string>
     <string name="result_restore_original">Restaurar original</string>
     <string name="result_add_audio">Agregar audio</string>
     <string name="result_replace_audio">Reemplazar audio</string>
@@ -366,10 +366,10 @@
     <string name="settings_personalization">Personalización</string>
     <string name="settings_your_name">Tu nombre</string>
     <string name="settings_save_name">Guardar nombre</string>
-    <string name="snackbar_name_saved">¡Nombre guardado correctamente!</string>
+    <string name="snackbar_name_saved">¡Nombre guardado!</string>
 
     <string name="settings_global_ai_prefs">Preferencias globales de IA</string>
-    <string name="settings_global_ai_prefs_desc">Las notas se procesarán automáticamente usando esta configuración.</string>
+    <string name="settings_global_ai_prefs_desc">Se usan para auto-procesar notas.</string>
     <string name="settings_output_language">Idioma de salida</string>
     <string name="settings_processing_task">Tarea de procesamiento</string>
     <string name="settings_output_format">Formato de salida</string>
@@ -383,8 +383,8 @@
     <string name="settings_groq_key_label">Clave API de Groq</string>
     <string name="settings_get_api_key_hint">Tocá acá para obtener la clave API</string>
     <string name="settings_save_key">Guardar clave</string>
-    <string name="settings_dynamic_desc">El modo Estándar elige automáticamente el mejor proveedor para cada tarea, así ambas cuotas gratuitas duran más.</string>
-    <string name="settings_dynamic_bullets">• Audio corto (&lt;20MB) → Groq Whisper (más rápido)\n• Audio largo (≥20MB) → Gemini (sin límite de tamaño)\n• Texto largo → Gemini Flash (mejor contexto)\n• Texto corto → alterna entre proveedores\n• Títulos y explicaciones → alterna entre proveedores</string>
+    <string name="settings_dynamic_desc">Elige el mejor proveedor por tarea, estirando las cuotas gratis.</string>
+    <string name="settings_dynamic_bullets">• Audio corto → Groq Whisper\n• Audio largo → Gemini\n• Texto largo → Gemini Flash\n• Texto corto, títulos, explicaciones → alterna</string>
     <string name="settings_dynamic_gemini_status">Clave API de Gemini: %1$s</string>
     <string name="settings_dynamic_groq_status">Clave API de Groq: %1$s</string>
     <string name="settings_status_configured">✓ Configurada</string>
@@ -393,22 +393,22 @@
     <string name="snackbar_gemini_saved">¡Configuración de Gemini guardada!</string>
     <string name="snackbar_groq_saved">¡Configuración de Groq guardada!</string>
     <string name="snackbar_dynamic_enabled">¡Modo Estándar activado!</string>
-    <string name="snackbar_dynamic_needs_keys">Modo Estándar activado, pero necesitás ambas claves API para que funcione bien.</string>
+    <string name="snackbar_dynamic_needs_keys">Estándar activado, pero hacen falta ambas claves API.</string>
 
     <string name="settings_fast">Rápido</string>
     <string name="settings_accurate">Preciso</string>
 
     <string name="settings_live_transcript">Texto en vivo</string>
-    <string name="settings_live_transcript_desc">Muestra el reconocimiento de voz en vivo del teléfono mientras grabás. Da feedback más rápido, pero el reconocedor falla o se traba en muchos dispositivos. Cuando está apagado, solo se graba el audio y la IA lo transcribe después.</string>
+    <string name="settings_live_transcript_desc">Voz a texto en vivo. Falla en muchos dispositivos.</string>
 
     <string name="settings_record_background">Grabación fondo</string>
-    <string name="settings_record_background_desc">Seguí grabando con la pantalla apagada o la app minimizada. Muestra una notificación persistente con el tiempo transcurrido mientras está activo.</string>
+    <string name="settings_record_background_desc">Seguí grabando con la pantalla apagada.</string>
 
     <string name="settings_native_picker">Navegador audio</string>
-    <string name="settings_native_picker_desc">Usá el explorador de audio propio de Obinot (con duración, tamaño y ordenamiento) en lugar del selector de archivos del sistema. Requiere permiso para leer audio en este dispositivo.</string>
+    <string name="settings_native_picker_desc">Explorá audio dentro de Obinot.</string>
 
     <string name="settings_auto_compression">Compresión</string>
-    <string name="settings_auto_compression_desc">Reduce automáticamente el tamaño del audio cuando supera el límite de una API. Mantiene utilizables las grabaciones largas con proveedores que tienen límites ajustados.</string>
+    <string name="settings_auto_compression_desc">Reduce el audio para que entre en el límite.</string>
     <string name="settings_compression_off">Apagada</string>
     <string name="settings_compression_balanced">Equilibrada</string>
     <string name="settings_compression_max">Máxima</string>
@@ -420,16 +420,16 @@
     <string name="settings_theme_amoled">Amoled</string>
 
     <string name="settings_color_palette">Paleta de colores</string>
-    <string name="settings_color_palette_desc">Cambia el ánimo de toda la app. Cada estilo genera una paleta completa a partir de la misma semilla.</string>
+    <string name="settings_color_palette_desc">Cambia el ánimo general de la app.</string>
     <string name="settings_color_style">Estilo</string>
 
     <string name="settings_data_system">Datos y sistema</string>
     <string name="settings_full_backup">Respaldo completo</string>
-    <string name="settings_full_backup_desc">Notas, audio, etiquetas y preferencias. Recomendado para migrar desde Binot 1.x.</string>
+    <string name="settings_full_backup_desc">Notas, audio, etiquetas, preferencias.</string>
     <string name="settings_import">Importar</string>
     <string name="settings_backup">Respaldar</string>
     <string name="settings_legacy_backup">Respaldo heredado</string>
-    <string name="settings_legacy_backup_desc">Solo notas y audio, en el formato original de Binot 1.x. Usalo solo si necesitás restaurar el respaldo en el propio Binot 1.x. No se incluyen etiquetas ni preferencias.</string>
+    <string name="settings_legacy_backup_desc">Solo notas y audio, para restaurar en Binot 1.x.</string>
     <string name="settings_backup_legacy_button">Respaldo heredado</string>
     <string name="settings_app_version">Versión de la app</string>
     <string name="settings_check_update">Buscar actualización</string>
@@ -443,7 +443,7 @@
     <string name="settings_up_to_date">La app está actualizada.</string>
 
     <string name="settings_github_repo">Repositorio de GitHub</string>
-    <string name="settings_github_repo_desc">Marcá el repo con una estrella o reportá un problema</string>
+    <string name="settings_github_repo_desc">Marcá o reportá un problema</string>
 
     <string name="settings_search_placeholder">Buscar…</string>
 
@@ -509,62 +509,62 @@
     <!-- ============================================================ -->
 
     <string name="settings_app_language">Idioma de la app</string>
-    <string name="settings_app_language_desc">Elegí el idioma de la interfaz de la app. El idioma de salida de la IA se controla por separado en Preferencias globales de IA.</string>
+    <string name="settings_app_language_desc">Idioma de la interfaz de la app.</string>
     <string name="settings_language_device">Idioma del dispositivo</string>
     <string name="settings_language_english">Inglés</string>
     <string name="settings_language_spanish">Español</string>
+    <string name="settings_select_app_language">Seleccionar idioma de la app</string>
 
     <!-- Nombres de idioma, traducidos al idioma actual de la app.
          Los usa AppLanguage.displayLabel() en el selector de idiomas. -->
     <string name="language_name_english">Inglés</string>
     <string name="language_name_spanish">Español</string>
     <string name="language_name_german">Alemán</string>
-    <string name="settings_select_app_language">Seleccionar idioma de la app</string>
 
     <!-- ============================================================ -->
     <!-- ResultViewModel — errors & loading messages                  -->
     <!-- ============================================================ -->
 
-    <string name="error_audio_not_found_pending">Falló: no se encontró el archivo de audio. El texto está pendiente pero no hay ninguna ruta de audio.</string>
-    <string name="error_no_audio_to_reanalyze">No hay archivo de audio para volver a analizar.</string>
-    <string name="error_audio_too_long_groq">El audio es demasiado largo para Groq. Cambiá a Gemini o activá la compresión automática.</string>
+    <string name="error_audio_not_found_pending">No se encontró el audio.</string>
+    <string name="error_no_audio_to_reanalyze">No hay audio para reanalizar.</string>
+    <string name="error_audio_too_long_groq">Audio muy largo para Groq. Cambiá a Gemini o activá Compresión.</string>
     <string name="error_compression_failed">Falló la compresión del audio.</string>
-    <string name="error_file_exceeds_groq">El archivo supera el límite de 25MB de Groq. Activá la compresión automática o cambiá a Gemini.</string>
-    <string name="error_api_key_required_transcribe">Se requiere una clave API para transcribir audio preciso. Configurala en Ajustes.</string>
-    <string name="error_api_key_required_engine">El motor de IA requiere una clave API. Configurala en Ajustes.</string>
+    <string name="error_file_exceeds_groq">Archivo mayor a 25MB. Activá Compresión o cambiá a Gemini.</string>
+    <string name="error_api_key_required_transcribe">Falta la clave API. Configurala en Ajustes.</string>
+    <string name="error_api_key_required_engine">Falta la clave API. Configurala en Ajustes.</string>
     <string name="error_api_key_missing">Falta la clave API. Configurala en Ajustes.</string>
-    <string name="error_ai_empty_transcript">La IA falló al procesar la transcripción. La respuesta del servidor estaba vacía.</string>
-    <string name="error_ai_empty_text">La IA falló al procesar el texto. La respuesta del servidor estaba vacía.</string>
+    <string name="error_ai_empty_transcript">La IA no pudo procesar. Respuesta vacía del servidor.</string>
+    <string name="error_ai_empty_text">La IA no pudo procesar. Respuesta vacía del servidor.</string>
     <string name="error_no_speech_detected">No se detectó voz clara en la grabación.</string>
-    <string name="error_explain_failed">Falló la generación de la explicación. Respuesta vacía.</string>
+    <string name="error_explain_failed">No se pudo generar la explicación. Respuesta vacía.</string>
     <string name="error_note_empty">¡La nota está vacía!</string>
-    <string name="error_generate_binot_failed">No se pudo generar el archivo .binot</string>
+    <string name="error_generate_binot_failed">No se pudo generar el .binot</string>
     <string name="error_file_ready">¡Archivo listo!</string>
 
-    <string name="http_400">Solicitud incorrecta (400). El formato o los datos del archivo no se reconocen.</string>
-    <string name="http_401">Clave API inválida (401). Verificá tu clave en Ajustes.</string>
-    <string name="http_403">Acceso denegado (403). Tu clave API no tiene permiso.</string>
-    <string name="http_413">Carga demasiado grande (413). El archivo es muy grande para el servidor.</string>
-    <string name="http_429">Límite de uso de la API excedido (429). Estás haciendo demasiadas solicitudes. Esperá un momento.</string>
-    <string name="http_500">Error interno del servidor (500). El proveedor está teniendo problemas. Probá de nuevo más tarde.</string>
-    <string name="http_503">Servicio no disponible (503). El servidor de IA está sobrecargado.</string>
-    <string name="http_generic">Error HTTP: %1$d — Verificá tu conexión o tu clave API.</string>
+    <string name="http_400">Solicitud incorrecta (400). Formato o datos no reconocidos.</string>
+    <string name="http_401">Clave API inválida (401). Verificala en Ajustes.</string>
+    <string name="http_403">Acceso denegado (403). Tu clave no tiene permiso.</string>
+    <string name="http_413">Carga muy grande (413). El archivo es muy grande.</string>
+    <string name="http_429">Límite excedido (429). Demasiadas solicitudes. Esperá.</string>
+    <string name="http_500">Error del servidor (500). Problema del proveedor. Probá después.</string>
+    <string name="http_503">Servicio no disponible (503). Servidor de IA sobrecargado.</string>
+    <string name="http_generic">Error HTTP: %1$d — Verificá tu conexión o clave API.</string>
     <string name="processing_failed">Falló el procesamiento: %1$s</string>
 
-    <string name="loading_generating_binot">Generando paquete .binot seguro…</string>
+    <string name="loading_generating_binot">Generando .binot seguro…</string>
     <string name="loading_compressing">Comprimiendo audio…</string>
-    <string name="loading_compressing_pct">Comprimiendo audio… %1$d%%</string>
+    <string name="loading_compressing_pct">Comprimiendo… %1$d%%</string>
     <string name="loading_transcribing_groq">Transcribiendo con Groq…</string>
     <string name="loading_uploading_google">Subiendo audio a Google…</string>
-    <string name="loading_gemini_processing">Audio subido. Gemini está procesando…</string>
-    <string name="loading_ai_structuring">El motor de IA está estructurando tu nota…</string>
+    <string name="loading_gemini_processing">Gemini está procesando…</string>
+    <string name="loading_ai_structuring">La IA está estructurando tu nota…</string>
 
     <!-- ============================================================ -->
     <!-- SettingsViewModel — backup, update & preferences              -->
     <!-- ============================================================ -->
 
-    <string name="prefs_applied">¡Preferencias aplicadas! Los resultados viejos de IA fueron reiniciados.</string>
-    <string name="prefs_apply_failed">Falló la aplicación de preferencias: %1$s</string>
+    <string name="prefs_applied">¡Preferencias aplicadas! Los resultados viejos fueron reiniciados.</string>
+    <string name="prefs_apply_failed">Falló la aplicación: %1$s</string>
 
     <string name="backup_successful">¡Respaldo exitoso!</string>
     <string name="backup_failed">Falló el respaldo: %1$s</string>
@@ -575,11 +575,11 @@
     <string name="restore_invalid">Archivo de respaldo inválido.</string>
     <string name="restore_failed">Falló la restauración: %1$s</string>
 
-    <string name="update_no_apk">No se encontró ningún archivo APK en el release</string>
-    <string name="update_server_limit">Límite del servidor (probá de nuevo en 1 hora)</string>
+    <string name="update_no_apk">No se encontró APK en el release</string>
+    <string name="update_server_limit">Límite del servidor (probá en 1 hora)</string>
     <string name="update_no_release">No hay releases disponibles</string>
     <string name="update_http_error">Error HTTP: %1$d</string>
-    <string name="update_network_error">Error de red (verificá tu conexión a internet)</string>
+    <string name="update_network_error">Error de red (verificá internet)</string>
     <string name="update_download_failed">El sistema falló al descargar</string>
     <string name="update_install_failed">Falló la instalación</string>
 
@@ -590,7 +590,7 @@
     <string name="nav_record">Grabar</string>
     <string name="nav_history">Historial</string>
     <string name="nav_settings">Ajustes</string>
-    <string name="main_import_failed">No se pudo abrir o importar la nota.</string>
+    <string name="main_import_failed">No se pudo importar la nota.</string>
     <string name="main_unpacking">Descomprimiendo Obinot…</string>
 
     <!-- ============================================================ -->
@@ -598,7 +598,7 @@
     <!-- ============================================================ -->
 
     <string name="onboarding_no_key_title">Sin clave API</string>
-    <string name="onboarding_no_key_body">Podés continuar sin una clave API y agregarla después en Ajustes. Las funciones de IA no funcionarán hasta entonces, pero grabar en modo Rápido y leer notas existentes seguirá funcionando.</string>
+    <string name="onboarding_no_key_body">Podés seguir sin clave API y agregarla después. La IA no funcionará hasta entonces, pero grabar y leer notas sí.</string>
     <string name="onboarding_start_workspace_no_key">Continuar sin IA</string>
 
     <!-- ============================================================ -->
@@ -606,7 +606,7 @@
     <!-- ============================================================ -->
 
     <string name="settings_auto_process">Auto-procesar</string>
-    <string name="settings_auto_process_desc">Procesa las notas con IA automáticamente cuando están listas. Si está apagado, podés procesar cada nota manualmente con el chip Analizar.</string>
+    <string name="settings_auto_process_desc">Procesá las notas apenas estén listas.</string>
     <string name="result_analyze_chip">Analizar</string>
 
     <!-- ============================================================ -->
@@ -617,14 +617,14 @@
     <string name="result_export_markdown_success">Archivo Markdown listo</string>
     <string name="result_export_markdown_failed">No se pudo exportar Markdown</string>
     <string name="result_share_text_markdown">Nota Obinot (Markdown): %1$s</string>
-    <string name="result_share_markdown_chooser">Compartir archivo Markdown vía</string>
+    <string name="result_share_markdown_chooser">Compartir Markdown vía</string>
 
     <!-- ============================================================ -->
     <!-- B3 — Advanced section + About                                 -->
     <!-- ============================================================ -->
 
     <string name="settings_advanced">Avanzado</string>
-    <string name="settings_advanced_desc">Ajustes menos comunes y funciones beta. Tocá para expandir.</string>
+    <string name="settings_advanced_desc">Ajustes raros y funciones beta.</string>
     <string name="settings_about">Acerca de</string>
     <string name="settings_about_fork_notice">Obinot es un fork comunitario de Binot, creado originalmente por DENSLnetion (github.com/DENSLnetion/Binot), bajo licencia MIT.</string>
 
@@ -633,7 +633,7 @@
     <!-- ============================================================ -->
 
     <string name="crash_title">La app se cerró</string>
-    <string name="crash_subtitle">Ocurrió un error inesperado. Podés copiar el log de abajo y compartirlo con los desarrolladores.</string>
+    <string name="crash_subtitle">Ocurrió un error inesperado. Podés copiar el log y compartirlo con los desarrolladores.</string>
     <string name="crash_copy">Copiar log</string>
     <string name="crash_share">Compartir</string>
     <string name="crash_close">Cerrar app</string>
