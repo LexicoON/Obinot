@@ -56,6 +56,8 @@
     <string name="picker_no_audio">No audio files found.</string>
     <string name="picker_no_notes">No .binot notes found here. On newer Android versions, only notes exported by Obinot itself show up automatically — use Browse files above for anything else.</string>
     <string name="picker_load_more">Load more</string>
+    <string name="picker_binot_permission_aviso">To see your .binot and .zip notes in the native picker, Obinot needs storage permission.</string>
+    <string name="picker_binot_permission_continue">Continue</string>
 
     <!-- Sort orders for the audio tab -->
     <string name="sort_newest">Newest</string>
@@ -376,7 +378,7 @@
     <string name="settings_ai_configuration">AI Configuration</string>
     <string name="settings_provider_gemini">Gemini</string>
     <string name="settings_provider_groq">Groq</string>
-    <string name="settings_provider_dynamic">Dynamic</string>
+    <string name="settings_provider_dynamic">Standard</string>
     <string name="settings_gemini_key_label">Gemini API Key</string>
     <string name="settings_groq_key_label">Groq API Key</string>
     <string name="settings_get_api_key_hint">Click here to get the API Key</string>

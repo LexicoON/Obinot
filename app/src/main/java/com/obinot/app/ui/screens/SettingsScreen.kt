@@ -218,20 +218,42 @@ private fun SettingsSelectionSheet(
 }
 
 @Composable
-private fun BetaBadge() {
+private fun BadgeChip(
+    text: String,
+    containerColor: androidx.compose.ui.graphics.Color,
+    contentColor: androidx.compose.ui.graphics.Color
+) {
     Surface(
         shape = RoundedCornerShape(50),
-        color = MaterialTheme.colorScheme.tertiaryContainer
+        color = containerColor
     ) {
         Text(
-            "BETA",
+            text = text,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onTertiaryContainer,
+            color = contentColor,
             maxLines = 1,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
         )
     }
+}
+
+@Composable
+private fun BetaBadge() {
+    BadgeChip(
+        text = "BETA",
+        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+    )
+}
+
+@Composable
+private fun AlphaBadge() {
+    BadgeChip(
+        text = "ALPHA",
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+    )
 }
 
 @Composable
@@ -268,8 +290,16 @@ private fun TextToggleGroup(
 }
 
 /**
+ * Tipo de badge que puede llevar una fila de Advanced.
+ *  - NONE: sin badge.
+ *  - BETA: funcional pero en evolución. Badge terciario.
+ *  - ALPHA: experimental, puede cambiar o romperse. Badge secundario.
+ */
+private enum class FeatureBadge { NONE, BETA, ALPHA }
+
+/**
  * Fila usada dentro de la card "Advanced". Switch + título + descripción,
- * con badge BETA opcional.
+ * con badge opcional (BETA/ALPHA).
  */
 @Composable
 private fun AdvancedSwitchRow(
@@ -277,7 +307,7 @@ private fun AdvancedSwitchRow(
     description: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    showBetaBadge: Boolean = false
+    badge: FeatureBadge = FeatureBadge.NONE
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.weight(1f)) {
@@ -290,9 +320,13 @@ private fun AdvancedSwitchRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )
-                if (showBetaBadge) {
+                if (badge != FeatureBadge.NONE) {
                     Spacer(modifier = Modifier.width(8.dp))
-                    BetaBadge()
+                    when (badge) {
+                        FeatureBadge.BETA -> BetaBadge()
+                        FeatureBadge.ALPHA -> AlphaBadge()
+                        FeatureBadge.NONE -> { /* no badge */ }
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(4.dp))
@@ -925,8 +959,6 @@ fun SettingsScreen(
                                         overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f, fill = false)
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    BetaBadge()
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -1170,7 +1202,7 @@ fun SettingsScreen(
                             description = stringResource(R.string.settings_live_transcript_desc),
                             checked = liveTranscriptEnabled,
                             onCheckedChange = { viewModel.saveLiveTranscript(it) },
-                            showBetaBadge = true
+                            badge = FeatureBadge.ALPHA
                         )
 
                         AdvancedDivider()
@@ -1179,8 +1211,7 @@ fun SettingsScreen(
                             title = stringResource(R.string.settings_native_picker),
                             description = stringResource(R.string.settings_native_picker_desc),
                             checked = nativePickerEnabled,
-                            onCheckedChange = { viewModel.saveNativePicker(it) },
-                            showBetaBadge = true
+                            onCheckedChange = { viewModel.saveNativePicker(it) }
                         )
 
                         AdvancedDivider()

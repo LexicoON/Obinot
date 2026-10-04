@@ -28,10 +28,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.datastore.preferences.core.edit
 import com.obinot.app.R
+import com.obinot.app.data.SettingsRepository
+import com.obinot.app.data.dataStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
@@ -65,7 +70,7 @@ data class AudioFileInfo(
         get() = mimeType.substringAfterLast("/").uppercase()
 }
 
-/** Representa un archivo .binot (nota exportada) encontrado por MediaStore. */
+/** Representa un archivo .binot (o .zip con contenido .binot) encontrado por MediaStore. */
 data class BinotNoteFileInfo(
     val uri: Uri,
     val name: String,
@@ -108,16 +113,19 @@ enum class PickerTab(@StringRes val labelRes: Int) {
 private const val PAGE_SIZE = 150
 
 /**
- * Picker unificado: audios del dispositivo + notas .binot exportadas (el formato nativo
- * de Obinot, compatible con el Binot original). Usado tanto por RecordScreen como por
- * HistoryScreen para que la experiencia de importar sea idéntica en ambos lugares.
+ * Picker unificado: audios del dispositivo + notas .binot/.zip exportadas (el formato
+ * nativo de Obinot, compatible con el Binot original). Usado tanto por RecordScreen
+ * como por HistoryScreen para que la experiencia de importar sea idéntica en ambos.
+ *
+ * Desde 2.2, el tab .binot también lista archivos .zip (mismo contenido, distinto
+ * nombre cuando el archivo fue reempaquetado por WhatsApp, Gmail, etc.). El importador
+ * ya acepta ambos casos porque detecta el data.json interno.
  *
  * LIMITACIÓN REAL DE ANDROID (no es un bug): a partir de Android 13, sin el permiso
- * MANAGE_EXTERNAL_STORAGE (que Play Store restringe fuertemente y no tiene sentido pedir
- * para esta app), MediaStore solo puede listar de forma fiable archivos .binot que la
- * propia Obinot exportó. Un .binot compartido por otra app (WhatsApp, un navegador, etc.)
- * puede no aparecer en la lista. Por eso la pestaña de Notas siempre incluye un botón
- * "Browse files" que abre el selector del sistema como respaldo garantizado.
+ * MANAGE_EXTERNAL_STORAGE, MediaStore solo puede listar de forma fiable archivos que
+ * la propia Obinot exportó. Un .binot/.zip compartido por otra app puede no aparecer
+ * en la lista. Por eso la pestaña de Notas siempre incluye un botón "Browse files" que
+ * abre el selector del sistema como respaldo garantizado.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,6 +146,16 @@ fun ObinotFilePickerSheet(
     var page by remember { mutableIntStateOf(0) }
     var sortOrder by remember { mutableStateOf(AudioSortOrder.DATE_MODIFIED_DESC) }
 
+    // Estado one-time del aviso de permiso en el tab .binot.
+    // null = todavía cargando; false = nunca mostrado; true = ya mostrado/interactuado.
+    var binotTabPermissionPrompted by remember { mutableStateOf<Boolean?>(null) }
+
+    LaunchedEffect(Unit) {
+        binotTabPermissionPrompted = context.dataStore.data.first()[
+            SettingsRepository.BINOT_TAB_PERMISSION_PROMPTED_KEY
+        ] ?: false
+    }
+
     // Sin este permiso el cursor de MediaStore vuelve vacío para ambas colecciones.
     val storagePermission = if (Build.VERSION.SDK_INT >= 33) {
         android.Manifest.permission.READ_MEDIA_AUDIO
@@ -156,8 +174,12 @@ fun ObinotFilePickerSheet(
         ActivityResultContracts.RequestPermission()
     ) { granted -> hasPermission = granted }
 
+    // Auto-prompt SOLO si el sheet se abrió en el tab AUDIO. El tab NOTES tiene su
+    // propio aviso (más abajo), que respeta la regla de "una sola vez".
     LaunchedEffect(Unit) {
-        if (!hasPermission) permissionLauncher.launch(storagePermission)
+        if (initialTab == PickerTab.AUDIO && !hasPermission) {
+            permissionLauncher.launch(storagePermission)
+        }
     }
 
     // Carga inicial y recarga al cambiar de tab o de orden.
@@ -281,9 +303,43 @@ fun ObinotFilePickerSheet(
 
             val isEmpty = if (activeTab == PickerTab.AUDIO) audioFiles.isEmpty() else binotFiles.isEmpty()
 
+            // Aviso one-time de permiso en el tab .binot.
+            // Se muestra cuando: tab NOTES + sin permiso + flag aún false.
+            val showBinotPermissionAviso = activeTab == PickerTab.NOTES
+                && !hasPermission
+                && binotTabPermissionPrompted == false
+
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+            } else if (showBinotPermissionAviso) {
+                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(horizontal = 24.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.picker_binot_permission_aviso),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    context.dataStore.edit {
+                                        it[SettingsRepository.BINOT_TAB_PERMISSION_PROMPTED_KEY] = true
+                                    }
+                                    binotTabPermissionPrompted = true
+                                    permissionLauncher.launch(storagePermission)
+                                }
+                            }
+                        ) {
+                            Text(stringResource(R.string.picker_binot_permission_continue))
+                        }
+                    }
                 }
             } else if (isEmpty) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
@@ -292,7 +348,8 @@ fun ObinotFilePickerSheet(
                             Text(
                                 text = stringResource(R.string.picker_permission_message),
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
                             )
                             Spacer(Modifier.height(12.dp))
                             OutlinedButton(onClick = { permissionLauncher.launch(storagePermission) }) {
@@ -306,7 +363,7 @@ fun ObinotFilePickerSheet(
                                        else stringResource(R.string.picker_no_notes),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                textAlign = TextAlign.Center
                             )
                         }
                     }
@@ -583,10 +640,16 @@ private fun queryAudioFiles(
 }
 
 /**
- * Consulta MediaStore.Files buscando archivos .binot. Best-effort: en Android 13+, sin
- * MANAGE_EXTERNAL_STORAGE, esto solo ve archivos que la propia app indexó (los que ella
- * misma exportó). Es una limitación de la plataforma, no del código — por eso el picker
- * siempre ofrece "Browse files" como respaldo.
+ * Consulta MediaStore.Files buscando archivos .binot y .zip.
+ *
+ * Desde 2.2 también listamos .zip porque cuando alguien comparte una nota por
+ * WhatsApp, Gmail, o algunos file managers, el archivo llega renombrado a .zip
+ * (mismo contenido adentro). El importador detecta el data.json interno, así
+ * que ambos casos funcionan igual.
+ *
+ * Best-effort: en Android 13+, sin MANAGE_EXTERNAL_STORAGE, esto solo ve
+ * archivos que la propia app indexó. Por eso el picker siempre ofrece
+ * "Browse files" como respaldo.
  *
  * Orden fijo: DATE_MODIFIED DESC. La paginación server-side respeta ese orden.
  */
@@ -602,8 +665,9 @@ private fun queryBinotFiles(
         MediaStore.Files.FileColumns.SIZE,
         MediaStore.Files.FileColumns.DATE_MODIFIED
     )
-    val selection = "${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE ?"
-    val args = arrayOf("%.binot")
+    // Listamos .binot y .zip. Ambos son aceptados por el importador.
+    val selection = "(${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE ? OR ${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE ?)"
+    val args = arrayOf("%.binot", "%.zip")
     val sortOrderSql = "${MediaStore.Files.FileColumns.DATE_MODIFIED} DESC"
 
     val result = mutableListOf<BinotNoteFileInfo>()

@@ -25,7 +25,7 @@ class SettingsRepository(private val context: Context) {
         val AI_FORMAT_KEY = intPreferencesKey("ai_format") // 0: Paragraphs, 1: Bullets
         val BACKGROUND_RECORDING_KEY = booleanPreferencesKey("background_recording_enabled")
 
-        // --- LIVE TRANSCRIPT (Accurate mode, beta) ---
+        // --- LIVE TRANSCRIPT (Accurate mode, alpha desde 2.2) ---
         // Default OFF. Con esto apagado, Accurate NO arranca el SpeechRecognizer del
         // teléfono (que es el que falla en muchos dispositivos), y solo graba audio
         // para que la IA lo transcriba después.
@@ -38,8 +38,12 @@ class SettingsRepository(private val context: Context) {
         // --- MIX COUNTER ---
         val MIX_COUNTER_KEY = intPreferencesKey("mix_counter")
 
-        // --- NATIVE AUDIO PICKER (beta) ---
+        // --- NATIVE AUDIO PICKER (default ON desde 2.2) ---
         val NATIVE_PICKER_KEY = booleanPreferencesKey("native_audio_picker_enabled")
+        // Flag de migración one-time: cuando pasa a true, nunca volvemos a
+        // forzar el native picker. Se setea tanto por migrateNativePickerIfNeeded()
+        // como por cualquier saveNativePicker() explícito del usuario.
+        val NATIVE_PICKER_MIGRATED_KEY = booleanPreferencesKey("native_picker_migrated")
 
         // --- COLOR STYLE ---
         // 0 = Tonal Spot, 1 = Vibrant, 2 = Expressive, 3 = Fruit Salad,
@@ -63,6 +67,13 @@ class SettingsRepository(private val context: Context) {
         // explicando que el botón de 3-puntos tiene long press para chat
         // directo. Después de verlo una vez, no se vuelve a mostrar.
         val AI_CHAT_TOOLTIP_SHOWN_KEY = booleanPreferencesKey("ai_chat_tooltip_shown")
+
+        // --- 2.2: NATIVE PICKER .binot TAB PERMISSION PROMPT ---
+        // Primera vez que el usuario entra al tab .binot sin permiso de
+        // almacenamiento, mostramos un aviso explicando qué necesita y un
+        // botón "Continue" que dispara el popup del sistema. Después de la
+        // primera interacción, no se vuelve a mostrar.
+        val BINOT_TAB_PERMISSION_PROMPTED_KEY = booleanPreferencesKey("binot_tab_permission_prompted")
     }
 
     val userNameFlow: Flow<String> = context.dataStore.data.map { it[USER_NAME_KEY] ?: "" }
@@ -84,9 +95,32 @@ class SettingsRepository(private val context: Context) {
     val appLanguageFlow: Flow<String> = context.dataStore.data.map { it[APP_LANGUAGE_KEY] ?: "device" }
     val autoProcessFlow: Flow<Boolean> = context.dataStore.data.map { it[AUTO_PROCESS_KEY] ?: true }
     val readingFontFlow: Flow<Int> = context.dataStore.data.map { it[READING_FONT_KEY] ?: 0 }
-    // Default OFF: el picker nativo es beta y se opta explícitamente.
-    val nativePickerFlow: Flow<Boolean> = context.dataStore.data.map { it[NATIVE_PICKER_KEY] ?: false }
+
+    /**
+     * Native picker: default ON desde 2.2. Para usuarios que actualizan desde
+     * versiones anteriores, forzamos la activación una sola vez vía
+     * NATIVE_PICKER_MIGRATED_KEY. Si el usuario después lo desactiva
+     * manualmente (saveNativePicker), el flag queda seteado y respetamos su
+     * elección.
+     *
+     * Lógica:
+     *  - Si migrated == false: devolvemos true (comportamiento forzado).
+     *    La persistencia real la hace migrateNativePickerIfNeeded() en el
+     *    arranque, o saveNativePicker() si el usuario toca el toggle.
+     *  - Si migrated == true: respetamos el valor guardado. Default true si
+     *    la key no existe (instalación nueva).
+     */
+    val nativePickerFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        val migrated = prefs[NATIVE_PICKER_MIGRATED_KEY] ?: false
+        if (!migrated) {
+            true
+        } else {
+            prefs[NATIVE_PICKER_KEY] ?: true
+        }
+    }
+
     val aiChatTooltipShownFlow: Flow<Boolean> = context.dataStore.data.map { it[AI_CHAT_TOOLTIP_SHOWN_KEY] ?: false }
+    val binotTabPermissionPromptedFlow: Flow<Boolean> = context.dataStore.data.map { it[BINOT_TAB_PERMISSION_PROMPTED_KEY] ?: false }
 
     suspend fun saveUserName(name: String) {
         context.dataStore.edit { it[USER_NAME_KEY] = name }
@@ -136,8 +170,34 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[AUTO_COMPRESSION_MODE_KEY] = mode.coerceIn(0, 2) }
     }
 
+    /**
+     * Persiste la elección del native picker y marca la migración como hecha.
+     * A partir de este momento, nativePickerFlow respeta el valor guardado.
+     */
     suspend fun saveNativePicker(enabled: Boolean) {
-        context.dataStore.edit { it[NATIVE_PICKER_KEY] = enabled }
+        context.dataStore.edit {
+            it[NATIVE_PICKER_KEY] = enabled
+            it[NATIVE_PICKER_MIGRATED_KEY] = true
+        }
+    }
+
+    /**
+     * Migración one-time: activa el native picker para todos los usuarios
+     * existentes. Se recomienda llamarla una vez en el arranque de la app
+     * (BinotApplication.onCreate) para "sellar" el flag y que la lógica del
+     * flow no tenga que evaluar el caso migrated == false en cada emisión.
+     *
+     * Es idempotente: si NATIVE_PICKER_MIGRATED_KEY ya está en true, no hace
+     * nada.
+     */
+    suspend fun migrateNativePickerIfNeeded() {
+        context.dataStore.edit { prefs ->
+            val alreadyMigrated = prefs[NATIVE_PICKER_MIGRATED_KEY] ?: false
+            if (!alreadyMigrated) {
+                prefs[NATIVE_PICKER_KEY] = true
+                prefs[NATIVE_PICKER_MIGRATED_KEY] = true
+            }
+        }
     }
 
     suspend fun saveColorStyle(style: Int) {
@@ -171,5 +231,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun saveAiChatTooltipShown(shown: Boolean) {
         context.dataStore.edit { it[AI_CHAT_TOOLTIP_SHOWN_KEY] = shown }
+    }
+
+    suspend fun saveBinotTabPermissionPrompted(shown: Boolean) {
+        context.dataStore.edit { it[BINOT_TAB_PERMISSION_PROMPTED_KEY] = shown }
     }
 }

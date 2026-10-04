@@ -8,10 +8,18 @@ import com.obinot.app.data.NoteRepository
 import com.obinot.app.data.SettingsRepository
 import com.obinot.app.utils.AudioRecorderManager
 import com.obinot.app.utils.CrashHandler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class BinotApplication : Application() {
 
     lateinit var container: AppContainer
+
+    // Scope de aplicación, vive lo que dura el proceso. Se usa para migraciones
+    // one-time que no deben bloquear el arranque de la UI.
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
@@ -22,6 +30,12 @@ class BinotApplication : Application() {
         CrashHandler(this).install()
 
         container = AppContainer(this)
+
+        // Migración one-time del native picker: lo activa para usuarios que
+        // vienen de versiones anteriores. Idempotente.
+        applicationScope.launch {
+            container.settingsRepository.migrateNativePickerIfNeeded()
+        }
     }
 }
 
