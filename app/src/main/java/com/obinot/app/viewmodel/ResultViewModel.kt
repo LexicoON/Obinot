@@ -1269,6 +1269,19 @@ class ResultViewModel(
                     ?.replace(Regex("<!--BINOT_META:.*?-->"), "")
                     ?.trimEnd()
 
+                // Truncados para evitar 413 Payload Too Large en Groq (y otros
+                // providers con límites estrictos de body). Los límites están
+                // calibrados para que notas típicas entren sin truncar, y notas
+                // largas se corten con un marcador explícito que el modelo ve.
+                val rawTextForContext = truncateForContext(
+                    currentNote.rawText,
+                    maxChars = MAX_CHAT_RAW_TEXT_CHARS,
+                    marker = "\n\n[... note truncated for context, ask about specific sections ...]\n"
+                )
+                val summaryForContext = cleanSummary?.let {
+                    truncateForContext(it, maxChars = MAX_CHAT_SUMMARY_CHARS, marker = "\n[... summary truncated ...]\n")
+                } ?: "(no summary yet)"
+
                 val systemPrompt = """
                     You are an AI assistant helping the user understand their own note.
                     Output language: $targetLanguage. If the user writes in a different language, reply in the user's language instead.
@@ -1290,22 +1303,32 @@ class ResultViewModel(
                     ${currentNote.title}
 
                     --- NOTE SUMMARY ---
-                    ${cleanSummary ?: "(no summary yet)"}
+                    $summaryForContext
 
                     --- NOTE RAW TEXT ---
-                    ${currentNote.rawText}
+                    $rawTextForContext
                     --- END OF NOTE ---
                 """.trimIndent()
 
-                // Construimos el historial completo como una sola cadena para
-                // el turno del usuario. Es más simple que serializar mensajes
-                // individuales y el system prompt ya establece el contexto.
-                val conversationHistory = _chatMessages.value.joinToString("\n\n") { msg ->
-                    when (msg.role) {
-                        "user" -> "User: ${msg.content}"
-                        else -> "Assistant: ${msg.content}"
+                // Historial: solo los últimos N mensajes, con cap total de
+                // caracteres por si los mensajes son inusualmente largos. Esto
+                // complementa el truncado del rawText/summary y evita que el
+                // body del POST crezca sin límite en conversaciones largas.
+                val recentMessages = _chatMessages.value.takeLast(MAX_CHAT_HISTORY_MESSAGES)
+                val conversationHistory = recentMessages
+                    .joinToString("\n\n") { msg ->
+                        when (msg.role) {
+                            "user" -> "User: ${msg.content}"
+                            else -> "Assistant: ${msg.content}"
+                        }
                     }
-                }
+                    .let { history ->
+                        if (history.length > MAX_CHAT_HISTORY_CHARS) {
+                            history.takeLast(MAX_CHAT_HISTORY_CHARS)
+                        } else {
+                            history
+                        }
+                    }
 
                 val responseText = if (effectiveProvider == 1) {
                     val request = GroqChatRequest(
@@ -1401,6 +1424,33 @@ class ResultViewModel(
          *  usuario debe limpiar el chat. 40 = 20 turnos. */
         private const val MAX_CHAT_MESSAGES = 40
 
+        /**
+         * Límites para el contexto que se envía al modelo en cada mensaje del
+         * chat. Existen para prevenir el error 413 Payload Too Large de Groq
+         * (y de cualquier provider con límite estricto de body). Notas típicas
+         * entran sin truncar; notas largas se cortan con un marcador explícito.
+         */
+        private const val MAX_CHAT_RAW_TEXT_CHARS = 10_000
+        private const val MAX_CHAT_SUMMARY_CHARS = 4_000
+        private const val MAX_CHAT_HISTORY_MESSAGES = 12
+        private const val MAX_CHAT_HISTORY_CHARS = 12_000
+
+        /**
+         * Trunca un string a [maxChars]. Si se trunca, agrega [marker] al
+         * final para que el modelo sepa que el contexto fue recortado y no
+         * alucine sobre "el final del texto".
+         */
+        private fun truncateForContext(
+            text: String,
+            maxChars: Int,
+            marker: String
+        ): String {
+            return if (text.length <= maxChars) {
+                text
+            } else {
+                text.take(maxChars) + marker
+            }
+        }
         /** Parsea el JSON de chatHistory a la lista de mensajes. Devuelve lista
          *  vacía si el JSON está ausente o malformado. */
         private fun parseChatHistory(json: String?): List<ChatMessage> {

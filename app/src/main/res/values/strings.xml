@@ -54,8 +54,10 @@
     <string name="picker_permission_message">Obinot needs permission to read files on this device.</string>
     <string name="picker_grant_access">Grant access</string>
     <string name="picker_no_audio">No audio files found.</string>
-    <string name="picker_no_notes">No .binot notes found here. On newer Android versions, only notes exported by Obinot itself show up automatically — use Browse files above for anything else.</string>
+    <string name="picker_no_notes">No notes here. Only files exported by Obinot show up automatically — use Browse files for the rest.</string>
     <string name="picker_load_more">Load more</string>
+    <string name="picker_binot_permission_aviso">To see your .binot and .zip files, Obinot needs storage permission.</string>
+    <string name="picker_binot_permission_continue">Continue</string>
 
     <!-- Sort orders for the audio tab -->
     <string name="sort_newest">Newest</string>
@@ -132,12 +134,12 @@
     <!-- ============================================================ -->
 
     <string name="onboarding_welcome_title">Welcome to Obinot.</string>
-    <string name="onboarding_welcome_body">Your intelligent voice workspace. Speak naturally, and let advanced AI structure your thoughts perfectly.</string>
+    <string name="onboarding_welcome_body">Speak naturally. Let AI structure your notes.</string>
     <string name="onboarding_name_title">Let\'s get acquainted.</string>
     <string name="onboarding_name_question">What should we call you?</string>
     <string name="onboarding_name_hint">Enter your name</string>
     <string name="onboarding_personalize_title">Tailor your experience.</string>
-    <string name="onboarding_personalize_body">How would you like Obinot to process your voice by default? You can change this later.</string>
+    <string name="onboarding_personalize_body">How should Obinot process your voice by default?</string>
     <string name="onboarding_task_label">Processing Task</string>
     <string name="onboarding_task_tidy">Tidy Up</string>
     <string name="onboarding_task_summary">Summary</string>
@@ -146,26 +148,26 @@
     <string name="onboarding_format_paragraphs">Paragraphs</string>
     <string name="onboarding_format_bullets">Bullets</string>
     <string name="onboarding_provider_title">Connect the brain.</string>
-    <string name="onboarding_provider_body">Obinot needs an AI engine to operate. Choose a provider and claim your free access key.</string>
+    <string name="onboarding_provider_body">Pick an AI provider. Both have free tiers.</string>
     <string name="onboarding_provider_gemini">Google Gemini</string>
     <string name="onboarding_provider_groq">Groq AI</string>
-    <string name="onboarding_provider_groq_hint">Groq is highly recommended for its blazing fast speed.</string>
-    <string name="onboarding_provider_gemini_hint">Gemini is great for processing very long audio recordings.</string>
+    <string name="onboarding_provider_groq_hint">Recommended for its blazing fast speed.</string>
+    <string name="onboarding_provider_gemini_hint">Best for very long audio recordings.</string>
     <string name="onboarding_get_api_key">Get Free API Key</string>
     <string name="onboarding_api_key_hint">Paste your API Key here</string>
     <string name="onboarding_last_thing_title">One last thing.</string>
-    <string name="onboarding_last_thing_body">Some AI providers have a size limit on audio uploads. Obinot can shrink long recordings automatically before sending them, so nothing gets rejected.</string>
+    <string name="onboarding_last_thing_body">Obinot can shrink long recordings to fit API limits.</string>
     <string name="onboarding_compression_label">Auto Compression</string>
     <string name="onboarding_compression_off">Off</string>
     <string name="onboarding_compression_balanced">Balanced</string>
     <string name="onboarding_compression_max">Max</string>
-    <string name="onboarding_compression_off_desc">No compression. Files over 25 MB will fail on Groq.</string>
-    <string name="onboarding_compression_balanced_desc">Best quality. Targets just under the upload limit. Recommended.</string>
-    <string name="onboarding_compression_max_desc">Smaller files. Still great for voice. Best for slow connections.</string>
+    <string name="onboarding_compression_off_desc">No compression. Files over 25 MB fail on Groq.</string>
+    <string name="onboarding_compression_balanced_desc">Best quality, just under the limit. Recommended.</string>
+    <string name="onboarding_compression_max_desc">Smaller files. Great for voice, best for slow connections.</string>
     <string name="onboarding_connecting">Connecting to %1$s…</string>
     <string name="onboarding_verifying">Verifying your access key. This will only take a moment.</string>
     <string name="onboarding_connected_title">Connection Established</string>
-    <string name="onboarding_connected_body">Your API key is active. The AI engine is fully configured and ready to organize your thoughts.</string>
+    <string name="onboarding_connected_body">Your API key is active. The AI engine is ready.</string>
     <string name="onboarding_start_workspace">Start Workspace</string>
     <string name="onboarding_failed_title">Connection Failed</string>
     <string name="onboarding_review_key">Review API Key</string>
@@ -307,11 +309,11 @@
     <string name="chat_send_cd">Send</string>
     <string name="chat_menu_item">Ask AI about this note</string>
     <string name="chat_tooltip_title">Long press for quick access</string>
-    <string name="chat_tooltip_body">Long press the options button to jump straight into a chat about this note. Tap it to see the regular menu.</string>
+    <string name="chat_tooltip_body">Long press the options button for a direct chat about this note. Tap for the normal menu.</string>
     <string name="chat_tooltip_got_it">Got it</string>
     <string name="chat_limit_reached">Message limit reached (40 per note). Clear the conversation to start fresh.</string>
     <string name="chat_thinking">Thinking…</string>
-    <string name="chat_empty_state">Ask anything about this note. The AI can see the title, summary, and raw text. Your conversation is saved with the note.</string>
+    <string name="chat_empty_state">Ask anything about this note. Your chat is saved with the note.</string>
     <string name="chat_clear_cd">Clear conversation</string>
     <string name="chat_clear_confirm_title">Clear conversation?</string>
     <string name="chat_clear_confirm_body">All messages in this conversation will be deleted. The note itself is not affected.</string>
@@ -367,7 +369,7 @@
     <string name="snackbar_name_saved">Name saved successfully!</string>
 
     <string name="settings_global_ai_prefs">Global AI Preferences</string>
-    <string name="settings_global_ai_prefs_desc">Notes will be automatically processed using these settings.</string>
+    <string name="settings_global_ai_prefs_desc">Used to auto-process notes.</string>
     <string name="settings_output_language">Output Language</string>
     <string name="settings_processing_task">Processing Task</string>
     <string name="settings_output_format">Output Format</string>
@@ -376,13 +378,13 @@
     <string name="settings_ai_configuration">AI Configuration</string>
     <string name="settings_provider_gemini">Gemini</string>
     <string name="settings_provider_groq">Groq</string>
-    <string name="settings_provider_dynamic">Dynamic</string>
+    <string name="settings_provider_dynamic">Standard</string>
     <string name="settings_gemini_key_label">Gemini API Key</string>
     <string name="settings_groq_key_label">Groq API Key</string>
     <string name="settings_get_api_key_hint">Click here to get the API Key</string>
     <string name="settings_save_key">Save Key</string>
-    <string name="settings_dynamic_desc">Dynamic automatically picks the best provider for each task, so both free quotas last longer.</string>
-    <string name="settings_dynamic_bullets">• Short audio (&lt;20MB) → Groq Whisper (fastest)\n• Long audio (≥20MB) → Gemini (no size limit)\n• Long text → Gemini Flash (better context)\n• Short text → alternates between providers\n• Titles &amp; explanations → alternates between providers</string>
+    <string name="settings_dynamic_desc">Picks the best provider per task, stretching free quotas.</string>
+    <string name="settings_dynamic_bullets">• Short audio → Groq Whisper\n• Long audio → Gemini\n• Long text → Gemini Flash\n• Short text, titles, explanations → alternates</string>
     <string name="settings_dynamic_gemini_status">Gemini API Key: %1$s</string>
     <string name="settings_dynamic_groq_status">Groq API Key: %1$s</string>
     <string name="settings_status_configured">✓ Configured</string>
@@ -390,23 +392,23 @@
     <string name="settings_save_selection">Save Selection</string>
     <string name="snackbar_gemini_saved">Gemini Configuration saved!</string>
     <string name="snackbar_groq_saved">Groq Configuration saved!</string>
-    <string name="snackbar_dynamic_enabled">Dynamic mode enabled!</string>
-    <string name="snackbar_dynamic_needs_keys">Dynamic enabled, but you need both API keys to work properly.</string>
+    <string name="snackbar_dynamic_enabled">Standard mode enabled!</string>
+    <string name="snackbar_dynamic_needs_keys">Standard enabled, but both API keys are needed.</string>
 
     <string name="settings_fast">Fast</string>
     <string name="settings_accurate">Accurate</string>
 
-    <string name="settings_live_transcript">Live Transcript</string>
-    <string name="settings_live_transcript_desc">Shows your phone\'s live speech-to-text while recording. Faster feedback, but the recognizer fails or freezes on many devices. When off, only the audio is recorded and the AI transcribes it later.</string>
+    <string name="settings_live_transcript">Live Text</string>
+    <string name="settings_live_transcript_desc">Live speech-to-text. Flaky on many devices.</string>
 
-    <string name="settings_record_background">Record in Background</string>
-    <string name="settings_record_background_desc">Keep recording with the screen off or the app minimized. Shows a persistent notification with the elapsed time while it\'s active.</string>
+    <string name="settings_record_background">Background Rec</string>
+    <string name="settings_record_background_desc">Keep recording with the screen off.</string>
 
-    <string name="settings_native_picker">Native Audio Picker</string>
-    <string name="settings_native_picker_desc">Use Obinot\'s own audio browser (with duration, size and sorting) instead of the system file picker. Requires permission to read audio on this device.</string>
+    <string name="settings_native_picker">Audio Browser</string>
+    <string name="settings_native_picker_desc">Browse audio inside Obinot.</string>
 
-    <string name="settings_auto_compression">Auto Compression</string>
-    <string name="settings_auto_compression_desc">Reduces audio size automatically when it exceeds an API\'s limit. Keeps long recordings usable with providers that have tight size caps.</string>
+    <string name="settings_auto_compression">Compression</string>
+    <string name="settings_auto_compression_desc">Shrinks audio to fit API size limits.</string>
     <string name="settings_compression_off">Off</string>
     <string name="settings_compression_balanced">Balanced</string>
     <string name="settings_compression_max">Max</string>
@@ -418,17 +420,17 @@
     <string name="settings_theme_amoled">Amoled</string>
 
     <string name="settings_color_palette">Color Palette</string>
-    <string name="settings_color_palette_desc">Changes the mood of the whole app. Each style generates a complete color scheme from the same seed.</string>
+    <string name="settings_color_palette_desc">Changes the app\'s overall mood.</string>
     <string name="settings_color_style">Style</string>
 
     <string name="settings_data_system">Data &amp; System</string>
     <string name="settings_full_backup">Full Backup</string>
-    <string name="settings_full_backup_desc">Notes, audio, labels and preferences. Recommended for migrating from Binot 1.x.</string>
+    <string name="settings_full_backup_desc">Notes, audio, labels, preferences.</string>
     <string name="settings_import">Import</string>
     <string name="settings_backup">Backup</string>
     <string name="settings_legacy_backup">Legacy Backup</string>
-    <string name="settings_legacy_backup_desc">Only notes and audio, in the original Binot 1.x format. Use this if you need to restore the backup on Binot 1.x itself.</string>
-    <string name="settings_backup_legacy_button">Backup Legacy (.binotbak)</string>
+    <string name="settings_legacy_backup_desc">Notes and audio only, for Binot 1.x restores.</string>
+    <string name="settings_backup_legacy_button">Backup Legacy</string>
     <string name="settings_app_version">App Version</string>
     <string name="settings_check_update">Check Update</string>
     <string name="settings_update_app">Update App</string>
@@ -441,7 +443,7 @@
     <string name="settings_up_to_date">App is up to date.</string>
 
     <string name="settings_github_repo">GitHub Repository</string>
-    <string name="settings_github_repo_desc">Star the repo or report an issue</string>
+    <string name="settings_github_repo_desc">Star or report an issue</string>
 
     <string name="settings_search_placeholder">Search…</string>
 
@@ -455,7 +457,7 @@
     <string name="settings_dialog_gemini_body">Best for complex content: math, chemistry, and Mermaid diagrams. Handles very long audio files without size limits. Generous free tier.</string>
     <string name="settings_dialog_groq_title">Groq AI</string>
     <string name="settings_dialog_groq_body">Blazing fast, ideal for daily use. Powered by open-source models. Audio uploads are limited to 25 MB per file.</string>
-    <string name="settings_dialog_dynamic_title">Dynamic (Beta)</string>
+    <string name="settings_dialog_dynamic_title">Standard (Beta)</string>
     <string name="settings_dialog_dynamic_body">Automatically picks the best provider for each task, so both free quotas last longer. Requires both API keys to be set. Renamed from "Mix" — same feature.</string>
 
     <string name="settings_dialog_tasks">Processing Tasks</string>
@@ -506,17 +508,17 @@
     <!-- ResultViewModel — errors & loading messages                  -->
     <!-- ============================================================ -->
 
-    <string name="error_audio_not_found_pending">Failed: Audio file not found. Raw text is pending but no audio path exists.</string>
+    <string name="error_audio_not_found_pending">Audio file not found.</string>
     <string name="error_no_audio_to_reanalyze">No audio file to re-analyze.</string>
-    <string name="error_audio_too_long_groq">Audio is too long for Groq. Switch to Gemini or enable Auto Compression.</string>
+    <string name="error_audio_too_long_groq">Audio is too long for Groq. Switch to Gemini or enable Compression.</string>
     <string name="error_compression_failed">Audio compression failed.</string>
-    <string name="error_file_exceeds_groq">File exceeds Groq\'s 25MB limit. Enable Auto Compression or switch to Gemini.</string>
-    <string name="error_api_key_required_transcribe">API Key is required to transcribe accurate audio. Please set it in Settings.</string>
-    <string name="error_api_key_required_engine">AI Engine Requires an API Key. Please configure it in Settings.</string>
-    <string name="error_api_key_missing">API Key is missing. Please set it in Settings.</string>
-    <string name="error_ai_empty_transcript">AI failed to process the transcript. Server response was empty.</string>
-    <string name="error_ai_empty_text">AI failed to process the text. The server response was empty.</string>
-    <string name="error_no_speech_detected">No clear speech detected in the audio recording.</string>
+    <string name="error_file_exceeds_groq">File exceeds Groq\'s 25MB limit. Enable Compression or switch to Gemini.</string>
+    <string name="error_api_key_required_transcribe">API key required. Set it in Settings.</string>
+    <string name="error_api_key_required_engine">API key required. Set it in Settings.</string>
+    <string name="error_api_key_missing">API key missing. Set it in Settings.</string>
+    <string name="error_ai_empty_transcript">AI couldn\'t process the transcript. Empty server response.</string>
+    <string name="error_ai_empty_text">AI couldn\'t process the text. Empty server response.</string>
+    <string name="error_no_speech_detected">No clear speech detected in the recording.</string>
     <string name="error_explain_failed">Failed to generate explanation. Empty response.</string>
     <string name="error_note_empty">Note is empty!</string>
     <string name="error_generate_binot_failed">Failed to generate .binot file</string>
@@ -579,26 +581,32 @@
     <!-- ============================================================ -->
 
     <string name="settings_app_language">App Language</string>
-    <string name="settings_app_language_desc">Choose the language used by the app\'s interface. AI output language is controlled separately in Global AI Preferences.</string>
+    <string name="settings_app_language_desc">Interface language of the app.</string>
     <string name="settings_language_device">Device language</string>
     <string name="settings_language_english">English</string>
     <string name="settings_language_spanish">Spanish</string>
     <string name="settings_select_app_language">Select App Language</string>
+
+    <!-- Language names, translated to the app's current language.
+         Used by AppLanguage.displayLabel() in the language selector. -->
+    <string name="language_name_english">English</string>
+    <string name="language_name_spanish">Spanish</string>
+    <string name="language_name_german">German</string>
 
     <!-- ============================================================ -->
     <!-- Onboarding — skip without API key                             -->
     <!-- ============================================================ -->
 
     <string name="onboarding_no_key_title">No API Key</string>
-    <string name="onboarding_no_key_body">You can continue without an API key and add one later in Settings. AI features won\'t work until then, but recording in Fast mode and reading existing notes will still work.</string>
+    <string name="onboarding_no_key_body">You can continue without an API key and add one later. AI won\'t work until then, but recording and reading notes will.</string>
     <string name="onboarding_start_workspace_no_key">Continue without AI</string>
 
     <!-- ============================================================ -->
     <!-- D1b — Auto-process + Analyze manual                           -->
     <!-- ============================================================ -->
 
-    <string name="settings_auto_process">Auto-process transcriptions</string>
-    <string name="settings_auto_process_desc">Automatically process notes with AI when they\'re ready. If off, you can process each note manually with the Analyze chip.</string>
+    <string name="settings_auto_process">Auto-process</string>
+    <string name="settings_auto_process_desc">Process notes with AI as soon as they\'re ready.</string>
     <string name="result_analyze_chip">Analyze</string>
 
     <!-- ============================================================ -->
@@ -616,7 +624,7 @@
     <!-- ============================================================ -->
 
     <string name="settings_advanced">Advanced</string>
-    <string name="settings_advanced_desc">Less common settings and beta features. Tap to expand.</string>
+    <string name="settings_advanced_desc">Rare settings and beta features.</string>
     <string name="settings_about">About</string>
     <string name="settings_about_fork_notice">Obinot is a community fork of Binot, originally created by DENSLnetion (github.com/DENSLnetion/Binot), licensed under MIT.</string>
 

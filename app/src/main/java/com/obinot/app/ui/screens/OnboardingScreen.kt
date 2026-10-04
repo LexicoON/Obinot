@@ -52,9 +52,11 @@ import com.obinot.app.data.GroqChatRequest
 import com.obinot.app.data.GroqMessage
 import com.obinot.app.data.Part
 import com.obinot.app.data.RetrofitClient
+import com.obinot.app.ui.components.AppLanguage
 import com.obinot.app.ui.components.BouncyButton
 import com.obinot.app.ui.components.BouncyOutlinedButton
 import com.obinot.app.ui.components.BouncyToggleButton
+import com.obinot.app.ui.components.displayLabel
 import com.obinot.app.viewmodel.SettingsViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -833,32 +835,29 @@ private fun OnboardingLanguageSelector(
     modifier: Modifier = Modifier
 ) {
     val haptics = LocalHapticFeedback.current
-
-    val options: List<Pair<String, String>> = listOf(
-        stringResource(R.string.settings_language_device) to "device",
-        "English" to "en",
-        "Español" to "es",
-    )
+    val options = AppLanguage.entries.toList()
 
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
     ) {
-        options.forEach { (label, code) ->
+        options.forEach { lang ->
+            val isSelected = selected == lang.code
             BouncyToggleButton(
-                checked = selected == code,
+                checked = isSelected,
                 onCheckedChange = {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onSelect(code)
+                    onSelect(lang.code)
                 },
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = if (selected == code) FontWeight.Bold else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    text = lang.displayLabel(),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
         }

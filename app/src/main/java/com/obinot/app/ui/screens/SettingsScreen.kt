@@ -70,8 +70,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.obinot.app.R
+import com.obinot.app.ui.components.AppLanguage
 import com.obinot.app.ui.components.BouncyButton
 import com.obinot.app.ui.components.BouncyIconButton
+import com.obinot.app.ui.components.displayLabel
 import com.obinot.app.ui.components.BouncyOutlinedButton
 import com.obinot.app.ui.components.BouncyToggleButton
 import com.obinot.app.ui.components.bouncyClickable
@@ -218,20 +220,42 @@ private fun SettingsSelectionSheet(
 }
 
 @Composable
-private fun BetaBadge() {
+private fun BadgeChip(
+    text: String,
+    containerColor: androidx.compose.ui.graphics.Color,
+    contentColor: androidx.compose.ui.graphics.Color
+) {
     Surface(
         shape = RoundedCornerShape(50),
-        color = MaterialTheme.colorScheme.tertiaryContainer
+        color = containerColor
     ) {
         Text(
-            "BETA",
+            text = text,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onTertiaryContainer,
+            color = contentColor,
             maxLines = 1,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
         )
     }
+}
+
+@Composable
+private fun BetaBadge() {
+    BadgeChip(
+        text = "BETA",
+        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+    )
+}
+
+@Composable
+private fun AlphaBadge() {
+    BadgeChip(
+        text = "ALPHA",
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+    )
 }
 
 @Composable
@@ -268,8 +292,16 @@ private fun TextToggleGroup(
 }
 
 /**
+ * Tipo de badge que puede llevar una fila de Advanced.
+ *  - NONE: sin badge.
+ *  - BETA: funcional pero en evolución. Badge terciario.
+ *  - ALPHA: experimental, puede cambiar o romperse. Badge secundario.
+ */
+private enum class FeatureBadge { NONE, BETA, ALPHA }
+
+/**
  * Fila usada dentro de la card "Advanced". Switch + título + descripción,
- * con badge BETA opcional.
+ * con badge opcional (BETA/ALPHA).
  */
 @Composable
 private fun AdvancedSwitchRow(
@@ -277,7 +309,7 @@ private fun AdvancedSwitchRow(
     description: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    showBetaBadge: Boolean = false
+    badge: FeatureBadge = FeatureBadge.NONE
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.weight(1f)) {
@@ -290,9 +322,13 @@ private fun AdvancedSwitchRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )
-                if (showBetaBadge) {
+                if (badge != FeatureBadge.NONE) {
                     Spacer(modifier = Modifier.width(8.dp))
-                    BetaBadge()
+                    when (badge) {
+                        FeatureBadge.BETA -> BetaBadge()
+                        FeatureBadge.ALPHA -> AlphaBadge()
+                        FeatureBadge.NONE -> { /* no badge */ }
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(4.dp))
@@ -392,13 +428,10 @@ fun SettingsScreen(
         ).sorted()
     }
 
-    val appLanguageOptions = remember(context) {
-        listOf(
-            context.getString(R.string.settings_language_device) to "device",
-            context.getString(R.string.settings_language_english) to "en",
-            context.getString(R.string.settings_language_spanish) to "es",
-        )
-    }
+    // Idiomas soportados. El label se computa con displayLabel() en el
+    // momento de la composición, así respeta cambios de locale.
+    val supportedAppLanguages = remember { AppLanguage.entries.toList() }
+    val currentAppLanguage = remember(appLanguage) { AppLanguage.fromCode(appLanguage) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -640,16 +673,17 @@ fun SettingsScreen(
     }
 
     if (showAppLanguageSheet) {
-        val currentLabel = appLanguageOptions.firstOrNull { it.second == appLanguage }?.first
-            ?: stringResource(R.string.settings_language_device)
+        val currentLabel = currentAppLanguage.displayLabel()
+        val optionLabels = supportedAppLanguages.map { it.displayLabel() }
         SettingsSelectionSheet(
             title = stringResource(R.string.settings_select_app_language),
-            options = appLanguageOptions.map { it.first },
+            options = optionLabels,
             selected = currentLabel,
             searchable = false,
             onDismiss = { showAppLanguageSheet = false },
             onSelect = { label ->
-                val code = appLanguageOptions.firstOrNull { it.first == label }?.second ?: "device"
+                val index = optionLabels.indexOf(label)
+                val code = supportedAppLanguages.getOrNull(index)?.code ?: "device"
                 viewModel.saveAppLanguage(code)
                 showAppLanguageSheet = false
             }
@@ -711,8 +745,7 @@ fun SettingsScreen(
                 SettingsSelectorRow(
                     icon = Icons.Default.Language,
                     label = stringResource(R.string.settings_app_language),
-                    value = appLanguageOptions.firstOrNull { it.second == appLanguage }?.first
-                        ?: stringResource(R.string.settings_language_device),
+                    value = currentAppLanguage.displayLabel(),
                     onClick = { showAppLanguageSheet = true }
                 )
             }
@@ -925,8 +958,6 @@ fun SettingsScreen(
                                         overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f, fill = false)
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    BetaBadge()
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -1170,7 +1201,7 @@ fun SettingsScreen(
                             description = stringResource(R.string.settings_live_transcript_desc),
                             checked = liveTranscriptEnabled,
                             onCheckedChange = { viewModel.saveLiveTranscript(it) },
-                            showBetaBadge = true
+                            badge = FeatureBadge.ALPHA
                         )
 
                         AdvancedDivider()
@@ -1179,8 +1210,7 @@ fun SettingsScreen(
                             title = stringResource(R.string.settings_native_picker),
                             description = stringResource(R.string.settings_native_picker_desc),
                             checked = nativePickerEnabled,
-                            onCheckedChange = { viewModel.saveNativePicker(it) },
-                            showBetaBadge = true
+                            onCheckedChange = { viewModel.saveNativePicker(it) }
                         )
 
                         AdvancedDivider()

@@ -144,16 +144,20 @@ class MainActivity : AppCompatActivity() {
  * para que no haya dos lugares con la misma lógica.
  */
 private fun applyAppLanguageValue(lang: String) {
-    val localeList = when (lang) {
-        "en" -> LocaleListCompat.forLanguageTags("en")
-        "es" -> LocaleListCompat.forLanguageTags("es")
-        else -> LocaleListCompat.getEmptyLocaleList()
+    // Lista de códigos soportados. Si agregás un idioma nuevo, sumalo acá
+    // y en AppLanguage.kt.
+    val supportedCodes = setOf("en", "es", "de")
+
+    val localeList = if (lang in supportedCodes) {
+        LocaleListCompat.forLanguageTags(lang)
+    } else {
+        LocaleListCompat.getEmptyLocaleList()
     }
 
     // Comparación por tag para evitar llamar setApplicationLocales de más.
     // (Un set innecesario dispara recreate() y puede entrar en loop.)
     val currentTag = AppCompatDelegate.getApplicationLocales().toLanguageTags()
-    val newTag = if (lang == "en" || lang == "es") lang else ""
+    val newTag = if (lang in supportedCodes) lang else ""
     if (currentTag != newTag) {
         AppCompatDelegate.setApplicationLocales(localeList)
     }
