@@ -1187,11 +1187,13 @@ fun DismissibleNoteCard(
     }
 
     val neighborTarget = swipeState.dragX * neighborFactor
+    // Vecinos con snap más firme: StiffnessHigh + DampingRatioLowBouncy da
+    // la sensación de "volver a posición con snap" en vez de flotar.
     val animatedNeighborOffset by androidx.compose.animation.core.animateFloatAsState(
         targetValue = neighborTarget,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMediumLow
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessHigh
         ),
         label = "neighborOffset"
     )
@@ -1205,23 +1207,33 @@ fun DismissibleNoteCard(
         else Color.Transparent,
         label = "deleteColor"
     )
-    val iconScale = 0.65f + 0.35f * dragProgress
-    val alignment = if (displayOffset > 0) Alignment.CenterStart else Alignment.CenterEnd
+    // El ícono crece más agresivamente con el drag: 0.7 → 1.2. La alpha se
+    // satura rápido (a 0.66 de progreso ya está full) para que sea visible
+    // apenas el usuario empieza el gesto.
+    val iconScale = 0.7f + 0.5f * dragProgress
+    val iconAlpha = (dragProgress * 1.5f).coerceIn(0f, 1f)
 
     Box(modifier = modifier.fillMaxWidth()) {
         Box(
             Modifier
                 .fillMaxSize()
-                .background(deleteColor, RoundedCornerShape(16.dp))
-                .padding(horizontal = 24.dp),
-            contentAlignment = alignment
+                .background(deleteColor, RoundedCornerShape(16.dp)),
+            // El ícono va centrado en TODA la card. La card en movimiento
+            // tapa la mitad, así que el usuario solo ve la parte expuesta.
+            contentAlignment = Alignment.Center
         ) {
-            if (dragProgress > 0.05f && isActive) {
+            if (isActive && dragProgress > 0.04f) {
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = stringResource(R.string.common_delete),
                     tint = MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier.scale(iconScale)
+                    modifier = Modifier
+                        .size(48.dp)
+                        .graphicsLayer {
+                            scaleX = iconScale
+                            scaleY = iconScale
+                            alpha = iconAlpha
+                        }
                 )
             }
         }
@@ -1238,8 +1250,20 @@ fun DismissibleNoteCard(
                                 swipeState.activeId = note.id
                             }
                             val progress = (abs(localOffsetX) / maxOffsetPx).coerceIn(0f, 1f)
-                            val resistance = 1f - progress * progress * 0.85f
-                            localOffsetX = (localOffsetX + delta * resistance)
+                            // Friction en dos fases:
+                            //   - Fase 1 (progress < 0.4): resistencia alta,
+                            //     el offset crece lento. Da sensación de peso.
+                            //   - Fase 2 (progress >= 0.4): la resistencia se
+                            //     desploma. La card empieza a "seguir al dedo"
+                            //     casi 1:1 y el gesto se siente inmediato.
+                            // Esto cumple el "friction hasta un punto donde se
+                            // snapea rápido a la posición del dedo".
+                            val friction = if (progress < 0.4f) {
+                                1f - progress * 0.9f
+                            } else {
+                                0.64f - (progress - 0.4f) * 0.9f
+                            }.coerceIn(0.1f, 1f)
+                            localOffsetX = (localOffsetX + delta * friction)
                                 .coerceIn(-maxOffsetPx, maxOffsetPx)
                             swipeState.dragX = localOffsetX
                         },

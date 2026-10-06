@@ -37,6 +37,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
@@ -150,6 +151,8 @@ fun ResultScreen(
     sharedTransitionScope: SharedTransitionScope,
     onNavigateBack: () -> Unit
 ) {
+
+    val albumArt by viewModel.albumArt.collectAsState()
     val context = LocalContext.current
     val note by viewModel.note.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -414,18 +417,42 @@ fun ResultScreen(
     // En landscape esa línea es un no-op (el sheet no está abierto).
     // ============================================================
     val sidePanelContent: @Composable (Modifier) -> Unit = { modifier ->
+        // Stagger fade-in sutil: el panel aparece con un fade de 300ms al
+        // abrirse. Le da un toque menos "duro" a la entrada, sobre todo en
+        // portrait (donde es un ModalBottomSheet que aparece de golpe).
+        var panelVisible by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            delay(50)
+            panelVisible = true
+        }
+        val panelAlpha by androidx.compose.animation.core.animateFloatAsState(
+            targetValue = if (panelVisible) 1f else 0f,
+            animationSpec = tween(300),
+            label = "panelAlpha"
+        )
         Column(
             modifier = modifier
+                .graphicsLayer { alpha = panelAlpha }
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 24.dp)
         ) {
             PanelSectionHeader(icon = Icons.AutoMirrored.Filled.Label, title = stringResource(R.string.result_section_labels))
+            val visibleLabels = allLabels.filter { it.isNotBlank() }
+            if (visibleLabels.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.result_no_labels_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
             LazyRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(vertical = 4.dp)
             ) {
-                items(allLabels.filter { it.isNotBlank() }) { label ->
+                items(visibleLabels) { label ->
                     val activeLabels = note!!.label?.split("|")?.map { it.trim() } ?: emptyList()
                     val isSelected = activeLabels.contains(label)
                     val assignedHex = labelColors[label]
@@ -542,17 +569,32 @@ fun ResultScreen(
                     shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
                     onClick = { viewModel.saveReadingFont(0) },
                     selected = selectedFont == FontFamily.SansSerif
-                ) { Text(stringResource(R.string.result_font_sans)) }
+                ) {
+                    Text(
+                        text = stringResource(R.string.result_font_sans),
+                        fontFamily = FontFamily.SansSerif
+                    )
+                }
                 SegmentedButton(
                     shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
                     onClick = { viewModel.saveReadingFont(1) },
                     selected = selectedFont == FontFamily.Serif
-                ) { Text(stringResource(R.string.result_font_serif)) }
+                ) {
+                    Text(
+                        text = stringResource(R.string.result_font_serif),
+                        fontFamily = FontFamily.Serif
+                    )
+                }
                 SegmentedButton(
                     shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
                     onClick = { viewModel.saveReadingFont(2) },
                     selected = selectedFont == FontFamily.Monospace
-                ) { Text(stringResource(R.string.result_font_mono)) }
+                ) {
+                    Text(
+                        text = stringResource(R.string.result_font_mono),
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
             }
 
             SectionSpacer()
@@ -627,6 +669,27 @@ fun ResultScreen(
                             color = MaterialTheme.colorScheme.onTertiaryContainer,
                             fontWeight = FontWeight.Bold
                         )
+                    }
+                }
+
+                if (note!!.audioPath != null && albumArt != null) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .size(96.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                bitmap = albumArt!!,
+                                contentDescription = null,
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(16.dp))
+                            )
+                        }
                     }
                 }
 
@@ -1735,15 +1798,23 @@ fun ResultScreen(
 private fun PanelSectionHeader(icon: ImageVector, title: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(bottom = 12.dp)
+        modifier = Modifier.padding(bottom = 14.dp)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp)
-        )
-        Spacer(Modifier.width(8.dp))
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier.size(32.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+        Spacer(Modifier.width(12.dp))
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
@@ -1755,9 +1826,12 @@ private fun PanelSectionHeader(icon: ImageVector, title: String) {
 
 @Composable
 private fun SectionSpacer() {
-    Spacer(modifier = Modifier.height(16.dp))
-    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-    Spacer(modifier = Modifier.height(16.dp))
+    Spacer(modifier = Modifier.height(20.dp))
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+        modifier = Modifier.padding(horizontal = 4.dp)
+    )
+    Spacer(modifier = Modifier.height(20.dp))
 }
 
 @Composable

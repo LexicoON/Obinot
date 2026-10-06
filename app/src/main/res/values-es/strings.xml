@@ -97,6 +97,32 @@
     <string name="record_greeting_night_4">Horas tranquilas,</string>
     <string name="record_greeting_night_5">Que descanses,</string>
 
+    <!-- Saludos por mes -->
+    <string name="record_greeting_month_jan">Nuevos comienzos,</string>
+    <string name="record_greeting_month_feb">Pensamientos de febrero,</string>
+    <string name="record_greeting_month_mar">Marzo avanza,</string>
+    <string name="record_greeting_month_apr">Aguas de abril,</string>
+    <string name="record_greeting_month_may">Inspiración de mayo,</string>
+    <string name="record_greeting_month_jun">Reflexiones de junio,</string>
+    <string name="record_greeting_month_jul">Verano en el hemisferio,</string>
+    <string name="record_greeting_month_aug">Momentos de agosto,</string>
+    <string name="record_greeting_month_sep">Septiembre arranca,</string>
+    <string name="record_greeting_month_oct">Vibras de octubre,</string>
+    <string name="record_greeting_month_nov">Notas de noviembre,</string>
+    <string name="record_greeting_month_dec">Reflexiones de diciembre,</string>
+
+    <!-- Feriados (fechas fijas) -->
+    <string name="record_greeting_holiday_xmas_eve">Nochebuena,</string>
+    <string name="record_greeting_holiday_xmas">Feliz Navidad,</string>
+    <string name="record_greeting_holiday_nye">Fin de año,</string>
+    <string name="record_greeting_holiday_new_year">Feliz Año Nuevo,</string>
+    <string name="record_greeting_holiday_halloween">Vibras espeluznantes,</string>
+    <string name="record_greeting_holiday_valentines">Feliz San Valentín,</string>
+
+    <!-- GTA VI especial (25-26 de mayo de 2026) -->
+    <string name="record_greeting_gta_vi_eve">Falta un día,</string>
+    <string name="record_greeting_gta_vi_day">Por fin llegó,</string>
+
     <string name="record_guest">Invitado</string>
     <string name="record_listening">Escuchando… (el audio se guarda para el análisis con IA)</string>
     <string name="record_recording_for_ai">Grabando audio… se transcribirá con IA al abrir la nota.</string>
@@ -121,12 +147,12 @@
 
     <!-- Easter egg (visible after 5 taps on greeting) -->
     <string name="record_egg_question_title">✨ Pregunta secreta</string>
-    <string name="record_egg_question_body">¿Quién es la persona especial del desarrollador?</string>
+    <string name="record_egg_question_body">¿Quién es el mejor amigo del desarrollador?</string>
     <string name="record_egg_answer_hint">Tu respuesta…</string>
     <string name="record_egg_submit">Enviar</string>
-    <string name="record_egg_poem_title">Para Dinda</string>
-    <string name="record_egg_poem">En cada línea de código que escribo,\nen cada bug que arreglo de noche —\nsiempre sos vos en la que pienso.\nSos mi funcionalidad favorita,\nmi excepción más hermosa.\n\nSiempre tuyo,\nEl Desarrollador 👨‍💻</string>
-    <string name="record_egg_signature">💻 Con todo el amor del código 💻</string>
+    <string name="record_egg_poem_title">Para Smarky</string>
+    <string name="record_egg_poem">En cada línea de código que escribo,\nen cada bug que arreglo de noche —\nestás ahí, acurrucado a mi lado.\nSos mi funcionalidad favorita,\nmi compañero más leal.\n\nSiempre tuyo,\nTu humano 🐾</string>
+    <string name="record_egg_signature">🐕 Con todo el amor del código 🐕</string>
     <string name="record_egg_close">✨ Cerrar</string>
 
     <!-- ============================================================ -->
@@ -336,6 +362,7 @@
 
     <!-- Side panel -->
     <string name="result_section_labels">Etiquetas</string>
+    <string name="result_no_labels_hint">Sin etiquetas. Creá una para organizar esta nota.</string>
     <string name="result_new_label_chip">Nueva etiqueta</string>
     <string name="result_section_find_format">Buscar y formato</string>
     <string name="result_find_placeholder">Buscar palabra en la nota…</string>

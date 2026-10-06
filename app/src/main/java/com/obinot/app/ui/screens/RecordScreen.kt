@@ -181,16 +181,81 @@ fun RecordScreen(
         )
     }
 
-    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-    val greetings = remember(hour, morningGreetings, afternoonGreetings, eveningGreetings, nightGreetings) {
-        when (hour) {
-            in 5..11 -> morningGreetings
-            in 12..16 -> afternoonGreetings
-            in 17..20 -> eveningGreetings
-            else -> nightGreetings
+    val calendar = remember { Calendar.getInstance() }
+    val hour = calendar.get(Calendar.HOUR_OF_DAY)
+    val month = calendar.get(Calendar.MONTH)
+    val day = calendar.get(Calendar.DAY_OF_MONTH)
+    val year = calendar.get(Calendar.YEAR)
+
+    // Sistema de saludos con prioridad:
+    //   1. GTA VI (día o día anterior) → gana siempre.
+    //   2. Feriados (Navidad, Año Nuevo, Halloween, San Valentín).
+    //   3. Pool combinado: saludos de hora (5) + saludo del mes (1).
+    //      El usuario ve variedad pero cada tanto le toca el mensaje
+    //      temático del mes.
+    //
+    // Nota sobre "feriados": son de calendario fijo (no movibles como
+    // Pascua), para no depender de cálculos litúrgicos que varían por año.
+    val greetings: List<String> = remember(hour, month, day, year) {
+        val specials = buildList {
+            // GTA VI: 25 de mayo de 2026 (víspera) y 26 de mayo de 2026 (día).
+            // Si el año del dispositivo no es 2026, se ignoran: no queremos
+            // que el mensaje aparezca todos los 25/26 de mayo para siempre.
+            if (year == 2026 && month == Calendar.MAY) {
+                if (day == 25) add(context.getString(R.string.record_greeting_gta_vi_eve))
+                if (day == 26) add(context.getString(R.string.record_greeting_gta_vi_day))
+            }
+
+            // Feriados de calendario fijo.
+            when {
+                month == Calendar.DECEMBER && day == 24 ->
+                    add(context.getString(R.string.record_greeting_holiday_xmas_eve))
+                month == Calendar.DECEMBER && day == 25 ->
+                    add(context.getString(R.string.record_greeting_holiday_xmas))
+                month == Calendar.DECEMBER && day == 31 ->
+                    add(context.getString(R.string.record_greeting_holiday_nye))
+                month == Calendar.JANUARY && day == 1 ->
+                    add(context.getString(R.string.record_greeting_holiday_new_year))
+                month == Calendar.OCTOBER && day == 31 ->
+                    add(context.getString(R.string.record_greeting_holiday_halloween))
+                month == Calendar.FEBRUARY && day == 14 ->
+                    add(context.getString(R.string.record_greeting_holiday_valentines))
+            }
+        }
+
+        if (specials.isNotEmpty()) {
+            // Caso especial: solo el mensaje del día. Sin pool con hora,
+            // porque el chiste es que sea exclusivo.
+            specials
+        } else {
+            val hourPool = when (hour) {
+                in 5..11 -> morningGreetings
+                in 12..16 -> afternoonGreetings
+                in 17..20 -> eveningGreetings
+                else -> nightGreetings
+            }
+            val monthMsg = context.getString(
+                when (month) {
+                    Calendar.JANUARY -> R.string.record_greeting_month_jan
+                    Calendar.FEBRUARY -> R.string.record_greeting_month_feb
+                    Calendar.MARCH -> R.string.record_greeting_month_mar
+                    Calendar.APRIL -> R.string.record_greeting_month_apr
+                    Calendar.MAY -> R.string.record_greeting_month_may
+                    Calendar.JUNE -> R.string.record_greeting_month_jun
+                    Calendar.JULY -> R.string.record_greeting_month_jul
+                    Calendar.AUGUST -> R.string.record_greeting_month_aug
+                    Calendar.SEPTEMBER -> R.string.record_greeting_month_sep
+                    Calendar.OCTOBER -> R.string.record_greeting_month_oct
+                    Calendar.NOVEMBER -> R.string.record_greeting_month_nov
+                    else -> R.string.record_greeting_month_dec
+                }
+            )
+            // 5 mensajes de hora + 1 del mes = pool de 6. El del mes sale
+            // ~1 de cada 6 aperturas, no cansa.
+            hourPool + monthMsg
         }
     }
-    val randomGreeting = remember(hour, greetings) { greetings.random() }
+    val randomGreeting = remember(hour, month, day, year, greetings) { greetings.random() }
 
     val guestFallback = stringResource(R.string.record_guest)
     val greetingText = buildAnnotatedString {
@@ -913,7 +978,7 @@ fun RecordScreen(
             confirmButton = {
                 FilledTonalButton(
                     onClick = {
-                        if (easterEggAnswer.trim().equals("dinda", ignoreCase = true)) {
+                        if (easterEggAnswer.trim().equals("smarky", ignoreCase = true)) {
                             showEasterEggDialog = false
                             showLovePopup = true
                         }

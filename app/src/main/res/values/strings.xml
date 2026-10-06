@@ -97,6 +97,32 @@
     <string name="record_greeting_night_4">Quiet hours,</string>
     <string name="record_greeting_night_5">Rest well,</string>
 
+    <!-- Greetings by month -->
+    <string name="record_greeting_month_jan">Fresh starts,</string>
+    <string name="record_greeting_month_feb">February thoughts,</string>
+    <string name="record_greeting_month_mar">Marching forward,</string>
+    <string name="record_greeting_month_apr">April showers,</string>
+    <string name="record_greeting_month_may">May inspiration,</string>
+    <string name="record_greeting_month_jun">June musings,</string>
+    <string name="record_greeting_month_jul">Summer reflections,</string>
+    <string name="record_greeting_month_aug">August moments,</string>
+    <string name="record_greeting_month_sep">September starts,</string>
+    <string name="record_greeting_month_oct">October vibes,</string>
+    <string name="record_greeting_month_nov">November notes,</string>
+    <string name="record_greeting_month_dec">December reflections,</string>
+
+    <!-- Holiday greetings (fixed calendar dates) -->
+    <string name="record_greeting_holiday_xmas_eve">Christmas Eve,</string>
+    <string name="record_greeting_holiday_xmas">Merry Christmas,</string>
+    <string name="record_greeting_holiday_nye">New Year\'s Eve,</string>
+    <string name="record_greeting_holiday_new_year">Happy New Year,</string>
+    <string name="record_greeting_holiday_halloween">Spooky vibes,</string>
+    <string name="record_greeting_holiday_valentines">Happy Valentine\'s,</string>
+
+    <!-- GTA VI special (May 25-26, 2026) -->
+    <string name="record_greeting_gta_vi_eve">One more sleep,</string>
+    <string name="record_greeting_gta_vi_day">It\'s finally here,</string>
+
     <string name="record_guest">Guest</string>
     <string name="record_listening">Listening… (audio is being saved for AI analysis)</string>
     <string name="record_recording_for_ai">Recording audio… it will be transcribed by AI when you open the note.</string>
@@ -121,12 +147,12 @@
 
     <!-- Easter egg (visible after 5 taps on greeting) -->
     <string name="record_egg_question_title">✨ Secret Question</string>
-    <string name="record_egg_question_body">Who is the developer\'s sweetheart?</string>
+    <string name="record_egg_question_body">Who\'s the developer\'s best friend?</string>
     <string name="record_egg_answer_hint">Your answer…</string>
     <string name="record_egg_submit">Submit</string>
-    <string name="record_egg_poem_title">For Dinda</string>
-    <string name="record_egg_poem">In every line of code I write,\nin every bug I fix at night —\nit\'s always you I\'m thinking of.\nYou are my favorite feature,\nmy most beautiful exception.\n\nForever yours,\nThe Developer 👨‍💻</string>
-    <string name="record_egg_signature">💻 With all the love in the codebase 💻</string>
+    <string name="record_egg_poem_title">For Smarky</string>
+    <string name="record_egg_poem">In every line of code I write,\nin every bug I fix at night —\nyou\'re right there, curled up by my side.\nYou are my favorite feature,\nmy most loyal companion.\n\nForever yours,\nYour human 🐾</string>
+    <string name="record_egg_signature">🐕 With all the love in the codebase 🐕</string>
     <string name="record_egg_close">✨ Close</string>
 
     <!-- ============================================================ -->
@@ -336,6 +362,7 @@
 
     <!-- Side panel -->
     <string name="result_section_labels">Labels</string>
+    <string name="result_no_labels_hint">No labels yet. Create one to organize this note.</string>
     <string name="result_new_label_chip">New Label</string>
     <string name="result_section_find_format">Find &amp; Format</string>
     <string name="result_find_placeholder">Find word in note…</string>

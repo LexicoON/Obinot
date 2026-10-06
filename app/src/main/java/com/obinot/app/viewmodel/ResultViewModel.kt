@@ -1,10 +1,13 @@
 package com.obinot.app.viewmodel
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.os.Build
 import android.media.MediaPlayer
 import android.net.Uri
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -82,6 +85,9 @@ class ResultViewModel(
 
     private val _playbackProgress = MutableStateFlow(0f)
     val playbackProgress: StateFlow<Float> = _playbackProgress.asStateFlow()
+    
+    private val _albumArt = MutableStateFlow<ImageBitmap?>(null)
+    val albumArt: StateFlow<ImageBitmap?> = _albumArt.asStateFlow()
 
     val labelColors: StateFlow<Map<String, String>> = labelRepository.allLabels
         .map { labels -> labels.associate { it.name to it.colorHex } }
@@ -172,6 +178,13 @@ class ResultViewModel(
             val fetchedNote = noteRepository.getNoteById(noteId)
             _note.value = fetchedNote
             _processingFailed.value = false
+
+            // Extraer album art embebido del audio (si lo hay). Es una
+            // operación IO rápida (~5-20ms para archivos típicos), así que
+            // se hace en el mismo scope pero en el dispatcher IO.
+            fetchedNote?.audioPath?.let { path ->
+                extractAlbumArt(path)
+            }
 
             // Restaurar el historial del chat desde la nota persistida.
             if (fetchedNote != null) {
@@ -394,6 +407,12 @@ class ResultViewModel(
                 _note.value = updated
                 _processingFailed.value = false
                 noteRepository.update(updated)
+
+                // Nuevo audio → extraer artwork del nuevo archivo. Antes de
+                // esto, reseteamos por las dudas (el file anterior puede
+                // haber tenido cover y este no).
+                _albumArt.value = null
+                extractAlbumArt(newFile.absolutePath)
 
                 launch(Dispatchers.Main) {
                     onResult(true)
@@ -1361,6 +1380,51 @@ class ResultViewModel(
         mediaPlayer?.release()
         mediaPlayer = null
         progressJob?.cancel()
+    }
+
+    /**
+     * Extrae el artwork embebido del archivo de audio (si tiene) y lo
+     * expone en [albumArt]. Fallback silencioso: si no hay artwork o
+     * falla la extracción, `_albumArt` queda en null y la UI muestra el
+     * layout sin cover.
+     *
+     * Casos típicos:
+     *   - Grabaciones hechas con MediaRecorder (Obinot): sin artwork → null.
+     *   - Archivos de música importados (.mp3 con ID3 APIC): con artwork.
+     *   - Archivos m4a de Apple Music: con artwork (atomo covr).
+     *
+     * El bitmap se decodea con BitmapFactory (puede ser grande, típicamente
+     * 500x500 o 1000x1000). No downscaleamos acá porque Compose hace el
+     * escalado en el Image composable sin costo extra de memoria significativo
+     * para estos tamaños.
+     */
+    private fun extractAlbumArt(audioPath: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val file = File(audioPath)
+                if (!file.exists()) return@launch
+
+                val retriever = MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(audioPath)
+                    val picture = retriever.embeddedPicture
+                    if (picture != null && picture.isNotEmpty()) {
+                        val bitmap = BitmapFactory.decodeByteArray(picture, 0, picture.size)
+                        if (bitmap != null) {
+                            val imageBitmap = bitmap.asImageBitmap()
+                            launch(Dispatchers.Main) {
+                                _albumArt.value = imageBitmap
+                            }
+                        }
+                    }
+                } finally {
+                    try { retriever.release() } catch (_: Exception) {}
+                }
+            } catch (e: Exception) {
+                // Sin artwork o archivo corrupto: no es error, solo no mostramos cover.
+                e.printStackTrace()
+            }
+        }
     }
 
     companion object {
