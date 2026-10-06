@@ -41,14 +41,13 @@ import androidx.compose.ui.unit.dp
 /**
  * Aplica el efecto bouncy (squish + rebound) a un [Animatable] externo.
  *
- * Lo siguen usando: FAB de HistoryScreen, play button redondo de ResultScreen,
- * NoteCard de HistoryScreen, TrashedNoteCard de TrashScreen, y el play button
- * del side panel de ResultScreen.
- *
  * El truco del `snapTo` en Release es lo que garantiza que incluso un tap
  * ultra-rápido (press+release en el mismo frame) muestre siempre una
  * animación perceptible: si la animación de Press no alcanzó a progresar,
  * forzamos un snap intermedio antes de animar de vuelta al estado normal.
+ *
+ * Se usa con [combinedClickable] (NoteCard de History, TrashedNoteCard) y
+ * dentro de bouncyClickable / los wrappers de esta librería.
  */
 suspend fun observeBouncyPress(
     interactionSource: MutableInteractionSource,
@@ -132,16 +131,24 @@ private fun rememberBouncyExpand(
 
 /**
  * Modificador clickable con efecto bouncy (scale squish).
+ *
+ * [pressedScale] permite ajustar la intensidad: 0.97f para cards grandes,
+ * 0.94f para filas y botones medianos, 0.88f para icon buttons chicos.
+ *
+ * No se provee indicación (ripple): el feedback visual es la animación
+ * de escala. Esto es intencional para mantener consistencia con el resto
+ * del lenguaje visual de la app.
  */
 @Composable
 fun Modifier.bouncyClickable(
     enabled: Boolean = true,
+    pressedScale: Float = 0.94f,
     onClick: () -> Unit
 ): Modifier {
     val interactionSource = remember { MutableInteractionSource() }
     val scale = remember { Animatable(1f) }
-    LaunchedEffect(interactionSource) {
-        observeBouncyPress(interactionSource, scale)
+    LaunchedEffect(interactionSource, pressedScale) {
+        observeBouncyPress(interactionSource, scale, pressedScale)
     }
     return this
         .graphicsLayer {
@@ -271,7 +278,7 @@ fun BouncyIconButton(
 /**
  * Wrapper de [ToggleButton] de M3 con el mismo squish que los BouncyIconButton.
  *
- * Usado en los toggle groups (Tidy Up / Summary / Analyze, Fast / Accurate,
+ * Se usa en los toggle groups (Tidy Up / Summary / Analyze, Fast / Accurate,
  * Auto / Light / Dark / Amoled, Gemini / Groq / Dynamic, etc.) y en el sort
  * row del History sidebar.
  *

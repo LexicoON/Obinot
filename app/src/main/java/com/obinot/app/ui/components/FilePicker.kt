@@ -10,7 +10,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -88,8 +87,6 @@ data class BinotNoteFileInfo(
 /**
  * Órdenes de la pestaña Audio. Cada uno lleva el fragmento SQL que se pasa
  * directo al MediaStore, para que la paginación server-side respete el orden.
- *
- * `labelRes` apunta a un string traducible. El SQL no se traduce.
  */
 enum class AudioSortOrder(@StringRes val labelRes: Int, val sql: String) {
     DATE_MODIFIED_DESC(R.string.sort_newest, "${MediaStore.Audio.Media.DATE_MODIFIED} DESC"),
@@ -113,19 +110,15 @@ enum class PickerTab(@StringRes val labelRes: Int) {
 private const val PAGE_SIZE = 150
 
 /**
- * Picker unificado: audios del dispositivo + notas .binot/.zip exportadas (el formato
- * nativo de Obinot, compatible con el Binot original). Usado tanto por RecordScreen
- * como por HistoryScreen para que la experiencia de importar sea idéntica en ambos.
+ * Picker unificado: audios del dispositivo + notas .binot/.zip exportadas.
  *
  * Desde 2.2, el tab .binot también lista archivos .zip (mismo contenido, distinto
- * nombre cuando el archivo fue reempaquetado por WhatsApp, Gmail, etc.). El importador
- * ya acepta ambos casos porque detecta el data.json interno.
+ * nombre cuando el archivo fue reempaquetado por WhatsApp, Gmail, etc.).
  *
  * LIMITACIÓN REAL DE ANDROID (no es un bug): a partir de Android 13, sin el permiso
  * MANAGE_EXTERNAL_STORAGE, MediaStore solo puede listar de forma fiable archivos que
- * la propia Obinot exportó. Un .binot/.zip compartido por otra app puede no aparecer
- * en la lista. Por eso la pestaña de Notas siempre incluye un botón "Browse files" que
- * abre el selector del sistema como respaldo garantizado.
+ * la propia Obinot exportó. Por eso la pestaña de Notas siempre incluye un botón
+ * "Browse files" que abre el selector del sistema como respaldo garantizado.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -146,8 +139,6 @@ fun ObinotFilePickerSheet(
     var page by remember { mutableIntStateOf(0) }
     var sortOrder by remember { mutableStateOf(AudioSortOrder.DATE_MODIFIED_DESC) }
 
-    // Estado one-time del aviso de permiso en el tab .binot.
-    // null = todavía cargando; false = nunca mostrado; true = ya mostrado/interactuado.
     var binotTabPermissionPrompted by remember { mutableStateOf<Boolean?>(null) }
 
     LaunchedEffect(Unit) {
@@ -156,7 +147,6 @@ fun ObinotFilePickerSheet(
         ] ?: false
     }
 
-    // Sin este permiso el cursor de MediaStore vuelve vacío para ambas colecciones.
     val storagePermission = if (Build.VERSION.SDK_INT >= 33) {
         android.Manifest.permission.READ_MEDIA_AUDIO
     } else {
@@ -174,18 +164,12 @@ fun ObinotFilePickerSheet(
         ActivityResultContracts.RequestPermission()
     ) { granted -> hasPermission = granted }
 
-    // Auto-prompt SOLO si el sheet se abrió en el tab AUDIO. El tab NOTES tiene su
-    // propio aviso (más abajo), que respeta la regla de "una sola vez".
     LaunchedEffect(Unit) {
         if (initialTab == PickerTab.AUDIO && !hasPermission) {
             permissionLauncher.launch(storagePermission)
         }
     }
 
-    // Carga inicial y recarga al cambiar de tab o de orden.
-    // Ramifica por tab ANTES de llamar a la query, así cada rama produce el
-    // tipo concreto (List<AudioFileInfo> o List<BinotNoteFileInfo>) sin pasar
-    // por un List<Any> intermedio que dispararía unchecked casts.
     LaunchedEffect(hasPermission, activeTab, sortOrder) {
         if (!hasPermission) {
             isLoading = false
@@ -288,9 +272,7 @@ fun ObinotFilePickerSheet(
                 SortOrderRow(current = sortOrder, onSelect = { sortOrder = it })
                 Spacer(Modifier.height(8.dp))
             } else {
-                // Respaldo garantizado: el selector del sistema siempre encuentra el archivo,
-                // aunque MediaStore no lo haya indexado (ver nota de la limitación arriba).
-                OutlinedButton(
+                BouncyOutlinedButton(
                     onClick = { safLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -303,8 +285,6 @@ fun ObinotFilePickerSheet(
 
             val isEmpty = if (activeTab == PickerTab.AUDIO) audioFiles.isEmpty() else binotFiles.isEmpty()
 
-            // Aviso one-time de permiso en el tab .binot.
-            // Se muestra cuando: tab NOTES + sin permiso + flag aún false.
             val showBinotPermissionAviso = activeTab == PickerTab.NOTES
                 && !hasPermission
                 && binotTabPermissionPrompted == false
@@ -326,7 +306,7 @@ fun ObinotFilePickerSheet(
                             textAlign = TextAlign.Center
                         )
                         Spacer(Modifier.height(16.dp))
-                        Button(
+                        BouncyButton(
                             onClick = {
                                 scope.launch {
                                     context.dataStore.edit {
@@ -352,7 +332,7 @@ fun ObinotFilePickerSheet(
                                 textAlign = TextAlign.Center
                             )
                             Spacer(Modifier.height(12.dp))
-                            OutlinedButton(onClick = { permissionLauncher.launch(storagePermission) }) {
+                            BouncyOutlinedButton(onClick = { permissionLauncher.launch(storagePermission) }) {
                                 Text(stringResource(R.string.picker_grant_access))
                             }
                         }
@@ -422,7 +402,7 @@ private fun LoadMoreRow(isLoading: Boolean, onClick: () -> Unit) {
                 strokeWidth = 2.dp
             )
         } else {
-            OutlinedButton(onClick = onClick) {
+            BouncyOutlinedButton(onClick = onClick) {
                 Text(stringResource(R.string.picker_load_more))
             }
         }
@@ -436,10 +416,9 @@ private fun SortOrderRow(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = Modifier.fillMaxWidth()) {
-        OutlinedButton(
+        BouncyOutlinedButton(
             onClick = { expanded = true },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
             Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
@@ -471,7 +450,7 @@ private fun AudioFileRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onSelect)
+            .bouncyClickable(pressedScale = 0.97f) { onSelect() }
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -516,7 +495,7 @@ private fun BinotFileRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onSelect)
+            .bouncyClickable(pressedScale = 0.97f) { onSelect() }
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -650,8 +629,6 @@ private fun queryAudioFiles(
  * Best-effort: en Android 13+, sin MANAGE_EXTERNAL_STORAGE, esto solo ve
  * archivos que la propia app indexó. Por eso el picker siempre ofrece
  * "Browse files" como respaldo.
- *
- * Orden fijo: DATE_MODIFIED DESC. La paginación server-side respeta ese orden.
  */
 private fun queryBinotFiles(
     context: Context,
@@ -665,7 +642,6 @@ private fun queryBinotFiles(
         MediaStore.Files.FileColumns.SIZE,
         MediaStore.Files.FileColumns.DATE_MODIFIED
     )
-    // Listamos .binot y .zip. Ambos son aceptados por el importador.
     val selection = "(${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE ? OR ${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE ?)"
     val args = arrayOf("%.binot", "%.zip")
     val sortOrderSql = "${MediaStore.Files.FileColumns.DATE_MODIFIED} DESC"

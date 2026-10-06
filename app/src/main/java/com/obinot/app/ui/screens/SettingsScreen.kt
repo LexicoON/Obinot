@@ -77,6 +77,7 @@ import androidx.compose.ui.unit.dp
 import com.obinot.app.R
 import com.obinot.app.ui.components.AppLanguage
 import com.obinot.app.ui.components.BouncyButton
+import com.obinot.app.ui.components.bouncyClickable
 import com.obinot.app.ui.components.BouncyIconButton
 import com.obinot.app.ui.components.displayLabel
 import com.obinot.app.ui.components.BouncyOutlinedButton
@@ -187,7 +188,7 @@ private fun SettingsSelectorRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-            .clickable(onClick = onClick)
+            .bouncyClickable(pressedScale = 0.97f) { onClick() }
             .padding(14.dp)
     ) {
         Row(

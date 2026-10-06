@@ -73,6 +73,7 @@ import com.obinot.app.ui.components.BouncyButton
 import com.obinot.app.ui.components.observeBouncyPress
 import com.obinot.app.viewmodel.RecordViewModel
 import com.obinot.app.ui.components.AudioWaveform
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -341,7 +342,6 @@ fun RecordScreen(
 
                         Spacer(modifier = Modifier.weight(0.3f))
 
-                        // Botones de acción: reutilizamos el bloque existente
                         RecordScreenActionButtons(
                             isRecording = isRecording,
                             isPaused = isPaused,
@@ -525,50 +525,21 @@ fun RecordScreen(
                                 .animateEnterExit(enter = slideInVertically { -50 } + fadeIn()),
                             horizontalAlignment = Alignment.Start
                         ) {
-                            Text(
-                                text = greetingText,
-                                style = MaterialTheme.typography.displaySmall,
-                                color = MaterialTheme.colorScheme.onBackground,
-                                textAlign = TextAlign.Start,
-                                modifier = Modifier
-                                    .padding(horizontal = 24.dp)
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onTap = {
-                                                greetingTapCount++
-                                                if (greetingTapCount > 4) {
-                                                    greetingTapCount = 0
-                                                    showEasterEggDialog = true
-                                                    easterEggAnswer = ""
-                                                }
-                                            }
-                                        )
+                            RecordScreenGreetingBlock(
+                                greetingText = greetingText,
+                                timeString = timeString,
+                                isRecording = isRecording,
+                                isPaused = isPaused,
+                                onGreetingTap = {
+                                    greetingTapCount++
+                                    if (greetingTapCount > 4) {
+                                        greetingTapCount = 0
+                                        showEasterEggDialog = true
+                                        easterEggAnswer = ""
                                     }
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Surface(
-                                shape = CircleShape,
-                                color = when {
-                                    isPaused -> MaterialTheme.colorScheme.tertiaryContainer
-                                    isRecording -> MaterialTheme.colorScheme.primaryContainer
-                                    else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                                 },
-                                modifier = Modifier.padding(start = 24.dp, bottom = 16.dp)
-                            ) {
-                                AnimatedContent(targetState = timeString, label = "timeAnimation") { time ->
-                                    Text(
-                                        text = time,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = when {
-                                            isPaused -> MaterialTheme.colorScheme.onTertiaryContainer
-                                            isRecording -> MaterialTheme.colorScheme.onPrimaryContainer
-                                            else -> MaterialTheme.colorScheme.onSecondaryContainer
-                                        },
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                                    )
-                                }
-                            }
+                                horizontalPadding = 24.dp
+                            )
 
                             Spacer(modifier = Modifier.weight(1f))
 
@@ -1018,6 +989,11 @@ fun RecordScreen(
 
 /**
  * Bloque de saludo + timer. Se usa en landscape y en portrait.
+ *
+ * Animación pasiva:
+ *   - Fade-in + slide-in al aparecer (una sola vez, vía `visible`).
+ *   - Cuando isRecording && !isPaused, el timer pill hace un pulse muy sutil
+ *     (~1.4s, ±3% de escala) para dar feedback de "está vivo" sin ser molesto.
  */
 @Composable
 private fun RecordScreenGreetingBlock(
@@ -1028,7 +1004,42 @@ private fun RecordScreenGreetingBlock(
     onGreetingTap: () -> Unit,
     horizontalPadding: Dp = 24.dp
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(60)
+        visible = true
+    }
+
+    val greetingAlpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(700, easing = FastOutSlowInEasing),
+        label = "greetingAlpha"
+    )
+    val greetingOffset by animateFloatAsState(
+        targetValue = if (visible) 0f else -16f,
+        animationSpec = tween(700, easing = FastOutSlowInEasing),
+        label = "greetingOffset"
+    )
+
+    val infinite = rememberInfiniteTransition(label = "greeting_pulse")
+    val timerPulseScale by infinite.animateFloat(
+        initialValue = 1f,
+        targetValue = if (isRecording && !isPaused) 1.03f else 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "timerPulseScale"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = greetingAlpha
+                translationY = greetingOffset
+            }
+    ) {
         Text(
             text = greetingText,
             style = MaterialTheme.typography.displaySmall,
@@ -1049,7 +1060,12 @@ private fun RecordScreenGreetingBlock(
                 isRecording -> MaterialTheme.colorScheme.primaryContainer
                 else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
             },
-            modifier = Modifier.padding(start = horizontalPadding, bottom = 16.dp)
+            modifier = Modifier
+                .padding(start = horizontalPadding, bottom = 16.dp)
+                .graphicsLayer {
+                    scaleX = timerPulseScale
+                    scaleY = timerPulseScale
+                }
         ) {
             AnimatedContent(targetState = timeString, label = "timeAnimation") { time ->
                 Text(
@@ -1070,6 +1086,11 @@ private fun RecordScreenGreetingBlock(
 /**
  * Bloque de botones de acción (record/pause/resume/stop/import).
  * Se usa en landscape y en portrait.
+ *
+ * Animación pasiva:
+ *   - Cuando el botón principal está en estado "Record" (idle), hace un
+ *     breathing muy sutil (~2.4s, ±1.5%) para llamar la atención sin ser
+ *     invasivo. Se apaga apenas el usuario toca o empieza a grabar.
  */
 @Composable
 private fun RecordScreenActionButtons(
@@ -1100,6 +1121,17 @@ private fun RecordScreenActionButtons(
         var isLeftPressed by remember { mutableStateOf(false) }
         var isStopPressed by remember { mutableStateOf(false) }
         var isImportPressed by remember { mutableStateOf(false) }
+
+        val infinite = rememberInfiniteTransition(label = "record_btn_breathing")
+        val breathingScale by infinite.animateFloat(
+            initialValue = 1f,
+            targetValue = if (!isSplit) 1.015f else 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(2400, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "breathingScale"
+        )
 
         val leftTargetWidth = when {
             isStopPressed && isSplit -> 88.dp
@@ -1133,6 +1165,10 @@ private fun RecordScreenActionButtons(
                 modifier = Modifier
                     .width(leftButtonWidth)
                     .height(80.dp)
+                    .graphicsLayer {
+                        scaleX = breathingScale
+                        scaleY = breathingScale
+                    }
                     .clip(CircleShape)
                     .background(
                         when {
@@ -1268,32 +1304,61 @@ private fun RecordScreenActionButtons(
     }
 }
 
+/**
+ * Fondo con dos círculos radiales (primary + secondary).
+ *
+ * Animación pasiva: un drift lento (~14s, ida y vuelta) desplaza sutilmente
+ * los centros de los círculos. Esto da una sensación de "respiración" muy
+ * tenue que evita que la pantalla se vea estática cuando el usuario no
+ * interactúa. El desplazamiento es de ~5% del tamaño de la pantalla, muy
+ * sutil para no distraer.
+ */
 @Composable
 private fun M3ExpressiveBackground() {
     val primaryColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
     val secondaryColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f)
 
+    val infinite = rememberInfiniteTransition(label = "bg_drift")
+    val drift by infinite.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(14000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bg_drift_phase"
+    )
+
     Canvas(modifier = Modifier.fillMaxSize()) {
         val w = size.width
         val h = size.height
 
+        // Círculo primary: centro base en (0.5w, 0.2h). Drift horizontal ±4%
+        // y vertical ±2% del tamaño.
+        val cx1 = w * (0.5f + (drift - 0.5f) * 0.08f)
+        val cy1 = h * (0.2f + (drift - 0.5f) * 0.04f)
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(primaryColor, Color.Transparent),
-                center = Offset(w * 0.5f, h * 0.2f),
+                center = Offset(cx1, cy1),
                 radius = w * 0.8f
             ),
-            center = Offset(w * 0.5f, h * 0.2f),
+            center = Offset(cx1, cy1),
             radius = w * 0.8f
         )
 
+        // Círculo secondary: centro base en (0.2w, 0.7h). Drift invertido
+        // (mientras uno va a la derecha, el otro va a la izquierda) para
+        // que el movimiento se sienta orgánico.
+        val cx2 = w * (0.2f - (drift - 0.5f) * 0.06f)
+        val cy2 = h * (0.7f + (drift - 0.5f) * 0.03f)
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(secondaryColor, Color.Transparent),
-                center = Offset(w * 0.2f, h * 0.7f),
+                center = Offset(cx2, cy2),
                 radius = w * 0.7f
             ),
-            center = Offset(w * 0.2f, h * 0.7f),
+            center = Offset(cx2, cy2),
             radius = w * 0.7f
         )
     }
