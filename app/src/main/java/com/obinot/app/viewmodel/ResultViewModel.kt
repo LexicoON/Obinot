@@ -15,6 +15,7 @@ import com.obinot.app.data.NoteRepository
 import com.obinot.app.data.SettingsRepository
 import com.obinot.app.data.providers.ProviderCapability
 import com.obinot.app.data.providers.ProviderRouter
+import com.obinot.app.data.TextChunker
 import com.obinot.app.utils.AudioCompressor
 import com.obinot.app.utils.AudioRecorderManager
 import com.obinot.app.utils.ImportExportHelper
@@ -1190,18 +1191,52 @@ class ResultViewModel(
                     ?.replace(Regex("<!--BINOT_META:.*?-->"), "")
                     ?.trimEnd()
 
-                // Truncados para evitar 413 Payload Too Large en Groq (y otros
-                // providers con límites estrictos de body). Los límites están
-                // calibrados para que notas típicas entren sin truncar, y notas
-                // largas se corten con un marcador explícito que el modelo ve.
-                val rawTextForContext = truncateForContext(
-                    currentNote.rawText,
-                    maxChars = MAX_CHAT_RAW_TEXT_CHARS,
-                    marker = "\n\n[... note truncated for context, ask about specific sections ...]\n"
-                )
-                val summaryForContext = cleanSummary?.let {
-                    truncateForContext(it, maxChars = MAX_CHAT_SUMMARY_CHARS, marker = "\n[... summary truncated ...]\n")
-                } ?: "(no summary yet)"
+                // Chunks relevantes por BM25 en vez de truncado por chars.
+                //
+                // Por qué: el truncado lineal (tomar los primeros 10k chars)
+                // cortaba el final de la nota, justo donde suele estar la
+                // información más específica (conclusiones, action items).
+                // BM25 rankea por relevancia contra el último mensaje del
+                // user y devuelve los fragmentos que más probablemente
+                // contengan la respuesta.
+                //
+                // Si el rawText es corto (< 1 chunk), no hay nada que rankear
+                // y se manda entero. Si es largo, se mandan los top-N chunks
+                // (N=5) más relevantes, con sus offsets para que el modelo
+                // sepa de dónde vienen.
+                //
+                // El summary se sigue mandando completo. Es corto por diseño
+                // (la AI lo genera resumido) y siempre es contexto útil.
+                val rawChunks = TextChunker.chunk(currentNote.rawText)
+                val relevantChunks = if (rawChunks.size <= 1) {
+                    rawChunks
+                } else {
+                    TextChunker.topChunksByBm25(
+                        chunks = rawChunks,
+                        query = trimmed,
+                        topN = MAX_CHAT_TOP_CHUNKS
+                    ).sortedBy { it.startChar } // reordenar por posición en el doc
+                }
+
+                val rawTextForContext = if (relevantChunks.isEmpty()) {
+                    "(empty note)"
+                } else if (relevantChunks.size == 1 && rawChunks.size <= 1) {
+                    // Nota corta: se manda entera sin marcadores de chunk.
+                    relevantChunks.first().text
+                } else {
+                    // Nota larga: se mandan los chunks relevantes con offsets
+                    // para que el modelo sepa que no es el texto completo.
+                    buildString {
+                        appendLine("[... note is long; showing the ${relevantChunks.size} most relevant excerpt(s) ...]")
+                        relevantChunks.forEachIndexed { idx, chunk ->
+                            appendLine()
+                            appendLine("--- excerpt ${idx + 1} (chars ${chunk.startChar}-${chunk.endChar}) ---")
+                            appendLine(chunk.text)
+                        }
+                    }
+                }
+
+                val summaryForContext = cleanSummary ?: "(no summary yet)"
 
                 val systemPrompt = """
                     You are an AI assistant helping the user understand their own note.
@@ -1339,27 +1374,18 @@ class ResultViewModel(
          * (y de cualquier provider con límite estricto de body). Notas típicas
          * entran sin truncar; notas largas se cortan con un marcador explícito.
          */
-        private const val MAX_CHAT_RAW_TEXT_CHARS = 10_000
-        private const val MAX_CHAT_SUMMARY_CHARS = 4_000
+
+
+        /** Cantidad de chunks del rawText que se mandan al modelo en el chat.
+         *  Con notas típicas (5-30 chunks de 800 chars), 5 cubre ~4000 chars
+         *  de contexto relevante. Subirlo aumenta tokens y latencia sin
+         *  beneficio claro en la mayoría de las preguntas. */
+        private const val MAX_CHAT_TOP_CHUNKS = 5
+
+        /** Cap total de mensajes del historial que se mandan al modelo.
+         *  El resto se descarta (pero sigue persistido en la nota). */
         private const val MAX_CHAT_HISTORY_MESSAGES = 12
         private const val MAX_CHAT_HISTORY_CHARS = 12_000
-
-        /**
-         * Trunca un string a [maxChars]. Si se trunca, agrega [marker] al
-         * final para que el modelo sepa que el contexto fue recortado y no
-         * alucine sobre "el final del texto".
-         */
-        private fun truncateForContext(
-            text: String,
-            maxChars: Int,
-            marker: String
-        ): String {
-            return if (text.length <= maxChars) {
-                text
-            } else {
-                text.take(maxChars) + marker
-            }
-        }
 
         /** Parsea el JSON de chatHistory a la lista de mensajes. Devuelve lista
          *  vacía si el JSON está ausente o malformado. */

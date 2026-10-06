@@ -74,13 +74,18 @@ class HistoryViewModel(
     /**
      * Lista filtrada de notas.
      *
-     * Usa FTS4 cuando hay query, y `allNotes` cuando está vacía. El `flatMapLatest`
-     * cancela la suscripción anterior cada vez que cambia la query, así no se acumulan
-     * flows activos.
+     * Usa FTS5 + bm25() cuando hay query, y `allNotes` cuando está vacía. El
+     * `flatMapLatest` cancela la suscripción anterior cada vez que cambia la
+     * query, así no se acumulan flows activos.
      *
      * El filtro por labels y el sort se aplican en Kotlin (in-memory) porque la
      * lista ya viene acotada por la DB. Mantener la API del ViewModel estable: los
      * consumers siguen viendo `filteredNotes: StateFlow<List<NoteEntity>>`.
+     *
+     * Nota sobre sort: cuando hay query activa, la DB ya devuelve por
+     * relevancia (bm25). Aplicar un sort distinto encima descartaría ese
+     * ranking. Por eso el sort manual solo se aplica cuando la query está
+     * vacía (o cuando el usuario está viendo "todas las notas").
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val filteredNotes: StateFlow<List<NoteEntity>> = combine(
@@ -90,7 +95,8 @@ class HistoryViewModel(
     ) { query, labels, sort -> Triple(query, labels, sort) }
         .flatMapLatest { (query, labels, sort) ->
             val ftsQuery = sanitizeFtsQuery(query)
-            val sourceFlow = if (ftsQuery.isEmpty()) {
+            val hasQuery = ftsQuery.isNotEmpty()
+            val sourceFlow = if (!hasQuery) {
                 repository.allNotes
             } else {
                 repository.searchNotes(ftsQuery)
@@ -103,10 +109,20 @@ class HistoryViewModel(
                     labels.all { it in noteLabels }
                 }
 
-                when (sort) {
-                    1 -> labelFiltered.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenBy { it.timestamp })
-                    2 -> labelFiltered.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenBy { it.title.lowercase() })
-                    else -> labelFiltered.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenByDescending { it.timestamp })
+                // Si hay query activa, respetamos el orden que devolvió la DB
+                // (bm25). Si no hay query, aplicamos el sort del usuario.
+                if (hasQuery) {
+                    // Sort secundario solo por pin, para que las fijadas
+                    // aparezcan arriba sin destruir el ranking bm25.
+                    labelFiltered.sortedWith(
+                        compareByDescending<NoteEntity> { it.isPinned }
+                    )
+                } else {
+                    when (sort) {
+                        1 -> labelFiltered.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenBy { it.timestamp })
+                        2 -> labelFiltered.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenBy { it.title.lowercase() })
+                        else -> labelFiltered.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenByDescending { it.timestamp })
+                    }
                 }
             }
         }
@@ -454,21 +470,28 @@ class HistoryViewModel(
 }
 
 /**
- * Sanitiza el input del usuario para que sea un query válido de FTS4.
+ * Sanitiza el input del usuario para que sea un query válido de FTS5.
+ *
+ * En FTS5 los operadores y caracteres especiales son más estrictos que en
+ * FTS4. La forma más robusta de armar un query seguro es envolver cada
+ * token en comillas dobles y pegar el `*` de prefix matching AFUERA de las
+ * comillas:
+ *
+ *   "hello"* "world"*
+ *
+ * Esto matchea "hello", "helloWorld", "world", "worldly", etc. Y evita que
+ * un token con `-`, `:`, `(`, `)` o `"` rompa el parser.
  *
  * Reglas:
  *  - Split por cualquier cosa que no sea letra/número/underscore.
- *  - Cada token se convierte en `token*` para prefix matching (así "meet" matchea "meeting").
+ *  - Cada token se envuelve en `"..."` y se le agrega `*` afuera.
  *  - Se descartan tokens vacíos.
  *
  * Ejemplos:
- *  - "hello world"  → "hello* world*"
- *  - "reunión, lunes!" → "reunión* lunes*"
- *  - "a-b"          → "a* b*"
- *  - "!!!"          → "" (el caller lo trata como query vacío → allNotes)
- *
- * Si el resultado es vacío, el ViewModel cae al flow `allNotes` (mismo comportamiento
- * que con query en blanco).
+ *  - "hello world"     → "\"hello\"* \"world\"*"
+ *  - "reunión, lunes!" → "\"reunión\"* \"lunes\"*"
+ *  - "a-b"             → "\"a\"* \"b\"*"
+ *  - "!!!"             → "" (el caller lo trata como query vacío → allNotes)
  */
 private fun sanitizeFtsQuery(input: String): String {
     val trimmed = input.trim()
@@ -476,5 +499,5 @@ private fun sanitizeFtsQuery(input: String): String {
     return trimmed
         .split(Regex("[^\\p{L}\\p{N}_]+"))
         .filter { it.isNotBlank() }
-        .joinToString(" ") { "$it*" }
+        .joinToString(" ") { "\"$it\"*" }
 }

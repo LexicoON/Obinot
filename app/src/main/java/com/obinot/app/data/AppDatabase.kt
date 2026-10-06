@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [NoteEntity::class, LabelEntity::class, NoteFtsEntity::class],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -131,18 +131,81 @@ abstract class AppDatabase : RoomDatabase() {
 
         /**
          * 9 → 10: agrega `chatHistory` a la tabla notes.
-         *
-         * Guarda el historial del chat "Ask AI about this note" como JSON array
-         * de {role, content}. Se persiste por nota, así el usuario ve la
-         * conversación al reabrir. No afecta FTS (no está indexado).
-         *
-         * El .binot NO incluye este campo (exportNoteToBinot usa un data.json
-         * explícito). El backup .obinotbak SÍ lo incluye (Moshi serializa la
-         * NoteEntity completa).
          */
         val MIGRATION_9_10 = object : Migration(9, 10) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE notes ADD COLUMN chatHistory TEXT DEFAULT NULL")
+            }
+        }
+
+        /**
+         * 10 → 11: migra la tabla FTS de FTS4 a FTS5.
+         *
+         * Por qué: FTS5 trae la función `bm25()` nativa. FTS4 no tiene ranking
+         * por relevancia (solo ordena por rowid o por columnas normales).
+         * Pasamos de "ordenar por timestamp" a "ordenar por relevancia real
+         * calculada por SQLite".
+         *
+         * Estrategia: DROP + CREATE + rebuild. No hay forma de "alterar" una
+         * tabla virtual FTS de FTS4 a FTS5, así que hay que recrearla.
+         *
+         * Los nombres de triggers y columnas coinciden EXACTAMENTE con lo que
+         * Room genera para `@Fts5(contentEntity = NoteEntity::class)`. Si no
+         * coinciden, la validación de schema falla al abrir la DB.
+         *
+         * El `rebuild` final repuebla el índice desde la tabla content (`notes`),
+         * así que no perdemos los datos ya indexados.
+         */
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 1) Dropear triggers y tabla FTS4 existentes.
+                // El orden importa: primero triggers, después tabla.
+                db.execSQL("DROP TRIGGER IF EXISTS room_fts_content_sync_notes_fts_BEFORE_UPDATE")
+                db.execSQL("DROP TRIGGER IF EXISTS room_fts_content_sync_notes_fts_BEFORE_DELETE")
+                db.execSQL("DROP TRIGGER IF EXISTS room_fts_content_sync_notes_fts_AFTER_UPDATE")
+                db.execSQL("DROP TRIGGER IF EXISTS room_fts_content_sync_notes_fts_AFTER_INSERT")
+                db.execSQL("DROP TABLE IF EXISTS `notes_fts`")
+
+                // 2) Crear la tabla virtual FTS5 con external content.
+                // El formato del CREATE coincide con el que genera Room para
+                // @Fts5(contentEntity = NoteEntity::class). Los tipos (TEXT) no
+                // se declaran en FTS5 — FTS5 no tiene tipos por columna.
+                db.execSQL(
+                    "CREATE VIRTUAL TABLE IF NOT EXISTS `notes_fts` " +
+                    "USING FTS5(`title`, `rawText`, `summary`, content=`notes`)"
+                )
+
+                // 3) Recrear los 4 triggers de sincronización. Misma estructura
+                // que en FTS4 (los triggers de Room son idénticos).
+                db.execSQL(
+                    "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_notes_fts_BEFORE_UPDATE " +
+                    "BEFORE UPDATE ON `notes` BEGIN " +
+                    "DELETE FROM `notes_fts` WHERE `docid`=OLD.`rowid`; " +
+                    "END"
+                )
+                db.execSQL(
+                    "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_notes_fts_BEFORE_DELETE " +
+                    "BEFORE DELETE ON `notes` BEGIN " +
+                    "DELETE FROM `notes_fts` WHERE `docid`=OLD.`rowid`; " +
+                    "END"
+                )
+                db.execSQL(
+                    "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_notes_fts_AFTER_UPDATE " +
+                    "AFTER UPDATE ON `notes` BEGIN " +
+                    "INSERT INTO `notes_fts`(`docid`, `title`, `rawText`, `summary`) " +
+                    "VALUES (NEW.`rowid`, NEW.`title`, NEW.`rawText`, NEW.`summary`); " +
+                    "END"
+                )
+                db.execSQL(
+                    "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_notes_fts_AFTER_INSERT " +
+                    "AFTER INSERT ON `notes` BEGIN " +
+                    "INSERT INTO `notes_fts`(`docid`, `title`, `rawText`, `summary`) " +
+                    "VALUES (NEW.`rowid`, NEW.`title`, NEW.`rawText`, NEW.`summary`); " +
+                    "END"
+                )
+
+                // 4) Rebuild: repoblar el índice desde la tabla content (`notes`).
+                db.execSQL("INSERT INTO `notes_fts`(`notes_fts`) VALUES('rebuild')")
             }
         }
     }
