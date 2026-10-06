@@ -363,6 +363,18 @@
     <!-- ============================================================ -->
 
     <string name="settings_title">Einstellungen</string>
+    <string name="settings_appearance_subtitle">Design, Farben, Sprache</string>
+    <string name="settings_ia_subtitle">Aufgaben, Formate, Ausgabesprache</string>
+    <string name="settings_recording_subtitle">Aufnahmemodus, Kompression, Transkription</string>
+    <string name="settings_advanced_subtitle">Erweiterte Optionen</string>
+    <string name="settings_about_subtitle">App-Info, Lizenz, Links</string>
+    <string name="settings_section_ia">KI-Verarbeitung</string>
+    <string name="settings_section_recording">Aufnahme</string>
+    <string name="settings_theme_title">Design</string>
+    <string name="settings_updates_card_title">Updates</string>
+    <string name="settings_backup_card_title">Backup &amp; Wiederherstellung</string>
+    <string name="settings_advanced_rotation_title">API-Schlüsselrotation</string>
+    <string name="settings_advanced_rotation_desc">Wechselt zwischen bis zu 3 Schlüsseln pro Anbieter bei Erreichen des Limits. Kommt im nächsten Update.</string>
     <string name="settings_personalization">Personalisierung</string>
     <string name="settings_your_name">Dein Name</string>
     <string name="settings_save_name">Namen speichern</string>

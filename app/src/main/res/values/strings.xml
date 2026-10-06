@@ -363,6 +363,18 @@
     <!-- ============================================================ -->
 
     <string name="settings_title">Settings</string>
+    <string name="settings_appearance_subtitle">Theme, colors, language</string>
+    <string name="settings_ia_subtitle">Tasks, formats, output language</string>
+    <string name="settings_recording_subtitle">Recording mode, compression, transcription</string>
+    <string name="settings_advanced_subtitle">Power-user options</string>
+    <string name="settings_about_subtitle">App info, license, links</string>
+    <string name="settings_section_ia">AI Processing</string>
+    <string name="settings_section_recording">Recording</string>
+    <string name="settings_theme_title">Theme</string>
+    <string name="settings_updates_card_title">Updates</string>
+    <string name="settings_backup_card_title">Backup &amp; Restore</string>
+    <string name="settings_advanced_rotation_title">API Key Rotation</string>
+    <string name="settings_advanced_rotation_desc">Rotate between up to 3 keys per provider when one hits the rate limit. Coming in the next update.</string>
     <string name="settings_personalization">Personalization</string>
     <string name="settings_your_name">Your Name</string>
     <string name="settings_save_name">Save Name</string>

@@ -363,6 +363,18 @@
     <!-- ============================================================ -->
 
     <string name="settings_title">Ajustes</string>
+    <string name="settings_appearance_subtitle">Tema, colores, idioma</string>
+    <string name="settings_ia_subtitle">Tareas, formatos, idioma de salida</string>
+    <string name="settings_recording_subtitle">Modo de grabación, compresión, transcripción</string>
+    <string name="settings_advanced_subtitle">Opciones avanzadas</string>
+    <string name="settings_about_subtitle">Info de la app, licencia, links</string>
+    <string name="settings_section_ia">Procesamiento con IA</string>
+    <string name="settings_section_recording">Grabación</string>
+    <string name="settings_theme_title">Tema</string>
+    <string name="settings_updates_card_title">Actualizaciones</string>
+    <string name="settings_backup_card_title">Respaldo y restauración</string>
+    <string name="settings_advanced_rotation_title">Rotación de API Keys</string>
+    <string name="settings_advanced_rotation_desc">Rota entre hasta 3 keys por proveedor cuando una llega al límite. Próximamente.</string>
     <string name="settings_personalization">Personalización</string>
     <string name="settings_your_name">Tu nombre</string>
     <string name="settings_save_name">Guardar nombre</string>

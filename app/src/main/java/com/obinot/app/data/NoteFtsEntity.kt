@@ -27,5 +27,5 @@ import androidx.room.Fts5
 data class NoteFtsEntity(
     val title: String,
     val rawText: String,
-    val summary: String?
+    val summary: String
 )
