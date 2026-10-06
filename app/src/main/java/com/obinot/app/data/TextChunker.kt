@@ -5,27 +5,19 @@ import kotlin.math.ln
 /**
  * Chunking de texto + ranking BM25 en Kotlin.
  *
- * Se usa para armar el contexto del chat: en vez de mandar el rawText
- * entero (que puede disparar 413 Payload Too Large), se divide en chunks
- * y se mandan solo los top-N más relevantes al último mensaje del user.
+ * Se usa para:
+ *   1) Armar el contexto del chat (topChunksByBm25).
+ *   2) Re-rankear los resultados de búsqueda de History (rankByBm25).
  *
  * BM25 (Okapi) es la fórmula de ranking clásica:
  *
  *   score(q, d) = Σ IDF(qi) · [tf(qi, d) · (k1 + 1)] / [tf(qi, d) + k1 · (1 - b + b · |d| / avgdl)]
  *
- *   donde IDF(qi) = ln(1 + (N - df(qi) + 0.5) / (df(qi) + 0.5))
- *
  * Parámetros estándar: k1 = 1.2 (saturación de término), b = 0.75
- * (normalización por longitud). No los exponemos porque los defaults
- * funcionan bien para texto corto en idiomas naturales.
- *
- * Nota de alcance: esta implementación NO pretende reemplazar a un motor
- * de búsqueda. Es deliberadamente simple y suficiente para rankear 5-50
- * chunks de una sola nota contra una query de 3-15 palabras.
+ * (normalización por longitud).
  */
 object TextChunker {
 
-    /** Un fragmento de texto con su rango de caracteres en el original. */
     data class Chunk(
         val text: String,
         val startChar: Int,
@@ -39,16 +31,6 @@ object TextChunker {
     private const val K1 = 1.2
     private const val B = 0.75
 
-    /**
-     * Divide [text] en chunks de ~[chunkSize] caracteres con [overlap]
-     * de solape. El solape sirve para no cortar una oración justo en el
-     * límite y perder contexto en el ranking.
-     *
-     * Casos borde:
-     *   - Texto vacío → lista vacía.
-     *   - Texto más corto que chunkSize → un solo chunk con todo.
-     *   - overlap >= chunkSize → se fuerza a chunkSize/2 para evitar loop.
-     */
     fun chunk(
         text: String,
         chunkSize: Int = DEFAULT_CHUNK_SIZE,
@@ -57,7 +39,6 @@ object TextChunker {
         if (text.isEmpty()) return emptyList()
         if (text.length <= chunkSize) return listOf(Chunk(text, 0, text.length))
 
-        // Guarda contra loop infinito si overlap >= chunkSize.
         val effectiveOverlap = overlap.coerceAtMost(chunkSize / 2)
         val chunks = mutableListOf<Chunk>()
         var start = 0
@@ -70,16 +51,6 @@ object TextChunker {
         return chunks
     }
 
-    /**
-     * Devuelve los top-[topN] chunks con mayor score BM25 contra [query].
-     *
-     * Si la query está vacía o no matchea ningún término, devuelve los
-     * primeros [topN] chunks (fallback razonable: las primeras secciones
-     * de la nota).
-     *
-     * El orden devuelto es el de relevancia descendente. El caller puede
-     * reordenarlos por startChar si quiere preservar el orden del documento.
-     */
     fun topChunksByBm25(
         chunks: List<Chunk>,
         query: String,
@@ -95,7 +66,6 @@ object TextChunker {
         val n = chunks.size.toDouble()
         val avgLen = chunkTokens.map { it.size }.average().takeIf { it > 0.0 } ?: 1.0
 
-        // Document frequency por término: en cuántos chunks aparece.
         val docFreq = mutableMapOf<String, Int>()
         queryTerms.forEach { term ->
             var df = 0
@@ -127,18 +97,64 @@ object TextChunker {
             .take(topN)
             .map { chunks[it.first] }
 
-        // Fallback: si ningún chunk matcheó, devolvemos los primeros topN
-        // (comportamiento previo al BM25: primeras secciones de la nota).
         return ranked.ifEmpty { chunks.take(topN) }
     }
 
     /**
-     * Tokeniza texto en términos normalizados: lowercase + split por
-     * cualquier cosa que no sea letra/número (Unicode-aware, así funciona
-     * con acentos y caracteres no-latinos).
+     * Rankea una lista genérica de items por BM25 contra [query].
      *
-     * Ej: "Hola, mundo! ¿Cómo estás?" → ["hola", "mundo", "cómo", "estás"]
+     * [documentOf] extrae el texto buscable de cada item. El caller decide
+     * qué campos concatenar (ej: title + summary + rawText).
+     *
+     * Devuelve los items ordenados por score descendente. Si la query está
+     * vacía o no hay matches, devuelve la lista original sin tocar.
+     *
+     * Se usa en HistoryViewModel para re-rankear los resultados de FTS4
+     * (que solo filtra por MATCH, sin scoring). El costo es O(N · T) donde
+     * N = número de candidatos y T = términos de la query. Para búsquedas
+     * típicas (N < 100, T < 5) es instantáneo.
      */
+    fun <T> rankByBm25(
+        items: List<T>,
+        query: String,
+        documentOf: (T) -> String
+    ): List<T> {
+        if (items.isEmpty()) return items
+        val queryTerms = tokenize(query)
+        if (queryTerms.isEmpty()) return items
+
+        val itemTokens = items.map { tokenize(documentOf(it)) }
+        val n = items.size.toDouble()
+        val avgLen = itemTokens.map { it.size }.average().takeIf { it > 0.0 } ?: 1.0
+
+        val docFreq = mutableMapOf<String, Int>()
+        queryTerms.forEach { term ->
+            var df = 0
+            itemTokens.forEach { tokens ->
+                if (tokens.any { it == term }) df++
+            }
+            docFreq[term] = df
+        }
+
+        val scored = items.mapIndexed { i, item ->
+            val tokens = itemTokens[i]
+            val docLen = tokens.size.toDouble()
+            var score = 0.0
+            queryTerms.forEach { term ->
+                val tf = tokens.count { it == term }.toDouble()
+                if (tf > 0.0) {
+                    val df = (docFreq[term] ?: 0).toDouble()
+                    val idf = ln(1.0 + (n - df + 0.5) / (df + 0.5))
+                    val norm = 1.0 - B + B * (docLen / avgLen)
+                    score += idf * (tf * (K1 + 1.0)) / (tf + K1 * norm)
+                }
+            }
+            item to score
+        }
+
+        return scored.sortedByDescending { it.second }.map { it.first }
+    }
+
     private fun tokenize(text: String): List<String> =
         text.lowercase()
             .split(Regex("[^\\p{L}\\p{N}]+"))

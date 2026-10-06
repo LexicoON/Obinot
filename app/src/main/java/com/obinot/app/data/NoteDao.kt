@@ -16,42 +16,23 @@ interface NoteDao {
     fun getTrashedNotes(): Flow<List<NoteEntity>>
 
     /**
-     * Búsqueda Full-Text sobre title/rawText/summary, ordenada por relevancia.
+     * Búsqueda Full-Text sobre title/rawText/summary, devuelta por timestamp.
      *
-     * FTS5 + bm25():
-     *   - `bm25(notes_fts)` devuelve un float por fila. SQLite lo define
-     *     como "más negativo = más relevante" (es una convención rara pero
-     *     documentada). Por eso el ORDER BY va ASC: los valores más chicos
-     *     (más negativos) van primero.
-     *   - Dentro de la misma relevancia, las notas fijadas van primero
-     *     (isPinned DESC). Después empata por timestamp DESC.
+     * FTS4 solo filtra candidatos (MATCH sobre índice invertido). El ranking
+     * por relevancia NO se hace acá: lo hace HistoryViewModel después, con
+     * BM25 en Kotlin (TextChunker.rankByBm25). Motivo: Room 2.7.0 no expone
+     * `@Fts5`, así que no tenemos `bm25()` nativo de SQLite.
      *
-     * El `query` debe venir sanitizado (ver `sanitizeFtsQuery` en HistoryViewModel):
-     * tokens separados por espacios, con `"` alrededor de los tokens si
-     * contienen caracteres especiales, opcionalmente con `*` al final para
-     * prefix matching. Si el query está vacío o mal formado, SQLite puede
-     * fallar al parsearlo — por eso el sanitizado es responsabilidad del
-     * caller.
-     *
-     * El JOIN con `notes_fts` es sobre `docid` (que coincide con el rowid
-     * de `notes`). La proyección `notes.*` es necesaria para que Room arme
-     * la NoteEntity completa.
+     * El `query` debe venir sanitizado (ver `sanitizeFtsQuery` en HistoryViewModel).
      */
     @Query(
         "SELECT notes.* FROM notes " +
         "INNER JOIN notes_fts ON notes.id = notes_fts.docid " +
         "WHERE notes.isTrashed = 0 AND notes_fts MATCH :query " +
-        "ORDER BY bm25(notes_fts) ASC, notes.isPinned DESC, notes.timestamp DESC"
+        "ORDER BY notes.isPinned DESC, notes.timestamp DESC"
     )
     fun searchNotes(query: String): Flow<List<NoteEntity>>
 
-    /**
-     * Notas recientes para el carrusel de RecordScreen.
-     *
-     * Antes RecordViewModel hacía getAllNotesSync() cada 1.5s y filtraba/ordenaba
-     * en memoria. Ahora la DB devuelve solo 16 filas y Room re-emite automáticamente
-     * cuando la tabla cambia, así que no hace falta ningún polling.
-     */
     @Query(
         "SELECT * FROM notes " +
         "WHERE isTrashed = 0 AND title != '[[BINOT_SYSTEM_LABELS]]' " +
@@ -59,23 +40,12 @@ interface NoteDao {
     )
     fun getRecentNotes(limit: Int = 16): Flow<List<NoteEntity>>
 
-    /**
-     * Nota sintética que almacena el catálogo de labels creados a mano.
-     * Lookup puntual — usa el índice index_notes_title.
-     */
     @Query("SELECT * FROM notes WHERE title = '[[BINOT_SYSTEM_LABELS]]' LIMIT 1")
     fun getSystemNote(): Flow<NoteEntity?>
 
     @Query("SELECT * FROM notes WHERE title = '[[BINOT_SYSTEM_LABELS]]' LIMIT 1")
     suspend fun getSystemNoteSync(): NoteEntity?
 
-    /**
-     * Proyección liviana: solo la columna label de notas no-trasheadas (excluyendo la
-     * system note). Evita cargar rawText/summary/highlightsInfo de cada nota cuando
-     * lo único que se necesita es el catálogo de labels.
-     *
-     * Cada fila es un string "label1|label2|label3"; el split se hace en Kotlin.
-     */
     @Query(
         "SELECT label FROM notes " +
         "WHERE isTrashed = 0 AND label IS NOT NULL AND label != '' " +
@@ -83,18 +53,6 @@ interface NoteDao {
     )
     fun getAllLabelStrings(): Flow<List<String>>
 
-    /**
-     * Devuelve las notas no-trasheadas (excluyendo la system note) cuyo campo
-     * `label` contiene el string `:label`. El filtro es deliberadamente
-     * laxo (`LIKE '%' || label || '%'`) para aprovechar el LIKE de SQLite;
-     * el caller debe verificar que el label aparezca como token completo en
-     * el string `label1|label2|label3` antes de operar sobre la nota.
-     *
-     * Se usa para renameLabel / deleteLabel: en vez de cargar TODAS las notas
-     * (getAllNotesSync) y filtrar en Kotlin, la DB devuelve solo el subconjunto
-     * que puede contener el label. Con 500 notas y 10 labels típicos, reduce
-     * el trabajo de 500 a ~50 filas.
-     */
     @Query(
         "SELECT * FROM notes " +
         "WHERE isTrashed = 0 AND label LIKE '%' || :label || '%' " +
