@@ -10,6 +10,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.EnterExitState
@@ -29,6 +30,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -39,7 +44,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -52,6 +56,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Brush
@@ -140,6 +145,9 @@ import com.obinot.app.utils.AudioRecorderManager
 import com.obinot.app.viewmodel.ResultViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
@@ -150,7 +158,6 @@ fun ResultScreen(
     sharedTransitionScope: SharedTransitionScope,
     onNavigateBack: () -> Unit
 ) {
-
     val context = LocalContext.current
     val note by viewModel.note.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -163,8 +170,6 @@ fun ResultScreen(
     val labelColors by viewModel.labelColors.collectAsState()
     val showAnalyzeChip by viewModel.showAnalyzeChip.collectAsState()
 
-    // Detección de orientación. En landscape el side panel pasa a ser permanente
-    // en la columna derecha; en portrait sigue siendo un ModalBottomSheet.
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
@@ -177,6 +182,10 @@ fun ResultScreen(
     var showAudioPicker by remember { mutableStateOf(false) }
 
     var isEditMode by remember { mutableStateOf(false) }
+    // Cuando una nota tiene summary + rawText, el usuario puede alternar
+    // entre ambos sin perder el summary. forceTranscript = true fuerza
+    // mostrar el rawText aunque exista summary.
+    var forceTranscript by remember(note?.id) { mutableStateOf(false) }
     var textValue by remember(note?.id) { mutableStateOf(TextFieldValue(note?.rawText ?: "")) }
     val undoStack = remember { mutableStateListOf<TextFieldValue>() }
     val redoStack = remember { mutableStateListOf<TextFieldValue>() }
@@ -209,9 +218,6 @@ fun ResultScreen(
     var rawTextLayoutResult by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
     var rawTextWindowBounds by remember { mutableStateOf<Rect?>(null) }
 
-    // ============================================================
-    // AI Chat about this note (2.1)
-    // ============================================================
     var showChatSheet by remember { mutableStateOf(false) }
     var showChatTooltip by remember { mutableStateOf(false) }
     var showSummaryEditor by remember { mutableStateOf(false) }
@@ -287,9 +293,6 @@ fun ResultScreen(
         }
     }
 
-    // Launcher para exportar Markdown: SAF CreateDocument pide al usuario
-    // dónde guardar, y después escribimos directo a ese URI sin disparar
-    // ningún share intent.
     val exportMarkdownLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/markdown")
     ) { uri ->
@@ -306,9 +309,6 @@ fun ResultScreen(
         showContent = true
     }
 
-    // Progreso del gesto de predictive back (0f = reposo, 1f = gesto completo).
-    // Se usa para escalar y desvanecer la pantalla mientras el usuario
-    // desliza desde el borde. Se resetea al soltar (cancelación o cierre).
     var predictiveBackProgress by remember { mutableFloatStateOf(0f) }
 
     val closeNote: () -> Unit = {
@@ -316,14 +316,10 @@ fun ResultScreen(
         onNavigateBack()
     }
 
-    // ¿Hay algún estado transitorio abierto que requiera un back "instantáneo"?
-    // En esos casos el gesto predictivo no tiene sentido — un diálogo o una
-    // selección de texto no se "previsualiza" deslizando.
     val hasTransientState = isTextSelected || showCustomMenu || showCancelConfirmDialog ||
         (showSidePanel && !isLandscape) || isEditMode || isTitleFocused ||
         showChatSheet || showChatTooltip || showSummaryEditor
 
-    // BackHandler normal para estados transitorios. Instantáneo, sin animación.
     BackHandler(enabled = hasTransientState) {
         when {
             isTextSelected || showCustomMenu -> clearSelection()
@@ -337,12 +333,6 @@ fun ResultScreen(
         }
     }
 
-    // PredictiveBackHandler para el estado base. Mientras el usuario desliza,
-    // `progress` emite valores de 0f a 1f. Aplicamos esa progresión al
-    // graphicsLayer del Scaffold para escalar y desvanecer la nota.
-    // Si el gesto se completa, `progress.collect` retorna y navegamos atrás.
-    // Si el usuario suelta a mitad, la coroutine se cancela y el `finally`
-    // resetea el progreso — la pantalla vuelve a la normalidad.
     PredictiveBackHandler(enabled = !hasTransientState) { progress ->
         try {
             progress.collect { backEvent ->
@@ -402,407 +392,460 @@ fun ResultScreen(
     val safeTopMargin = if (topInsets < 24.dp) 24.dp else topInsets
 
     // ============================================================
-    // Contenido del side panel (labels + find/format + font + export/media).
+    // SIDE PANEL — Cards agrupadas (mismo lenguaje visual que Settings).
     //
-    // Se extrajo a una lambda @Composable para poder reutilizarlo en los dos
-    // layouts:
-    //   - Portrait: dentro de ModalBottomSheet (comportamiento actual).
-    //   - Landscape: columna fija a la derecha del contenido.
-    //
-    // La lambda captura el estado del composable padre. Cualquier acción que
-    // requiera cerrar el sheet en portrait (mostrar picker, restaurar rawText,
-    // etc.) también cierra el sheet explícitamente vía `showSidePanel = false`.
-    // En landscape esa línea es un no-op (el sheet no está abierto).
+    // Se extrajo a una lambda @Composable para reutilizarlo en los dos
+    // layouts: portrait (ModalBottomSheet) y landscape (columna fija).
     // ============================================================
     val sidePanelContent: @Composable (Modifier) -> Unit = { modifier ->
         Column(
             modifier = modifier
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 24.dp)
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            PanelSectionHeader(icon = Icons.AutoMirrored.Filled.Label, title = stringResource(R.string.result_section_labels))
-            val visibleLabels = allLabels.filter { it.isNotBlank() }
-            if (visibleLabels.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.result_no_labels_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-            }
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(vertical = 4.dp)
+            // ============ Card: Organización (Labels) ============
+            SidePanelCard(
+                icon = Icons.AutoMirrored.Filled.Label,
+                title = stringResource(R.string.result_section_labels)
             ) {
-                items(visibleLabels) { label ->
-                    val activeLabels = note!!.label?.split("|")?.map { it.trim() } ?: emptyList()
-                    val isSelected = activeLabels.contains(label)
-                    val assignedHex = labelColors[label]
-
-                    val (chipColor, chipTextColor) = resolveLabelColors(assignedHex, isSelected)
-
-                    BouncyChip(
-                        onClick = { viewModel.toggleLabel(label) },
-                        containerColor = chipColor,
-                        contentColor = chipTextColor
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.Label, null, tint = chipTextColor, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(label, color = chipTextColor, fontWeight = FontWeight.Bold)
-                    }
-                }
-                item {
-                    BouncyChip(
-                        onClick = { showNewLabelDialog = true },
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    ) {
-                        Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(R.string.result_new_label_chip), color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-
-            SectionSpacer()
-
-            PanelSectionHeader(icon = Icons.Default.AutoAwesome, title = stringResource(R.string.chat_menu_item))
-
-            BouncyButton(
-                onClick = {
-                    showSidePanel = false
-                    showChatSheet = true
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AutoAwesome,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.chat_menu_item),
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            SectionSpacer()
-
-            PanelSectionHeader(icon = Icons.Default.Search, title = stringResource(R.string.result_section_find_format))
-            OutlinedTextField(
-                value = searchHighlightQuery,
-                onValueChange = { searchHighlightQuery = it },
-                label = { Text(stringResource(R.string.result_find_placeholder)) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.common_search)) },
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            val cleanSummaryForSearch = remember(note!!.summary) {
-                note!!.summary?.replace(Regex("<!--BINOT_META:.*?-->"), "")?.trimEnd()
-            }
-            val textToSearch = cleanSummaryForSearch ?: note!!.rawText
-            val lines = remember(textToSearch) { textToSearch.split("\n") }
-            val searchResults = remember(lines, searchHighlightQuery) {
-                if (searchHighlightQuery.isBlank()) emptyList()
-                else lines.mapIndexedNotNull { index, line ->
-                    if (line.contains(searchHighlightQuery, ignoreCase = true)) {
-                        index to line.trim()
-                    } else null
-                }
-            }
-
-            if (searchHighlightQuery.isNotBlank() && searchResults.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 150.dp)) {
-                    items(searchResults) { (index, line) ->
-                        Text(
-                            text = line, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                coroutineScope.launch {
-                                    temporaryHighlight = searchHighlightQuery
-                                    if (note!!.summary != null) {
-                                        val target = markdownLinePositions[index]
-                                            ?: markdownLinePositions.keys.filter { it <= index }.maxOrNull()?.let { markdownLinePositions[it] }
-                                        if (target != null) {
-                                            markdownScrollState.animateScrollTo(target)
-                                        }
-                                    } else {
-                                        rawTextScrollState.animateScrollTo(index * 60)
-                                    }
-                                    showSidePanel = false
-                                    delay(4000)
-                                    temporaryHighlight = ""
-                                }
-                            }.padding(vertical = 12.dp, horizontal = 8.dp)
-                        )
-                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                    }
-                }
-            }
-
-            SectionSpacer()
-
-            PanelSectionHeader(icon = Icons.Default.TextFields, title = stringResource(R.string.result_section_reading_font))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                SegmentedButton(
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
-                    onClick = { viewModel.saveReadingFont(0) },
-                    selected = selectedFont == FontFamily.SansSerif
-                ) {
+                val visibleLabels = allLabels.filter { it.isNotBlank() }
+                if (visibleLabels.isEmpty()) {
                     Text(
-                        text = stringResource(R.string.result_font_sans),
-                        fontFamily = FontFamily.SansSerif
+                        text = stringResource(R.string.result_no_labels_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        modifier = Modifier.padding(bottom = 4.dp)
                     )
                 }
-                SegmentedButton(
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
-                    onClick = { viewModel.saveReadingFont(1) },
-                    selected = selectedFont == FontFamily.Serif
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 2.dp)
                 ) {
-                    Text(
-                        text = stringResource(R.string.result_font_serif),
-                        fontFamily = FontFamily.Serif
-                    )
-                }
-                SegmentedButton(
-                    shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
-                    onClick = { viewModel.saveReadingFont(2) },
-                    selected = selectedFont == FontFamily.Monospace
-                ) {
-                    Text(
-                        text = stringResource(R.string.result_font_mono),
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-            }
+                    items(visibleLabels) { label ->
+                        val activeLabels = note!!.label?.split("|")?.map { it.trim() } ?: emptyList()
+                        val isSelected = activeLabels.contains(label)
+                        val assignedHex = labelColors[label]
+                        val (chipColor, chipTextColor) = resolveLabelColors(assignedHex, isSelected)
 
-            SectionSpacer()
-
-            PanelSectionHeader(icon = Icons.Default.Tune, title = stringResource(R.string.result_section_export_media))
-
-            if (note!!.audioPath == null) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                ) {
-                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = stringResource(R.string.result_no_audio_info),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
+                        BouncyChip(
+                            onClick = { viewModel.toggleLabel(label) },
+                            containerColor = chipColor,
+                            contentColor = chipTextColor
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Label, null, tint = chipTextColor, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                label,
+                                color = chipTextColor,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
                     }
-                }
-            }
-
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if (note!!.summary != null) {
                     item {
+                        BouncyChip(
+                            onClick = { showNewLabelDialog = true },
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ) {
+                            Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                stringResource(R.string.result_new_label_chip),
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ============ Card: IA (Chat + acciones del summary) ============
+            SidePanelCard(
+                icon = Icons.Default.AutoAwesome,
+                title = stringResource(R.string.result_section_ai)
+            ) {
+                BouncyButton(
+                    onClick = {
+                        showSidePanel = false
+                        showChatSheet = true
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.chat_menu_item),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                if (note!!.summary != null) {
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         BouncyCapsule(
                             onClick = {
                                 showSummaryEditor = true
                                 showSidePanel = false
                             },
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.result_edit_summary), tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.result_edit_summary), color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold)
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                stringResource(R.string.result_edit_summary),
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        BouncyCapsule(
+                            onClick = {
+                                viewModel.restoreRawText()
+                                forceTranscript = true
+                                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.result_summary_removed)) }
+                                showSidePanel = false
+                            },
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                Icons.Default.Restore,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                stringResource(R.string.result_restore_original),
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ============ Card: Búsqueda y lectura ============
+            SidePanelCard(
+                icon = Icons.Default.Search,
+                title = stringResource(R.string.result_section_find_format)
+            ) {
+                OutlinedTextField(
+                    value = searchHighlightQuery,
+                    onValueChange = { searchHighlightQuery = it },
+                    label = { Text(stringResource(R.string.result_find_placeholder)) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.common_search), modifier = Modifier.size(18.dp)) },
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                val cleanSummaryForSearch = remember(note!!.summary) {
+                    note!!.summary?.replace(Regex("<!--BINOT_META:.*?-->"), "")?.trimEnd()
+                }
+                val textToSearch = cleanSummaryForSearch ?: note!!.rawText
+                val lines = remember(textToSearch) { textToSearch.split("\n") }
+                val searchResults = remember(lines, searchHighlightQuery) {
+                    if (searchHighlightQuery.isBlank()) emptyList()
+                    else lines.mapIndexedNotNull { index, line ->
+                        if (line.contains(searchHighlightQuery, ignoreCase = true)) {
+                            index to line.trim()
+                        } else null
+                    }
+                }
+
+                if (searchHighlightQuery.isNotBlank() && searchResults.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    androidx.compose.foundation.lazy.LazyColumn(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp)
+                    ) {
+                        items(searchResults) { (index, line) ->
+                            Text(
+                                text = line,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        coroutineScope.launch {
+                                            temporaryHighlight = searchHighlightQuery
+                                            if (note!!.summary != null) {
+                                                val target = markdownLinePositions[index]
+                                                    ?: markdownLinePositions.keys.filter { it <= index }.maxOrNull()?.let { markdownLinePositions[it] }
+                                                if (target != null) {
+                                                    markdownScrollState.animateScrollTo(target)
+                                                }
+                                            } else {
+                                                rawTextScrollState.animateScrollTo(index * 60)
+                                            }
+                                            showSidePanel = false
+                                            delay(4000)
+                                            temporaryHighlight = ""
+                                        }
+                                    }
+                                    .padding(vertical = 10.dp, horizontal = 8.dp)
+                            )
+                            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    stringResource(R.string.result_section_reading_font),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    SegmentedButton(
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
+                        onClick = { viewModel.saveReadingFont(0) },
+                        selected = selectedFont == FontFamily.SansSerif
+                    ) {
+                        Text(
+                            text = stringResource(R.string.result_font_sans),
+                            fontFamily = FontFamily.SansSerif
+                        )
+                    }
+                    SegmentedButton(
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
+                        onClick = { viewModel.saveReadingFont(1) },
+                        selected = selectedFont == FontFamily.Serif
+                    ) {
+                        Text(
+                            text = stringResource(R.string.result_font_serif),
+                            fontFamily = FontFamily.Serif
+                        )
+                    }
+                    SegmentedButton(
+                        shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+                        onClick = { viewModel.saveReadingFont(2) },
+                        selected = selectedFont == FontFamily.Monospace
+                    ) {
+                        Text(
+                            text = stringResource(R.string.result_font_mono),
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+            }
+
+            // ============ Card: Exportar y multimedia ============
+            SidePanelCard(
+                icon = Icons.Default.Tune,
+                title = stringResource(R.string.result_section_export_media)
+            ) {
+                if (note!!.audioPath == null) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = stringResource(R.string.result_no_audio_info),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item {
+                        BouncyCapsule(
+                            onClick = {
+                                showSidePanel = false
+                                showAudioPicker = true
+                            },
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                        ) {
+                            Icon(
+                                Icons.Default.SwapHoriz,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                if (note!!.audioPath == null) stringResource(R.string.result_add_audio)
+                                else stringResource(R.string.result_replace_audio),
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium
+                            )
                         }
                     }
 
                     item {
                         BouncyCapsule(
                             onClick = {
-                                viewModel.restoreRawText()
-                                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.result_summary_removed)) }
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val cleanSummaryToCopy = note!!.summary?.replace(Regex("<!--BINOT_META:.*?-->"), "")?.trimEnd()
+                                clipboard.setPrimaryClip(ClipData.newPlainText("Obinot Note", cleanSummaryToCopy ?: note!!.rawText))
+                                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.result_text_copied)) }
                                 showSidePanel = false
                             },
-                            containerColor = MaterialTheme.colorScheme.errorContainer
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
                         ) {
-                            Icon(Icons.Default.Restore, contentDescription = stringResource(R.string.result_restore_original), tint = MaterialTheme.colorScheme.onErrorContainer)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.result_restore_original), color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-
-                item {
-                    BouncyCapsule(
-                        onClick = {
-                            showSidePanel = false
-                            showAudioPicker = true
-                        },
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                    ) {
-                        Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            if (note!!.audioPath == null) stringResource(R.string.result_add_audio) else stringResource(R.string.result_replace_audio),
-                            color = MaterialTheme.colorScheme.onTertiaryContainer,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-
-
-                if (note!!.audioPath != null) {
-                    item {
-                        val playInteraction = remember { MutableInteractionSource() }
-                        val playScale = remember { Animatable(1f) }
-                        LaunchedEffect(playInteraction) {
-                            playInteraction.interactions.collect { i ->
-                                when (i) {
-                                    is PressInteraction.Press -> playScale.animateTo(0.92f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium))
-                                    is PressInteraction.Release, is PressInteraction.Cancel -> playScale.animateTo(1f, spring(0.40f, Spring.StiffnessMediumLow))
-                                }
-                            }
-                        }
-                        Box(
-                            modifier = Modifier
-                                .graphicsLayer {
-                                    scaleX = playScale.value
-                                    scaleY = playScale.value
-                                }
-                                .height(48.dp).clip(CircleShape)
-                                .background(if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer)
-                                .clickable(
-                                    interactionSource = playInteraction,
-                                    indication = null,
-                                    onClick = { viewModel.toggleAudio() }
-                                )
-                                .padding(horizontal = 16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                    contentDescription = stringResource(R.string.result_cd_play_pause),
-                                    tint = if (isPlaying) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    if (isPlaying) stringResource(R.string.result_pause) else stringResource(R.string.result_play),
-                                    color = if (isPlaying) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            }
+                            Icon(
+                                Icons.Default.ContentCopy,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                stringResource(R.string.result_copy),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium
+                            )
                         }
                     }
 
                     item {
                         BouncyCapsule(
-                            onClick = { exportAudioLauncher.launch("Obinot_Audio_${note!!.id}.mp4") },
+                            onClick = {
+                                viewModel.shareBinotToDocuments(context) { uri, msg ->
+                                    coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
+                                    if (uri != null) {
+                                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "application/zip"
+                                            putExtra(Intent.EXTRA_STREAM, uri)
+                                            putExtra(Intent.EXTRA_TEXT, context.getString(R.string.result_share_text, note!!.title))
+                                            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                            clipData = ClipData.newRawUri("", uri)
+                                        }
+                                        context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.result_share_chooser)))
+                                    }
+                                }
+                                showSidePanel = false
+                            },
                             containerColor = MaterialTheme.colorScheme.surfaceVariant
                         ) {
-                            Icon(Icons.Default.Download, contentDescription = stringResource(R.string.result_save_audio_button), tint = MaterialTheme.colorScheme.onSurface)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.result_save_audio_button), color = MaterialTheme.colorScheme.onSurface)
+                            Icon(
+                                Icons.Default.Share,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                stringResource(R.string.result_share_binot),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    }
+
+                    item {
+                        BouncyCapsule(
+                            onClick = {
+                                val safeTitle = note!!.title
+                                    .ifBlank { "Obinot_Note" }
+                                    .replace(Regex("[^a-zA-Z0-9.-]"), "_")
+                                exportMarkdownLauncher.launch("${safeTitle}.md")
+                                showSidePanel = false
+                            },
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Icon(
+                                Icons.Default.Description,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                stringResource(R.string.result_export_markdown),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    }
+
+                    if (note!!.audioPath != null) {
+                        item {
+                            BouncyCapsule(
+                                onClick = { exportAudioLauncher.launch("Obinot_Audio_${note!!.id}.mp4") },
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Icon(
+                                    Icons.Default.Download,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    stringResource(R.string.result_save_audio_button),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
                         }
                     }
                 }
-
-                item {
-                    BouncyCapsule(
-                        onClick = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            val cleanSummaryToCopy = note!!.summary?.replace(Regex("<!--BINOT_META:.*?-->"), "")?.trimEnd()
-                            clipboard.setPrimaryClip(ClipData.newPlainText("Obinot Note", cleanSummaryToCopy ?: note!!.rawText))
-                            coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.result_text_copied)) }
-                            showSidePanel = false
-                        },
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.result_copy), tint = MaterialTheme.colorScheme.onSurface)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.result_copy), color = MaterialTheme.colorScheme.onSurface)
-                    }
-                }
-
-                item {
-                    BouncyCapsule(
-                        onClick = {
-                            // Guarda el .binot en Documentos y luego abre el share
-                            // dialog del sistema con el archivo. En API < 29 no se
-                            // guarda (no hay MediaStore.Downloads) — solo se comparte
-                            // desde cache.
-                            viewModel.shareBinotToDocuments(context) { uri, msg ->
-                                // Mostramos el snackbar SIEMPRE: informa si el
-                                // archivo se guardó en Documentos o no.
-                                coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
-                                if (uri != null) {
-                                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "application/zip"
-                                        putExtra(Intent.EXTRA_STREAM, uri)
-                                        putExtra(Intent.EXTRA_TEXT, context.getString(R.string.result_share_text, note!!.title))
-                                        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                        clipData = ClipData.newRawUri("", uri)
-                                    }
-                                    context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.result_share_chooser)))
-                                }
-                            }
-                            showSidePanel = false
-                        },
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    ) {
-                        Icon(Icons.Default.Share, contentDescription = stringResource(R.string.result_share_binot), tint = MaterialTheme.colorScheme.onSurface)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.result_share_binot), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                item {
-                    BouncyCapsule(
-                        onClick = {
-                            // SAF CreateDocument abre el picker "guardar como…".
-                            // Cuando el usuario confirma, escribimos el Markdown
-                            // directo al URI elegido. Sin share intent.
-                            val safeTitle = note!!.title
-                                .ifBlank { "Obinot_Note" }
-                                .replace(Regex("[^a-zA-Z0-9.-]"), "_")
-                            exportMarkdownLauncher.launch("${safeTitle}.md")
-                            showSidePanel = false
-                        },
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    ) {
-                        Icon(Icons.Default.Description, contentDescription = stringResource(R.string.result_export_markdown), tint = MaterialTheme.colorScheme.onSurface)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.result_export_markdown), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
-                    }
-                }
             }
 
-            if (note!!.audioPath != null) {
-                Spacer(modifier = Modifier.height(12.dp))
-                ExpressiveAudioBar(
-                    progress = playbackProgress,
-                    onSeek = { viewModel.seekAudio(it) }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 
+    // ============================================================
+    // MAIN LAYOUT
+    // ============================================================
     with(sharedTransitionScope) {
         Scaffold(
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
             containerColor = MaterialTheme.colorScheme.surface,
             modifier = Modifier
                 .graphicsLayer {
-                    // Animación del predictive back: escala hacia abajo y
-                    // desvanece a medida que el usuario desliza desde el borde.
                     val p = predictiveBackProgress
                     val scale = 1f - p * 0.12f
                     scaleX = scale
@@ -896,7 +939,11 @@ fun ResultScreen(
                                         },
                                         enabled = undoStack.isNotEmpty()
                                     ) {
-                                        Icon(imageVector = Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.result_cd_undo), tint = if (undoStack.isNotEmpty()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.Undo,
+                                            contentDescription = stringResource(R.string.result_cd_undo),
+                                            tint = if (undoStack.isNotEmpty()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                                        )
                                     }
                                     BouncyIconButton(
                                         onClick = {
@@ -907,15 +954,14 @@ fun ResultScreen(
                                         },
                                         enabled = redoStack.isNotEmpty()
                                     ) {
-                                        Icon(imageVector = Icons.AutoMirrored.Filled.Redo, contentDescription = stringResource(R.string.result_cd_redo), tint = if (redoStack.isNotEmpty()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.Redo,
+                                            contentDescription = stringResource(R.string.result_cd_redo),
+                                            tint = if (redoStack.isNotEmpty()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                                        )
                                     }
                                 }
                             } else if (!isLandscape) {
-                                // En landscape el side panel está siempre visible,
-                                // así que el botón 3-puntos no hace falta.
-                                //
-                                // Tap: abre el menú normal.
-                                // Long press: abre el chat directamente.
                                 ChatOptionsButton(
                                     onClick = { showSidePanel = true },
                                     onLongPress = {
@@ -962,11 +1008,21 @@ fun ResultScreen(
                                     undoStack.clear()
                                     redoStack.clear()
                                     isEditMode = true
+                                    // Al entrar a editar el rawText, forzamos
+                                    // el modo Transcript.
+                                    forceTranscript = true
                                 }
                             },
                             expanded = isFabExpanded,
-                            icon = { Icon(if (isEditMode) Icons.Default.Check else Icons.Default.Edit, contentDescription = if (isEditMode) stringResource(R.string.result_process) else stringResource(R.string.result_edit)) },
-                            text = { Text(if (isEditMode) stringResource(R.string.result_process) else stringResource(R.string.result_edit)) },
+                            icon = {
+                                Icon(
+                                    if (isEditMode) Icons.Default.Check else Icons.Default.Edit,
+                                    contentDescription = if (isEditMode) stringResource(R.string.result_process) else stringResource(R.string.result_edit)
+                                )
+                            },
+                            text = {
+                                Text(if (isEditMode) stringResource(R.string.result_process) else stringResource(R.string.result_edit))
+                            },
                             containerColor = if (isEditMode) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primaryContainer,
                             contentColor = if (isEditMode) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onPrimaryContainer,
                             interactionSource = fabInteraction,
@@ -983,9 +1039,6 @@ fun ResultScreen(
                                         exit = scaleOut(targetScale = 0f, animationSpec = tween(300))
                                     )
                                 })
-                                // En landscape el side panel está a la derecha, así
-                                // que corremos el FAB hacia la izquierda para que no
-                                // quede debajo del panel.
                                 .padding(end = if (isLandscape) 360.dp else 0.dp)
                         )
                     }
@@ -1037,9 +1090,6 @@ fun ResultScreen(
                         }
                 ) {
                     Row(modifier = Modifier.fillMaxSize()) {
-                        // Columna izquierda: contenido.
-                        // En portrait ocupa el 100%; en landscape se queda con el
-                        // espacio restante después del panel (360dp).
                         Column(
                             modifier = if (isLandscape) {
                                 Modifier.weight(1f).fillMaxHeight()
@@ -1047,6 +1097,18 @@ fun ResultScreen(
                                 Modifier.fillMaxSize()
                             }
                         ) {
+                            // ============ HERO HEADER ============
+                            // Fecha + word count + indicador de audio.
+                            // Solo se muestra cuando no estamos en edit mode
+                            // (para no cargar la pantalla mientras editás).
+                            if (!isEditMode) {
+                                ResultHeroHeader(
+                                    note = note!!,
+                                    hasPhoneTranscription = hasPhoneTranscription
+                                )
+                            }
+
+                            // ============ ANALYZE CHIP ============
                             if (showAnalyzeChip) {
                                 Box(
                                     modifier = Modifier
@@ -1054,7 +1116,10 @@ fun ResultScreen(
                                         .padding(horizontal = 16.dp, vertical = 4.dp)
                                 ) {
                                     BouncyChip(
-                                        onClick = { viewModel.analyzeManually() },
+                                        onClick = {
+                                            forceTranscript = false
+                                            viewModel.analyzeManually()
+                                        },
                                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                     ) {
@@ -1066,12 +1131,69 @@ fun ResultScreen(
                                         Spacer(Modifier.width(6.dp))
                                         Text(
                                             text = stringResource(R.string.result_analyze_chip),
-                                            fontWeight = FontWeight.Bold
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.labelMedium
                                         )
                                     }
                                 }
                             }
 
+                            // ============ SEGMENTED CONTROL ============
+                            // Solo si existen Summary + Transcript.
+                            val hasSummary = !note!!.summary.isNullOrEmpty()
+                            val hasRawText = note!!.rawText.isNotBlank()
+                                && note!!.rawText != AudioRecorderManager.PENDING_TRANSCRIPTION
+                            if (hasSummary && hasRawText && !isLoading && !isEditMode) {
+                                SingleChoiceSegmentedButtonRow(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                                ) {
+                                    SegmentedButton(
+                                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                                        onClick = { forceTranscript = false },
+                                        selected = !forceTranscript
+                                    ) {
+                                        Icon(
+                                            Icons.Default.AutoAwesome,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(stringResource(R.string.result_tab_summary))
+                                    }
+                                    SegmentedButton(
+                                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                                        onClick = { forceTranscript = true },
+                                        selected = forceTranscript
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Description,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(stringResource(R.string.result_tab_transcript))
+                                    }
+                                }
+                            }
+
+                            // ============ AUDIO PLAYER (compacto) ============
+                            // Solo si hay audio. Reemplaza el play button + barra
+                            // que antes estaban dispersos en el side panel.
+                            if (note!!.audioPath != null && !isLoading) {
+                                CompactAudioPlayer(
+                                    isPlaying = isPlaying,
+                                    progress = playbackProgress,
+                                    onTogglePlay = { viewModel.toggleAudio() },
+                                    onSeek = { viewModel.seekAudio(it) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                                )
+                            }
+
+                            // ============ LOADING ============
                             if (isLoading) {
                                 val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
                                 val alpha by infiniteTransition.animateFloat(
@@ -1116,6 +1238,7 @@ fun ResultScreen(
                                 }
                             }
 
+                            // ============ ERROR (pending transcription) ============
                             if (error != null && note!!.rawText == AudioRecorderManager.PENDING_TRANSCRIPTION && note!!.audioPath != null) {
                                 Card(
                                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
@@ -1130,43 +1253,6 @@ fun ResultScreen(
                                         Text(error!!, color = MaterialTheme.colorScheme.onErrorContainer, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
                                         Spacer(modifier = Modifier.height(32.dp))
 
-                                        val playInteraction = remember { MutableInteractionSource() }
-                                        val playScale = remember { Animatable(1f) }
-                                        LaunchedEffect(playInteraction) {
-                                            playInteraction.interactions.collect { i ->
-                                                when (i) {
-                                                    is PressInteraction.Press -> playScale.animateTo(0.90f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium))
-                                                    is PressInteraction.Release, is PressInteraction.Cancel -> playScale.animateTo(1f, spring(0.40f, Spring.StiffnessMediumLow))
-                                                }
-                                            }
-                                        }
-
-                                        Box(
-                                            modifier = Modifier
-                                                .size(80.dp)
-                                                .graphicsLayer {
-                                                    scaleX = playScale.value
-                                                    scaleY = playScale.value
-                                                }
-                                                .clip(CircleShape)
-                                                .background(MaterialTheme.colorScheme.error)
-                                                .clickable(interactionSource = playInteraction, indication = null) { viewModel.toggleAudio() },
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                                contentDescription = stringResource(R.string.result_cd_play_pause),
-                                                tint = MaterialTheme.colorScheme.onError,
-                                                modifier = Modifier.size(40.dp)
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.height(24.dp))
-                                        ExpressiveAudioBar(
-                                            progress = playbackProgress,
-                                            onSeek = { viewModel.seekAudio(it) },
-                                            tint = MaterialTheme.colorScheme.error
-                                        )
-                                        Spacer(modifier = Modifier.height(24.dp))
                                         BouncyCapsule(
                                             onClick = { exportAudioLauncher.launch("Obinot_Audio_Fallback_${note!!.id}.mp4") },
                                             containerColor = MaterialTheme.colorScheme.surfaceVariant
@@ -1185,228 +1271,149 @@ fun ResultScreen(
                                 )
                             }
 
-                            if (!note!!.summary.isNullOrEmpty() && !isLoading) {
-                                CompositionLocalProvider(LocalTextToolbar provides customTextToolbar) {
-                                    key(selectionResetKey) {
-                                        SelectionContainer(modifier = Modifier.fillMaxSize().clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = null
-                                        ) {
-                                            if (isTitleFocused) focusManager.clearFocus()
-                                        }) {
-                                            val cleanSummary = remember(note!!.summary) {
-                                                note!!.summary!!.replace(Regex("<!--BINOT_META:.*?-->"), "").trimEnd()
-                                            }
-                                            MarkdownText(
-                                                text = cleanSummary,
-                                                scrollState = markdownScrollState,
-                                                highlightsInfo = note!!.highlightsInfo,
-                                                onSavedHighlightClick = { word, noteText, line, start, end ->
-                                                    currentHighlightWord = word
-                                                    highlightNoteInput = noteText
-                                                    pendingHighlightLine = line
-                                                    pendingHighlightStart = start
-                                                    pendingHighlightEnd = end
-                                                    showHighlightDialog = true
-                                                },
-                                                onResolveSelection = { resolver -> resolveMarkdownSelection = resolver },
-                                                highlightQuery = temporaryHighlight,
-                                                onCheckboxToggle = { lineIndex -> viewModel.toggleCheckbox(lineIndex) },
-                                                onMathCopy = { latex ->
-                                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                                    clipboard.setPrimaryClip(ClipData.newPlainText("LaTeX", latex))
-                                                    coroutineScope.launch {
-                                                        snackbarHostState.showSnackbar(context.getString(R.string.result_math_copied))
-                                                    }
-                                                },
-                                                fontFamily = selectedFont,
-                                                linePositions = markdownLinePositions,
-                                                modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            } else if (!isLoading && note!!.rawText != AudioRecorderManager.PENDING_TRANSCRIPTION) {
-                                if (isEditMode) {
-                                    Column(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp)
-                                            .padding(bottom = 16.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                                .padding(16.dp)
-                                        ) {
-                                            BasicTextField(
-                                                value = textValue,
-                                                onValueChange = { newValue ->
-                                                    if (newValue.text != textValue.text) {
-                                                        undoStack.add(textValue)
-                                                        redoStack.clear()
-                                                    }
-                                                    textValue = newValue
-                                                },
-                                                modifier = Modifier.fillMaxSize(),
-                                                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                                                    color = MaterialTheme.colorScheme.onSurface,
-                                                    fontFamily = selectedFont
-                                                ),
-                                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    val rawPrefix = "Raw Transcript:\n\n"
-                                    val savedRawHighlights = remember(note!!.highlightsInfo) {
-                                        val list = mutableListOf<Triple<String, Int, Int>>()
-                                        val json = note!!.highlightsInfo
-                                        if (!json.isNullOrBlank() && json != "[]") {
-                                            try {
-                                                val array = org.json.JSONArray(json)
-                                                for (i in 0 until array.length()) {
-                                                    val obj = array.getJSONObject(i)
-                                                    if (obj.optInt("line", -1) == -1 && obj.optInt("start", -1) >= 0) {
-                                                        list.add(Triple(obj.getString("text"), obj.getInt("start"), obj.getInt("end")))
-                                                    }
-                                                }
-                                            } catch (e: Exception) { e.printStackTrace() }
-                                        }
-                                        list
-                                    }
-                                    val rawHighlightNotesByKey = remember(note!!.highlightsInfo) {
-                                        val map = mutableMapOf<String, String>()
-                                        val json = note!!.highlightsInfo
-                                        if (!json.isNullOrBlank() && json != "[]") {
-                                            try {
-                                                val array = org.json.JSONArray(json)
-                                                for (i in 0 until array.length()) {
-                                                    val obj = array.getJSONObject(i)
-                                                    val isRaw = obj.optInt("line", -1) == -1
-                                                    if (!isRaw) continue
-                                                    val start = obj.optInt("start", -1)
-                                                    val key = if (start >= 0) "${obj.getInt("start")}:${obj.getInt("end")}" else "legacy:${obj.getString("text")}"
-                                                    map[key] = obj.getString("note")
-                                                }
-                                            } catch (e: Exception) { e.printStackTrace() }
-                                        }
-                                        map
-                                    }
-                                    val legacyRawHighlights = remember(note!!.highlightsInfo) {
-                                        val map = mutableMapOf<String, String>()
-                                        val json = note!!.highlightsInfo
-                                        if (!json.isNullOrBlank() && json != "[]") {
-                                            try {
-                                                val array = org.json.JSONArray(json)
-                                                for (i in 0 until array.length()) {
-                                                    val obj = array.getJSONObject(i)
-                                                    if (obj.optInt("line", -1) == -1 && obj.optInt("start", -1) < 0) {
-                                                        map[obj.getString("text")] = obj.getString("note")
-                                                    }
-                                                }
-                                            } catch (e: Exception) { e.printStackTrace() }
-                                        }
-                                        map
-                                    }
-                                    val rawSavedHighlightColor = MaterialTheme.colorScheme.tertiaryContainer
-                                    val rawSavedHighlightTextColor = MaterialTheme.colorScheme.onTertiaryContainer
-                                    val rawTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                            // ============ CONTENT ============
+                            val hasSummaryForContent = !note!!.summary.isNullOrEmpty()
+                            val showSummary = hasSummaryForContent && !forceTranscript
 
-                                    val displayRawText = remember(note!!.rawText) {
-                                        if (note!!.rawText.startsWith(AudioRecorderManager.PHONE_TRANSCRIPTION_MARKER)) {
-                                            note!!.rawText
-                                                .removePrefix(AudioRecorderManager.PHONE_TRANSCRIPTION_MARKER)
-                                                .trimStart('\n', ' ')
-                                        } else {
-                                            note!!.rawText
-                                        }
-                                    }
-                                    val rawAnnotatedString = remember(displayRawText, savedRawHighlights, legacyRawHighlights, temporaryHighlight, rawSavedHighlightColor, rawSavedHighlightTextColor, rawTextColor) {
-                                        buildHighlightedString(
-                                            prefix = rawPrefix,
-                                            text = displayRawText,
-                                            query = temporaryHighlight,
-                                            savedHighlights = savedRawHighlights,
-                                            legacyHighlights = legacyRawHighlights,
-                                            highlightColor = Color.Yellow.copy(alpha = 0.5f),
-                                            savedHighlightColor = rawSavedHighlightColor,
-                                            savedHighlightTextColor = rawSavedHighlightTextColor,
-                                            textColor = rawTextColor
-                                        )
-                                    }
-
-                                    Column(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp)
-                                            .verticalScroll(rawTextScrollState)
-                                    ) {
-                                        if (hasPhoneTranscription) {
-                                            PhoneTranscriptionBanner(
-                                                onReanalyze = { viewModel.reanalyzeWithAI() }
-                                            )
-                                            Spacer(modifier = Modifier.height(12.dp))
-                                        }
-                                        SelectionContainer {
-                                            Text(
-                                                text = rawAnnotatedString,
-                                                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = selectedFont),
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .onGloballyPositioned { coordinates ->
-                                                        rawTextWindowBounds = coordinates.boundsInWindow()
-                                                    }
-                                                    .pointerInput(rawAnnotatedString) {
-                                                        detectTapGestures { pos ->
-                                                            rawTextLayoutResult?.let { layoutResult ->
-                                                                val offset = layoutResult.getOffsetForPosition(pos)
-                                                                rawAnnotatedString.getStringAnnotations(tag = "SAVED_HIGHLIGHT", start = offset, end = offset)
-                                                                    .firstOrNull()?.let { annotation ->
-                                                                        val parts = annotation.item.split("@@KEY@@")
-                                                                        val displayWord = parts.getOrElse(0) { "" }
-                                                                        val key = parts.getOrNull(1) ?: "legacy:$displayWord"
-                                                                        currentHighlightWord = displayWord
-                                                                        highlightNoteInput = rawHighlightNotesByKey[key] ?: ""
-                                                                        if (key.startsWith("legacy:")) {
-                                                                            pendingHighlightLine = -1
-                                                                            pendingHighlightStart = -1
-                                                                            pendingHighlightEnd = -1
-                                                                        } else {
-                                                                            val (s, e) = key.split(":").map { it.toInt() }
-                                                                            pendingHighlightLine = -1
-                                                                            pendingHighlightStart = s
-                                                                            pendingHighlightEnd = e
-                                                                        }
-                                                                        showHighlightDialog = true
-                                                                    }
-                                                            }
+                            // AnimatedContent para transición sutil entre
+                            // Summary y Transcript.
+                            AnimatedContent(
+                                targetState = when {
+                                    isLoading -> "loading"
+                                    showSummary -> "summary"
+                                    isEditMode -> "edit"
+                                    note!!.rawText != AudioRecorderManager.PENDING_TRANSCRIPTION -> "raw"
+                                    else -> "empty"
+                                },
+                                transitionSpec = {
+                                    (fadeIn(tween(200)) + slideInVertically { it / 20 })
+                                        .togetherWith(fadeOut(tween(150)))
+                                },
+                                label = "content_mode"
+                            ) { mode ->
+                                when (mode) {
+                                    "summary" -> {
+                                        CompositionLocalProvider(LocalTextToolbar provides customTextToolbar) {
+                                            key(selectionResetKey) {
+                                                SelectionContainer(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .clickable(
+                                                            interactionSource = remember { MutableInteractionSource() },
+                                                            indication = null
+                                                        ) {
+                                                            if (isTitleFocused) focusManager.clearFocus()
                                                         }
-                                                    },
-                                                onTextLayout = { rawTextLayoutResult = it }
-                                            )
+                                                ) {
+                                                    val cleanSummary = remember(note!!.summary) {
+                                                        note!!.summary!!.replace(Regex("<!--BINOT_META:.*?-->"), "").trimEnd()
+                                                    }
+                                                    MarkdownText(
+                                                        text = cleanSummary,
+                                                        scrollState = markdownScrollState,
+                                                        highlightsInfo = note!!.highlightsInfo,
+                                                        onSavedHighlightClick = { word, noteText, line, start, end ->
+                                                            currentHighlightWord = word
+                                                            highlightNoteInput = noteText
+                                                            pendingHighlightLine = line
+                                                            pendingHighlightStart = start
+                                                            pendingHighlightEnd = end
+                                                            showHighlightDialog = true
+                                                        },
+                                                        onResolveSelection = { resolver -> resolveMarkdownSelection = resolver },
+                                                        highlightQuery = temporaryHighlight,
+                                                        onCheckboxToggle = { lineIndex -> viewModel.toggleCheckbox(lineIndex) },
+                                                        onMathCopy = { latex ->
+                                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                            clipboard.setPrimaryClip(ClipData.newPlainText("LaTeX", latex))
+                                                            coroutineScope.launch {
+                                                                snackbarHostState.showSnackbar(context.getString(R.string.result_math_copied))
+                                                            }
+                                                        },
+                                                        fontFamily = selectedFont,
+                                                        linePositions = markdownLinePositions,
+                                                        modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
+                                                    )
+                                                }
+                                            }
                                         }
+                                    }
+
+                                    "edit" -> {
+                                        Column(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp)
+                                                .padding(bottom = 16.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                                    .padding(16.dp)
+                                            ) {
+                                                BasicTextField(
+                                                    value = textValue,
+                                                    onValueChange = { newValue ->
+                                                        if (newValue.text != textValue.text) {
+                                                            undoStack.add(textValue)
+                                                            redoStack.clear()
+                                                        }
+                                                        textValue = newValue
+                                                    },
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        fontFamily = selectedFont
+                                                    ),
+                                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    "raw" -> {
+                                        RawTranscriptView(
+                                            note = note!!,
+                                            hasPhoneTranscription = hasPhoneTranscription,
+                                            selectedFont = selectedFont,
+                                            rawTextScrollState = rawTextScrollState,
+                                            temporaryHighlight = temporaryHighlight,
+                                            onReanalyze = { viewModel.reanalyzeWithAI() },
+                                            onRawTextLayout = { rawTextLayoutResult = it },
+                                            onRawTextBounds = { rawTextWindowBounds = it },
+                                            onHighlightClick = { word, noteText, line, start, end ->
+                                                currentHighlightWord = word
+                                                highlightNoteInput = noteText
+                                                pendingHighlightLine = line
+                                                pendingHighlightStart = start
+                                                pendingHighlightEnd = end
+                                                showHighlightDialog = true
+                                            }
+                                        )
                                     }
                                 }
                             }
                         }
 
-                        // Columna derecha: side panel permanente (solo landscape).
+                        // ============ SIDE PANEL (landscape) ============
                         if (isLandscape) {
-                            // Divider vertical entre contenido y panel.
                             Box(
                                 modifier = Modifier
                                     .fillMaxHeight()
                                     .width(1.dp)
                                     .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             )
-
-                            // Panel: ancho fijo 360dp, altura completa, con su propio scroll.
-                            sidePanelContent(Modifier.width(360.dp).fillMaxHeight())
+                            Box(
+                                modifier = Modifier
+                                    .width(360.dp)
+                                    .fillMaxHeight()
+                                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                            ) {
+                                sidePanelContent(Modifier.fillMaxSize())
+                            }
                         }
                     }
                 }
@@ -1415,7 +1422,7 @@ fun ResultScreen(
     }
 
     // ============================================================
-    // AI Chat about this note (2.1) — tooltip + sheet
+    // DIALOGS & SHEETS
     // ============================================================
 
     if (showChatTooltip) {
@@ -1469,7 +1476,12 @@ fun ResultScreen(
             title = { Text(stringResource(R.string.result_highlight_title)) },
             text = {
                 Column {
-                    Text("\"$currentHighlightWord\"", style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "\"$currentHighlightWord\"",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontStyle = FontStyle.Italic,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
                         value = highlightNoteInput,
@@ -1548,7 +1560,10 @@ fun ResultScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.inverseSurface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
             ) {
-                Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     BouncyIconButton(
                         onClick = {
                             val capturedRect = selectionRect
@@ -1588,7 +1603,10 @@ fun ResultScreen(
                                                 if (idx == -1) break
                                                 if (approxOffset >= 0) {
                                                     val dist = kotlin.math.abs(idx - approxOffset)
-                                                    if (dist < bestDist) { bestDist = dist; bestStart = idx }
+                                                    if (dist < bestDist) {
+                                                        bestDist = dist
+                                                        bestStart = idx
+                                                    }
                                                 } else if (bestStart == -1) {
                                                     bestStart = idx
                                                 }
@@ -1628,9 +1646,7 @@ fun ResultScreen(
                         Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.result_cd_copy), tint = MaterialTheme.colorScheme.inverseOnSurface)
                     }
                     BouncyIconButton(
-                        onClick = {
-                            selectAllAction()
-                        },
+                        onClick = { selectAllAction() },
                         expandOnPress = 4.dp
                     ) {
                         Icon(Icons.Default.SelectAll, contentDescription = stringResource(R.string.result_cd_select_all), tint = MaterialTheme.colorScheme.inverseOnSurface)
@@ -1677,6 +1693,8 @@ fun ResultScreen(
                         hasUnsavedChanges = false
                         isEditMode = false
                         showDestructiveConfirmDialog = false
+                        // Después de procesar, queremos ver el nuevo summary.
+                        forceTranscript = false
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar(context.getString(R.string.result_processing))
                         }
@@ -1716,7 +1734,11 @@ fun ResultScreen(
                     }
                 }) { Text(stringResource(R.string.result_create_assign)) }
             },
-            dismissButton = { TextButton(onClick = { showNewLabelDialog = false }) { Text(stringResource(R.string.common_cancel)) } }
+            dismissButton = {
+                TextButton(onClick = { showNewLabelDialog = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            }
         )
     }
 
@@ -1741,9 +1763,7 @@ fun ResultScreen(
         )
     }
 
-    // Sheet del panel — solo en portrait. En landscape el panel ya está
-    // siempre visible como columna fija, así que el ModalBottomSheet es
-    // innecesario.
+    // Side panel sheet — solo portrait.
     if (showSidePanel && note != null && !isLandscape) {
         ModalBottomSheet(
             onDismissRequest = { showSidePanel = false },
@@ -1757,7 +1777,365 @@ fun ResultScreen(
 }
 
 // ============================================================
-// Helpers locales
+// HERO HEADER — metadata chips
+// ============================================================
+
+/**
+ * Fila de chips compactos con metadata de la nota:
+ *   - Fecha de creación (formato local).
+ *   - Cantidad de palabras del rawText.
+ *   - Indicador de audio (si tiene) con "Audio" como texto.
+ *
+ * Los chips son pasivos (no clickeables). El objetivo es dar contexto
+ * visual al usuario sin cargar la pantalla. Se muestra solo en modo
+ * lectura (no en edit mode).
+ */
+@Composable
+private fun ResultHeroHeader(
+    note: com.obinot.app.data.NoteEntity,
+    hasPhoneTranscription: Boolean
+) {
+    val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()) }
+    val wordCount = remember(note.rawText) {
+        note.rawText
+            .split(Regex("[\\s\\p{Punct}]+"))
+            .count { it.isNotBlank() }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(top = 8.dp, bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            MetaChip(
+                icon = Icons.Default.AccessTime,
+                text = dateFormatter.format(Date(note.timestamp))
+            )
+            if (wordCount > 0) {
+                MetaChip(
+                    icon = Icons.Default.TextFields,
+                    text = "$wordCount " + stringResource(R.string.result_meta_words)
+                )
+            }
+            if (note.audioPath != null) {
+                MetaChip(
+                    icon = Icons.Default.PlayArrow,
+                    text = stringResource(R.string.result_meta_audio),
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f),
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+            }
+            if (hasPhoneTranscription) {
+                MetaChip(
+                    icon = Icons.Default.Info,
+                    text = stringResource(R.string.result_meta_phone),
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetaChip(
+    icon: ImageVector,
+    text: String,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+    contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
+) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = containerColor
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(12.dp)
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                color = contentColor,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+// ============================================================
+// AUDIO PLAYER (compacto)
+// ============================================================
+
+@Composable
+private fun CompactAudioPlayer(
+    isPlaying: Boolean,
+    progress: Float,
+    onTogglePlay: () -> Unit,
+    onSeek: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val playInteraction = remember { MutableInteractionSource() }
+    val playScale = remember { Animatable(1f) }
+    LaunchedEffect(playInteraction) {
+        observeBouncyPress(playInteraction, playScale, pressedScale = 0.90f)
+    }
+
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .graphicsLayer {
+                        scaleX = playScale.value
+                        scaleY = playScale.value
+                    }
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+                    .clickable(
+                        interactionSource = playInteraction,
+                        indication = null,
+                        onClick = onTogglePlay
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = stringResource(R.string.result_cd_play_pause),
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Box(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                ExpressiveAudioBar(
+                    progress = progress,
+                    onSeek = onSeek,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+// ============================================================
+// RAW TRANSCRIPT VIEW (extraído a composable)
+// ============================================================
+
+@Composable
+private fun RawTranscriptView(
+    note: com.obinot.app.data.NoteEntity,
+    hasPhoneTranscription: Boolean,
+    selectedFont: FontFamily,
+    rawTextScrollState: androidx.compose.foundation.ScrollState,
+    temporaryHighlight: String,
+    onReanalyze: () -> Unit,
+    onRawTextLayout: (androidx.compose.ui.text.TextLayoutResult) -> Unit,
+    onRawTextBounds: (Rect) -> Unit,
+    onHighlightClick: (String, String, Int, Int, Int) -> Unit
+) {
+    val savedRawHighlights = remember(note.highlightsInfo) {
+        val list = mutableListOf<Triple<String, Int, Int>>()
+        val json = note.highlightsInfo
+        if (!json.isNullOrBlank() && json != "[]") {
+            try {
+                val array = org.json.JSONArray(json)
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    if (obj.optInt("line", -1) == -1 && obj.optInt("start", -1) >= 0) {
+                        list.add(Triple(obj.getString("text"), obj.getInt("start"), obj.getInt("end")))
+                    }
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+        list
+    }
+    val rawHighlightNotesByKey = remember(note.highlightsInfo) {
+        val map = mutableMapOf<String, String>()
+        val json = note.highlightsInfo
+        if (!json.isNullOrBlank() && json != "[]") {
+            try {
+                val array = org.json.JSONArray(json)
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val isRaw = obj.optInt("line", -1) == -1
+                    if (!isRaw) continue
+                    val start = obj.optInt("start", -1)
+                    val key = if (start >= 0) "${obj.getInt("start")}:${obj.getInt("end")}" else "legacy:${obj.getString("text")}"
+                    map[key] = obj.getString("note")
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+        map
+    }
+    val legacyRawHighlights = remember(note.highlightsInfo) {
+        val map = mutableMapOf<String, String>()
+        val json = note.highlightsInfo
+        if (!json.isNullOrBlank() && json != "[]") {
+            try {
+                val array = org.json.JSONArray(json)
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    if (obj.optInt("line", -1) == -1 && obj.optInt("start", -1) < 0) {
+                        map[obj.getString("text")] = obj.getString("note")
+                    }
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+        map
+    }
+    val rawSavedHighlightColor = MaterialTheme.colorScheme.tertiaryContainer
+    val rawSavedHighlightTextColor = MaterialTheme.colorScheme.onTertiaryContainer
+    val rawTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+
+    val displayRawText = remember(note.rawText) {
+        if (note.rawText.startsWith(AudioRecorderManager.PHONE_TRANSCRIPTION_MARKER)) {
+            note.rawText
+                .removePrefix(AudioRecorderManager.PHONE_TRANSCRIPTION_MARKER)
+                .trimStart('\n', ' ')
+        } else {
+            note.rawText
+        }
+    }
+    val rawAnnotatedString = remember(displayRawText, savedRawHighlights, legacyRawHighlights, temporaryHighlight, rawSavedHighlightColor, rawSavedHighlightTextColor, rawTextColor) {
+        buildHighlightedString(
+            prefix = "Raw Transcript:\n\n",
+            text = displayRawText,
+            query = temporaryHighlight,
+            savedHighlights = savedRawHighlights,
+            legacyHighlights = legacyRawHighlights,
+            highlightColor = Color.Yellow.copy(alpha = 0.5f),
+            savedHighlightColor = rawSavedHighlightColor,
+            savedHighlightTextColor = rawSavedHighlightTextColor,
+            textColor = rawTextColor
+        )
+    }
+
+    var localLayoutResult by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
+
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .verticalScroll(rawTextScrollState)
+    ) {
+        if (hasPhoneTranscription) {
+            PhoneTranscriptionBanner(onReanalyze = onReanalyze)
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+        SelectionContainer {
+            Text(
+                text = rawAnnotatedString,
+                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = selectedFont),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onGloballyPositioned { coordinates ->
+                        onRawTextBounds(coordinates.boundsInWindow())
+                    }
+                    .pointerInput(rawAnnotatedString) {
+                        detectTapGestures { pos ->
+                            localLayoutResult?.let { layoutResult ->
+                                val offset = layoutResult.getOffsetForPosition(pos)
+                                rawAnnotatedString.getStringAnnotations(tag = "SAVED_HIGHLIGHT", start = offset, end = offset)
+                                    .firstOrNull()?.let { annotation ->
+                                        val parts = annotation.item.split("@@KEY@@")
+                                        val displayWord = parts.getOrElse(0) { "" }
+                                        val key = parts.getOrNull(1) ?: "legacy:$displayWord"
+                                        val noteText = rawHighlightNotesByKey[key] ?: ""
+                                        if (key.startsWith("legacy:")) {
+                                            onHighlightClick(displayWord, noteText, -1, -1, -1)
+                                        } else {
+                                            val (s, e) = key.split(":").map { it.toInt() }
+                                            onHighlightClick(displayWord, noteText, -1, s, e)
+                                        }
+                                    }
+                            }
+                        }
+                    },
+                onTextLayout = {
+                    localLayoutResult = it
+                    onRawTextLayout(it)
+                }
+            )
+        }
+    }
+}
+
+// ============================================================
+// SIDE PANEL — Card con header
+// ============================================================
+
+/**
+ * Card de sección del side panel. Mismo lenguaje visual que las cards de
+ * Settings: ícono en círculo primaryContainer + título, después contenido.
+ */
+@Composable
+private fun SidePanelCard(
+    icon: ImageVector,
+    title: String,
+    content: @Composable () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 12.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            content()
+        }
+    }
+}
+
+// ============================================================
+// HELPERS LEGACY (mantenidos)
 // ============================================================
 
 @Composable
@@ -1956,12 +2334,6 @@ private fun AiThinkingAnimation(color: Color) {
     }
 }
 
-/**
- * Botón de opciones con long press.
- *
- * Tap corto: dispara [onClick] (abre el menú normal).
- * Long press: dispara [onLongPress] (abre el chat directamente).
- */
 @Composable
 private fun ChatOptionsButton(
     onClick: () -> Unit,
@@ -1997,16 +2369,6 @@ private fun ChatOptionsButton(
     }
 }
 
-/**
- * Barra de progreso de audio clickeable con estilo "expressive".
- *
- * Reemplaza el Slider estándar de Material 3 por un LinearWavyProgressIndicator
- * con animación de onda, más acorde al resto del lenguaje visual de la app.
- *
- * El seeking funciona con tap: se calcula la fracción del ancho donde el
- * usuario tocó y se pasa a [onSeek]. No hay thumb arrastrable — es más
- * simple y visualmente más limpio.
- */
 @Composable
 private fun ExpressiveAudioBar(
     progress: Float,

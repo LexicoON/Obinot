@@ -33,7 +33,10 @@
 
     <string name="trash_title">Papierkorb</string>
     <string name="trash_selected_count">%1$d ausgewählt</string>
-    <string name="trash_empty_state">Der Papierkorb ist leer.</string>
+    <string name="trash_empty_title">Papierkorb ist leer</string>
+    <string name="trash_empty_subtitle">Gelöschte Notizen erscheinen hier. Du kannst sie wiederherstellen oder endgültig löschen.</string>
+    <string name="trash_hero_one">1 Notiz im Papierkorb</string>
+    <string name="trash_hero_many">%1$d Notizen im Papierkorb</string>
     <string name="trash_empty_button">Papierkorb leeren</string>
     <string name="trash_empty_dialog_title">Papierkorb leeren?</string>
     <string name="trash_empty_dialog_body">Alle Notizen im Papierkorb werden endgültig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.</string>
@@ -285,6 +288,16 @@
         <item quantity="other">%1$d Notizen in den Papierkorb verschoben</item>
     </plurals>
 
+    <plurals name="notes_restored">
+        <item quantity="one">1 Notiz wiederhergestellt</item>
+        <item quantity="other">%1$d Notizen wiederhergestellt</item>
+    </plurals>
+
+    <plurals name="notes_permanently_deleted">
+        <item quantity="one">1 Notiz endgültig gelöscht</item>
+        <item quantity="other">%1$d Notizen endgültig gelöscht</item>
+    </plurals>
+
     <!-- ============================================================ -->
     <!-- Result screen                                                 -->
     <!-- ============================================================ -->
@@ -295,6 +308,12 @@
     <string name="result_cd_redo">Wiederholen</string>
     <string name="result_cd_options">Optionen</string>
     <string name="result_edit">Bearbeiten</string>
+    <string name="result_tab_summary">Zusammenfassung</string>
+    <string name="result_tab_transcript">Transkript</string>
+    <string name="result_meta_words">Wörter</string>
+    <string name="result_meta_audio">Audio</string>
+    <string name="result_meta_phone">Telefon</string>
+    <string name="result_section_ai">KI</string>
     <string name="result_process">Verarbeiten</string>
     <string name="result_processing">KI-Engine verarbeitet…</string>
     <string name="result_error_api_title">API-Limit erreicht</string>

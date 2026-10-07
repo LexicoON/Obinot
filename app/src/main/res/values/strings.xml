@@ -33,7 +33,10 @@
 
     <string name="trash_title">Trash</string>
     <string name="trash_selected_count">%1$d Selected</string>
-    <string name="trash_empty_state">Trash is empty.</string>
+    <string name="trash_empty_title">Trash is empty</string>
+    <string name="trash_empty_subtitle">Deleted notes will appear here. You can restore them or delete them permanently.</string>
+    <string name="trash_hero_one">1 note in trash</string>
+    <string name="trash_hero_many">%1$d notes in trash</string>
     <string name="trash_empty_button">Empty Trash</string>
     <string name="trash_empty_dialog_title">Empty Trash?</string>
     <string name="trash_empty_dialog_body">All notes in the trash will be permanently deleted. This action cannot be undone.</string>
@@ -285,6 +288,16 @@
         <item quantity="other">%1$d notes moved to Trash</item>
     </plurals>
 
+    <plurals name="notes_restored">
+        <item quantity="one">1 note restored</item>
+        <item quantity="other">%1$d notes restored</item>
+    </plurals>
+
+    <plurals name="notes_permanently_deleted">
+        <item quantity="one">1 note permanently deleted</item>
+        <item quantity="other">%1$d notes permanently deleted</item>
+    </plurals>
+
     <!-- ============================================================ -->
     <!-- Result screen                                                 -->
     <!-- ============================================================ -->
@@ -295,6 +308,12 @@
     <string name="result_cd_redo">Redo</string>
     <string name="result_cd_options">Options</string>
     <string name="result_edit">Edit</string>
+    <string name="result_tab_summary">Summary</string>
+    <string name="result_tab_transcript">Transcript</string>
+    <string name="result_meta_words">words</string>
+    <string name="result_meta_audio">Audio</string>
+    <string name="result_meta_phone">Phone</string>
+    <string name="result_section_ai">AI</string>
     <string name="result_process">Process</string>
     <string name="result_processing">AI Engine is processing…</string>
     <string name="result_error_api_title">API Limit Reached</string>

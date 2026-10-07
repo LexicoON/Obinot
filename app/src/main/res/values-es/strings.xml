@@ -33,7 +33,10 @@
 
     <string name="trash_title">Papelera</string>
     <string name="trash_selected_count">%1$d seleccionada(s)</string>
-    <string name="trash_empty_state">La papelera está vacía.</string>
+    <string name="trash_empty_title">La papelera está vacía</string>
+    <string name="trash_empty_subtitle">Las notas eliminadas van a aparecer acá. Podés restaurarlas o eliminarlas definitivamente.</string>
+    <string name="trash_hero_one">1 nota en la papelera</string>
+    <string name="trash_hero_many">%1$d notas en la papelera</string>
     <string name="trash_empty_button">Vaciar papelera</string>
     <string name="trash_empty_dialog_title">¿Vaciar la papelera?</string>
     <string name="trash_empty_dialog_body">Todas las notas de la papelera se eliminarán de forma permanente. Esta acción no se puede deshacer.</string>
@@ -285,6 +288,16 @@
         <item quantity="other">%1$d notas movidas a la papelera</item>
     </plurals>
 
+    <plurals name="notes_restored">
+        <item quantity="one">1 nota restaurada</item>
+        <item quantity="other">%1$d notas restauradas</item>
+    </plurals>
+
+    <plurals name="notes_permanently_deleted">
+        <item quantity="one">1 nota eliminada permanentemente</item>
+        <item quantity="other">%1$d notas eliminadas permanentemente</item>
+    </plurals>
+
     <!-- ============================================================ -->
     <!-- Result screen                                                 -->
     <!-- ============================================================ -->
@@ -295,6 +308,12 @@
     <string name="result_cd_redo">Rehacer</string>
     <string name="result_cd_options">Opciones</string>
     <string name="result_edit">Editar</string>
+    <string name="result_tab_summary">Resumen</string>
+    <string name="result_tab_transcript">Transcripción</string>
+    <string name="result_meta_words">palabras</string>
+    <string name="result_meta_audio">Audio</string>
+    <string name="result_meta_phone">Teléfono</string>
+    <string name="result_section_ai">IA</string>
     <string name="result_process">Procesar</string>
     <string name="result_processing">El motor de IA está procesando…</string>
     <string name="result_error_api_title">Límite de API alcanzado</string>
