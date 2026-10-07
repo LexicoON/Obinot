@@ -478,7 +478,6 @@
     <string name="onboarding_provider_dynamic">Dynamisch</string>
     <string name="onboarding_provider_dynamic_hint">Mehrere Anbieter arbeiten zusammen. Füge später weitere Schlüssel in den Einstellungen hinzu.</string>
     <string name="error_nvidia_cannot_transcribe">NVIDIA transkribiert kein Audio. Konfiguriere Gemini oder Groq oder wechsle in den Schnellmodus.</string>
-    <string name="settings_dynamic_nvidia_status">NVIDIA NIM: %1$s</string>
     <string name="settings_status_optional">○ Optional</string>
     <string name="settings_nvidia_get_key_hint">Hier tippen für den NVIDIA-Schlüssel (anmelden, dann Profil → API Keys)</string>
     <string name="settings_save_nvidia_key">NVIDIA speichern</string>
