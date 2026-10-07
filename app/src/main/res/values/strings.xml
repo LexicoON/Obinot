@@ -3,7 +3,7 @@
     <string name="app_name">Obinot</string>
 
     <!-- ============================================================ -->
-    <!-- Existing strings from Binot original                          -->
+    <!-- Recording modes (legacy)                                      -->
     <!-- ============================================================ -->
 
     <string name="recording_mode_title">Recording Mode</string>
@@ -15,7 +15,7 @@
     <string name="pending_transcription_text">Pending Transcription</string>
 
     <!-- ============================================================ -->
-    <!-- Common (shared across screens)                                -->
+    <!-- Common                                                        -->
     <!-- ============================================================ -->
 
     <string name="common_cancel">Cancel</string>
@@ -47,7 +47,7 @@
     <string name="trash_empty_note">Empty Note</string>
 
     <!-- ============================================================ -->
-    <!-- File picker (Audio + .binot notes)                            -->
+    <!-- File picker                                                   -->
     <!-- ============================================================ -->
 
     <string name="picker_title">Import to Obinot</string>
@@ -62,7 +62,6 @@
     <string name="picker_binot_permission_aviso">To see your .binot and .zip files, Obinot needs storage permission.</string>
     <string name="picker_binot_permission_continue">Continue</string>
 
-    <!-- Sort orders for the audio tab -->
     <string name="sort_newest">Newest</string>
     <string name="sort_oldest">Oldest</string>
     <string name="sort_name_asc">Name (A-Z)</string>
@@ -100,7 +99,6 @@
     <string name="record_greeting_night_4">Quiet hours,</string>
     <string name="record_greeting_night_5">Rest well,</string>
 
-    <!-- Greetings by month -->
     <string name="record_greeting_month_jan">Fresh starts,</string>
     <string name="record_greeting_month_feb">February thoughts,</string>
     <string name="record_greeting_month_mar">Marching forward,</string>
@@ -114,7 +112,6 @@
     <string name="record_greeting_month_nov">November notes,</string>
     <string name="record_greeting_month_dec">December reflections,</string>
 
-    <!-- Holiday greetings (fixed calendar dates) -->
     <string name="record_greeting_holiday_xmas_eve">Christmas Eve,</string>
     <string name="record_greeting_holiday_xmas">Merry Christmas,</string>
     <string name="record_greeting_holiday_nye">New Year\'s Eve,</string>
@@ -122,7 +119,6 @@
     <string name="record_greeting_holiday_halloween">Spooky vibes,</string>
     <string name="record_greeting_holiday_valentines">Happy Valentine\'s,</string>
 
-    <!-- GTA VI special (May 25-26, 2026) -->
     <string name="record_greeting_gta_vi_eve">One more sleep,</string>
     <string name="record_greeting_gta_vi_day">It\'s finally here,</string>
 
@@ -148,7 +144,6 @@
     <string name="record_imported_none">Failed to import any files. Ensure format is supported.</string>
     <string name="record_imported_partial">Imported %1$d, failed %2$d.</string>
 
-    <!-- Easter egg (visible after 5 taps on greeting) -->
     <string name="record_egg_question_title">✨ Secret Question</string>
     <string name="record_egg_question_body">Who\'s the developer\'s best friend?</string>
     <string name="record_egg_answer_hint">Your answer…</string>
@@ -177,11 +172,15 @@
     <string name="onboarding_format_paragraphs">Paragraphs</string>
     <string name="onboarding_format_bullets">Bullets</string>
     <string name="onboarding_provider_title">Connect the brain.</string>
-    <string name="onboarding_provider_body">Pick an AI provider. Both have free tiers.</string>
-    <string name="onboarding_provider_gemini">Google Gemini</string>
-    <string name="onboarding_provider_groq">Groq AI</string>
+    <string name="onboarding_provider_body">Pick an AI provider. All have free tiers.</string>
+    <string name="onboarding_provider_gemini">Gemini</string>
+    <string name="onboarding_provider_groq">Groq</string>
+    <string name="onboarding_provider_nvidia">NVIDIA</string>
+    <string name="onboarding_provider_dynamic">Dynamic</string>
     <string name="onboarding_provider_groq_hint">Recommended for its blazing fast speed.</string>
     <string name="onboarding_provider_gemini_hint">Best for very long audio recordings.</string>
+    <string name="onboarding_provider_nvidia_hint">NVIDIA NIM. Fast and private, no audio transcription.</string>
+    <string name="onboarding_provider_dynamic_hint">Multiple providers working together. Add more keys later from Settings.</string>
     <string name="onboarding_get_api_key">Get Free API Key</string>
     <string name="onboarding_api_key_hint">Paste your API Key here</string>
     <string name="onboarding_last_thing_title">One last thing.</string>
@@ -203,7 +202,6 @@
     <string name="onboarding_next">Next</string>
     <string name="onboarding_verify_key">Verify Key</string>
 
-    <!-- Onboarding error messages -->
     <string name="onboarding_error_400_gemini">Invalid API Key. Google rejected it.</string>
     <string name="onboarding_error_400_groq">Server rejected the test. Check your key.</string>
     <string name="onboarding_error_401">The key is invalid or unauthorized.</string>
@@ -212,6 +210,10 @@
     <string name="onboarding_error_server_code">Server rejected the test (Code: %1$d). Check your key.</string>
     <string name="onboarding_error_network">Network error. We couldn\'t reach the server.</string>
     <string name="onboarding_error_unexpected">Unexpected error: %1$s</string>
+
+    <string name="onboarding_no_key_title">No API Key</string>
+    <string name="onboarding_no_key_body">You can continue without an API key and add one later. AI won\'t work until then, but recording and reading notes will.</string>
+    <string name="onboarding_start_workspace_no_key">Continue without AI</string>
 
     <!-- ============================================================ -->
     <!-- History screen                                                -->
@@ -253,7 +255,6 @@
     <string name="history_menu_cd">Menu</string>
     <string name="history_close_cd">Close</string>
 
-    <!-- Selection dropdown menu (History, in selection mode) -->
     <string name="select_all">Select All</string>
     <string name="pin">Pin</string>
     <string name="unpin">Unpin</string>
@@ -269,6 +270,13 @@
     <string name="snackbar_generating_binot">Generating .binot file…</string>
     <string name="snackbar_generate_failed">Failed to generate file.</string>
     <string name="snackbar_note_moved_to_trash">Note moved to Trash</string>
+    <string name="snackbar_name_saved">Name saved successfully!</string>
+    <string name="snackbar_gemini_saved">Gemini Configuration saved!</string>
+    <string name="snackbar_groq_saved">Groq Configuration saved!</string>
+    <string name="snackbar_dynamic_enabled">Dynamic mode enabled!</string>
+    <string name="snackbar_dynamic_needs_keys">Dynamic enabled, but Gemini and Groq keys are needed.</string>
+    <string name="snackbar_nvidia_saved">NVIDIA key saved!</string>
+    <string name="snackbar_nvidia_only_enabled">NVIDIA mode enabled!</string>
     <string name="share_chooser_title">Share .binot note via</string>
     <string name="share_text_binot">Binot Note: %1$s</string>
 
@@ -287,11 +295,6 @@
     <!-- Plurals                                                       -->
     <!-- ============================================================ -->
 
-    <plurals name="history_results_count">
-        <item quantity="one">1 result</item>
-        <item quantity="other">%1$d results</item>
-    </plurals>
-
     <plurals name="notes_moved_to_trash">
         <item quantity="one">1 note moved to Trash</item>
         <item quantity="other">%1$d notes moved to Trash</item>
@@ -307,6 +310,11 @@
         <item quantity="other">%1$d notes permanently deleted</item>
     </plurals>
 
+    <plurals name="history_results_count">
+        <item quantity="one">1 result</item>
+        <item quantity="other">%1$d results</item>
+    </plurals>
+
     <!-- ============================================================ -->
     <!-- Result screen                                                 -->
     <!-- ============================================================ -->
@@ -317,12 +325,6 @@
     <string name="result_cd_redo">Redo</string>
     <string name="result_cd_options">Options</string>
     <string name="result_edit">Edit</string>
-    <string name="result_tab_summary">Summary</string>
-    <string name="result_tab_transcript">Transcript</string>
-    <string name="result_meta_words">words</string>
-    <string name="result_meta_audio">Audio</string>
-    <string name="result_meta_phone">Phone</string>
-    <string name="result_section_ai">AI</string>
     <string name="result_process">Process</string>
     <string name="result_processing">AI Engine is processing…</string>
     <string name="result_error_api_title">API Limit Reached</string>
@@ -348,7 +350,13 @@
     <string name="result_text_copied">Text Copied!</string>
     <string name="result_math_copied">Formula copied to clipboard</string>
 
-    <!-- Summary editor (2.1) -->
+    <string name="result_tab_summary">Summary</string>
+    <string name="result_tab_transcript">Transcript</string>
+    <string name="result_meta_words">words</string>
+    <string name="result_meta_audio">Audio</string>
+    <string name="result_meta_phone">Phone</string>
+    <string name="result_section_ai">AI</string>
+
     <string name="result_edit_summary">Edit Summary</string>
     <string name="summary_editor_title">Edit summary</string>
     <string name="summary_editor_preview">Preview</string>
@@ -357,7 +365,6 @@
     <string name="summary_editor_placeholder">Write your note in Markdown…</string>
     <string name="summary_editor_saved">Summary updated</string>
 
-    <!-- AI Chat about this note (2.1) -->
     <string name="chat_title">Ask about this note</string>
     <string name="chat_placeholder">Ask a question…</string>
     <string name="chat_send_cd">Send</string>
@@ -373,25 +380,21 @@
     <string name="chat_clear_confirm_body">All messages in this conversation will be deleted. The note itself is not affected.</string>
     <string name="chat_clear_confirm_yes">Clear</string>
 
-    <!-- AI Explain sheet -->
     <string name="result_ai_explain_title">AI Explain</string>
     <string name="result_ai_explain_empty">No explanation available.</string>
     <string name="result_cd_ai_explain">AI Explain</string>
 
-    <!-- Custom text selection menu -->
     <string name="result_cd_highlight">Highlight</string>
     <string name="result_cd_copy">Copy</string>
     <string name="result_cd_select_all">Select All</string>
 
-    <!-- Phone transcription banner -->
     <string name="result_phone_banner_title">Phone transcription</string>
     <string name="result_phone_banner_body">This is what your phone\'s built-in recognizer captured live. It\'s faster but less accurate than the AI engine. If you want a cleaner transcript, re-analyze the saved audio with AI.</string>
     <string name="result_phone_banner_button">Re-analyze with AI</string>
 
-    <!-- Side panel -->
     <string name="result_section_labels">Labels</string>
-    <string name="result_no_labels_hint">No labels yet. Create one to organize this note.</string>
     <string name="result_new_label_chip">New Label</string>
+    <string name="result_no_labels_hint">No labels yet. Create one to organize this note.</string>
     <string name="result_section_find_format">Find &amp; Format</string>
     <string name="result_find_placeholder">Find word in note…</string>
     <string name="result_section_reading_font">Reading Font</string>
@@ -413,21 +416,106 @@
     <string name="result_share_text">Obinot Note: %1$s</string>
     <string name="result_share_chooser">Share .binot note via</string>
 
+    <string name="result_analyze_chip">Analyze</string>
+    <string name="result_export_markdown">Export as Markdown</string>
+    <string name="result_export_markdown_success">Markdown file ready</string>
+    <string name="result_export_markdown_failed">Failed to export Markdown</string>
+    <string name="result_share_text_markdown">Obinot Note (Markdown): %1$s</string>
+    <string name="result_share_markdown_chooser">Share Markdown file via</string>
+
     <!-- ============================================================ -->
     <!-- Settings screen                                               -->
     <!-- ============================================================ -->
 
     <string name="settings_title">Settings</string>
+    <string name="settings_personalization">Personalization</string>
+    <string name="settings_your_name">Your Name</string>
+    <string name="settings_save_name">Save Name</string>
+
+    <string name="settings_appearance">Appearance</string>
     <string name="settings_appearance_subtitle">Theme, colors, language</string>
-    <string name="settings_ia_subtitle">Tasks, formats, output language</string>
-    <string name="settings_recording_subtitle">Recording mode, compression, transcription</string>
-    <string name="settings_advanced_subtitle">Power-user options</string>
-    <string name="settings_about_subtitle">App info, license, links</string>
-    <string name="settings_section_ia">AI Processing</string>
-    <string name="settings_section_recording">Recording</string>
     <string name="settings_theme_title">Theme</string>
-    <string name="settings_updates_card_title">Updates</string>
-    <string name="settings_backup_card_title">Backup &amp; Restore</string>
+    <string name="settings_theme_auto">Auto</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_amoled">Amoled</string>
+
+    <string name="settings_color_palette">Color Palette</string>
+    <string name="settings_color_palette_desc">Changes the app\'s overall mood.</string>
+    <string name="settings_color_style">Style</string>
+
+    <string name="settings_app_language">App Language</string>
+    <string name="settings_app_language_desc">Interface language of the app.</string>
+    <string name="settings_language_device">Device language</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_spanish">Spanish</string>
+    <string name="settings_select_app_language">Select App Language</string>
+
+    <string name="language_name_english">English</string>
+    <string name="language_name_spanish">Spanish</string>
+    <string name="language_name_german">German</string>
+
+    <string name="settings_section_ia">AI Processing</string>
+    <string name="settings_ia_subtitle">Tasks, formats, output language</string>
+    <string name="settings_global_ai_prefs">Global AI Preferences</string>
+    <string name="settings_global_ai_prefs_desc">Used to auto-process notes.</string>
+    <string name="settings_output_language">Output Language</string>
+    <string name="settings_processing_task">Processing Task</string>
+    <string name="settings_output_format">Output Format</string>
+    <string name="settings_save_apply_all">Save &amp; Apply to All Notes</string>
+    <string name="settings_auto_process">Auto-process</string>
+    <string name="settings_auto_process_desc">Process notes with AI as soon as they\'re ready.</string>
+
+    <string name="settings_section_recording">Recording</string>
+    <string name="settings_recording_subtitle">Recording mode, compression, transcription</string>
+    <string name="settings_fast">Fast</string>
+    <string name="settings_accurate">Accurate</string>
+    <string name="settings_live_transcript">Live Text</string>
+    <string name="settings_live_transcript_desc">Live speech-to-text. Flaky on many devices.</string>
+    <string name="settings_record_background">Background Rec</string>
+    <string name="settings_record_background_desc">Keep recording with the screen off.</string>
+    <string name="settings_native_picker">Audio Browser</string>
+    <string name="settings_native_picker_desc">Browse audio inside Obinot.</string>
+    <string name="settings_auto_compression">Compression</string>
+    <string name="settings_auto_compression_desc">Shrinks audio to fit API size limits.</string>
+    <string name="settings_compression_off">Off</string>
+    <string name="settings_compression_balanced">Balanced</string>
+    <string name="settings_compression_max">Max</string>
+
+    <string name="settings_ai_configuration">AI Configuration</string>
+    <string name="settings_provider_gemini">Gemini</string>
+    <string name="settings_provider_groq">Groq</string>
+    <string name="settings_provider_nvidia">NVIDIA</string>
+    <string name="settings_provider_dynamic">Dynamic</string>
+
+    <string name="settings_gemini_key_label">Gemini API Key</string>
+    <string name="settings_groq_key_label">Groq API Key</string>
+    <string name="settings_get_api_key_hint">Click here to get the API Key</string>
+    <string name="settings_save_key">Save Key</string>
+
+    <string name="settings_dynamic_submode_title">Mode</string>
+    <string name="settings_dynamic_submode_standard">Standard</string>
+    <string name="settings_dynamic_submode_max">Max</string>
+    <string name="settings_dynamic_standard_desc">Gemini + Groq working together.</string>
+    <string name="settings_dynamic_standard_bullets">• Long audio → Gemini\n• Short audio → Groq Whisper\n• Long text → Gemini\n• Short text, titles and chat → alternates</string>
+    <string name="settings_dynamic_max_desc">Gemini + Groq + NVIDIA. Quality first, with maximum fallbacks.</string>
+    <string name="settings_dynamic_max_bullets">• Long audio → Gemini\n• Short audio → Groq Whisper\n• Long text → Gemini (quality priority)\n• Titles → Groq\n• Chat and short tasks → Groq, NVIDIA or Gemini for best result</string>
+
+    <string name="settings_dynamic_gemini_status">Gemini API Key: %1$s</string>
+    <string name="settings_dynamic_groq_status">Groq API Key: %1$s</string>
+    <string name="settings_dynamic_nvidia_status">NVIDIA NIM: %1$s</string>
+    <string name="settings_status_configured">✓ Configured</string>
+    <string name="settings_status_not_set">✗ Not set</string>
+    <string name="settings_status_optional">○ Optional</string>
+    <string name="settings_save_selection">Save Selection</string>
+
+    <string name="settings_nvidia_desc">NVIDIA NIM only. Fast and private, but no audio transcription.</string>
+    <string name="settings_nvidia_warning">⚠ NVIDIA can\'t transcribe audio. For Accurate mode, also configure Gemini or Groq.</string>
+    <string name="settings_nvidia_get_key_hint">Click here to get the NVIDIA API Key (log in, then Profile → API Keys)</string>
+    <string name="settings_save_nvidia_key">Save NVIDIA</string>
+
+    <string name="settings_advanced">Advanced</string>
+    <string name="settings_advanced_subtitle">Power-user options</string>
     <string name="settings_advanced_rotation_title">API Key Rotation</string>
     <string name="settings_advanced_rotation_desc">Rotate between multiple API keys per provider when one hits the rate limit.</string>
     <string name="settings_rotation_key_primary">Primary key</string>
@@ -439,95 +527,9 @@
     <string name="settings_rotation_alpha_desc">Extend the rotation limit from 3 to 6 keys per provider.</string>
     <string name="settings_rotation_alpha_unlocked_desc">Extended to 6 keys per provider.</string>
     <string name="settings_rotation_alpha_button">Unlock</string>
-    <string name="settings_personalization">Personalization</string>
-    <string name="settings_your_name">Your Name</string>
-    <string name="settings_save_name">Save Name</string>
-    <string name="snackbar_name_saved">Name saved successfully!</string>
 
-    <string name="settings_global_ai_prefs">Global AI Preferences</string>
-    <string name="settings_global_ai_prefs_desc">Used to auto-process notes.</string>
-    <string name="settings_output_language">Output Language</string>
-    <string name="settings_processing_task">Processing Task</string>
-    <string name="settings_output_format">Output Format</string>
-    <string name="settings_save_apply_all">Save &amp; Apply to All Notes</string>
-
-    <string name="settings_ai_configuration">AI Configuration</string>
-    <string name="settings_provider_gemini">Gemini</string>
-    <string name="settings_provider_groq">Groq</string>
-    <string name="settings_provider_nvidia">NVIDIA</string>
-    <string name="settings_provider_dynamic">Dynamic</string>
-    <string name="settings_dynamic_submode_title">Mode</string>
-    <string name="settings_dynamic_submode_standard">Standard</string>
-    <string name="settings_dynamic_submode_max">Max</string>
-    <string name="settings_dynamic_standard_desc">Gemini + Groq working together.</string>
-    <string name="settings_dynamic_standard_bullets">• Long audio → Gemini\n• Short audio → Groq Whisper\n• Long text → Gemini\n• Short text, titles and chat → alternates</string>
-    <string name="settings_dynamic_max_desc">Gemini + Groq + NVIDIA. Quality first, with maximum fallbacks.</string>
-    <string name="settings_dynamic_max_bullets">• Long audio → Gemini\n• Short audio → Groq Whisper\n• Long text → Gemini (quality priority)\n• Titles → Groq\n• Chat and short tasks → Groq, NVIDIA or Gemini for best result</string>
-    <string name="settings_dynamic_nvidia_status">NVIDIA NIM: %1$s</string>
-    <string name="settings_nvidia_desc">NVIDIA NIM only. Fast and private, but no audio transcription.</string>
-    <string name="settings_nvidia_warning">⚠ NVIDIA can\'t transcribe audio. For Accurate mode, also configure Gemini or Groq.</string>
-    <string name="settings_nvidia_get_key_hint">Click here to get the NVIDIA API Key (log in, then Profile → API Keys)</string>
-    <string name="settings_save_nvidia_key">Save NVIDIA</string>
-    <string name="settings_status_optional">○ Optional</string>
-    <string name="snackbar_nvidia_saved">NVIDIA key saved!</string>
-    <string name="snackbar_nvidia_only_enabled">NVIDIA mode enabled!</string>
-    <string name="snackbar_full_enabled">Dynamic enabled!</string>
-    <string name="snackbar_full_needs_keys">Dynamic enabled, but Gemini and Groq keys are required.</string>
-    <string name="onboarding_provider_nvidia">NVIDIA</string>
-    <string name="onboarding_provider_nvidia_hint">NVIDIA NIM. Fast and private, no audio transcription.</string>
-    <string name="onboarding_provider_dynamic">Dynamic</string>
-    <string name="onboarding_provider_dynamic_hint">Multiple providers working together. Add more keys later from Settings.</string>
-    <string name="error_nvidia_cannot_transcribe">NVIDIA doesn\'t transcribe audio. Configure Gemini or Groq, or switch to Fast recording mode.</string>
-    <string name="settings_status_optional">○ Optional</string>
-    <string name="settings_nvidia_get_key_hint">Click here to get the NVIDIA API Key (log in, then Profile → API Keys)</string>
-    <string name="settings_save_nvidia_key">Save NVIDIA</string>
-    <string name="snackbar_nvidia_saved">NVIDIA key saved!</string>
-    <string name="snackbar_full_enabled">Full mode enabled!</string>
-    <string name="snackbar_full_needs_keys">Full enabled, but Gemini and Groq keys are required.</string>
-    <string name="settings_gemini_key_label">Gemini API Key</string>
-    <string name="settings_groq_key_label">Groq API Key</string>
-    <string name="settings_get_api_key_hint">Click here to get the API Key</string>
-    <string name="settings_save_key">Save Key</string>
-    <string name="settings_dynamic_desc">Picks the best provider per task, stretching free quotas.</string>
-    <string name="settings_dynamic_bullets">• Short audio → Groq Whisper\n• Long audio → Gemini\n• Long text → Gemini Flash\n• Short text, titles, explanations → alternates</string>
-    <string name="settings_dynamic_gemini_status">Gemini API Key: %1$s</string>
-    <string name="settings_dynamic_groq_status">Groq API Key: %1$s</string>
-    <string name="settings_status_configured">✓ Configured</string>
-    <string name="settings_status_not_set">✗ Not set</string>
-    <string name="settings_save_selection">Save Selection</string>
-    <string name="snackbar_gemini_saved">Gemini Configuration saved!</string>
-    <string name="snackbar_groq_saved">Groq Configuration saved!</string>
-    <string name="snackbar_dynamic_enabled">Standard mode enabled!</string>
-    <string name="snackbar_dynamic_needs_keys">Standard enabled, but both API keys are needed.</string>
-
-    <string name="settings_fast">Fast</string>
-    <string name="settings_accurate">Accurate</string>
-
-    <string name="settings_live_transcript">Live Text</string>
-    <string name="settings_live_transcript_desc">Live speech-to-text. Flaky on many devices.</string>
-
-    <string name="settings_record_background">Background Rec</string>
-    <string name="settings_record_background_desc">Keep recording with the screen off.</string>
-
-    <string name="settings_native_picker">Audio Browser</string>
-    <string name="settings_native_picker_desc">Browse audio inside Obinot.</string>
-
-    <string name="settings_auto_compression">Compression</string>
-    <string name="settings_auto_compression_desc">Shrinks audio to fit API size limits.</string>
-    <string name="settings_compression_off">Off</string>
-    <string name="settings_compression_balanced">Balanced</string>
-    <string name="settings_compression_max">Max</string>
-
-    <string name="settings_appearance">Appearance</string>
-    <string name="settings_theme_auto">Auto</string>
-    <string name="settings_theme_light">Light</string>
-    <string name="settings_theme_dark">Dark</string>
-    <string name="settings_theme_amoled">Amoled</string>
-
-    <string name="settings_color_palette">Color Palette</string>
-    <string name="settings_color_palette_desc">Changes the app\'s overall mood.</string>
-    <string name="settings_color_style">Style</string>
-
+    <string name="settings_updates_card_title">Updates</string>
+    <string name="settings_backup_card_title">Backup &amp; Restore</string>
     <string name="settings_data_system">Data &amp; System</string>
     <string name="settings_full_backup">Full Backup</string>
     <string name="settings_full_backup_desc">Notes, audio, labels, preferences.</string>
@@ -547,6 +549,9 @@
     <string name="settings_update_failed">Failed: %1$s</string>
     <string name="settings_up_to_date">App is up to date.</string>
 
+    <string name="settings_about">About</string>
+    <string name="settings_about_subtitle">App info, license, links</string>
+    <string name="settings_about_fork_notice">Obinot is a community fork of Binot, originally created by DENSLnetion (github.com/DENSLnetion/Binot), licensed under MIT.</string>
     <string name="settings_github_repo">GitHub Repository</string>
     <string name="settings_github_repo_desc">Star or report an issue</string>
 
@@ -562,8 +567,8 @@
     <string name="settings_dialog_gemini_body">Best for complex content: math, chemistry, and Mermaid diagrams. Handles very long audio files without size limits. Generous free tier.</string>
     <string name="settings_dialog_groq_title">Groq AI</string>
     <string name="settings_dialog_groq_body">Blazing fast, ideal for daily use. Powered by open-source models. Audio uploads are limited to 25 MB per file.</string>
-    <string name="settings_dialog_dynamic_title">Standard (Beta)</string>
-    <string name="settings_dialog_dynamic_body">Automatically picks the best provider for each task, so both free quotas last longer. Requires both API keys to be set. Renamed from "Mix" — same feature.</string>
+    <string name="settings_dialog_dynamic_title">Dynamic</string>
+    <string name="settings_dialog_dynamic_body">Picks the best provider for each task. Standard uses Gemini + Groq. Max adds NVIDIA for maximum quality and fallbacks.</string>
 
     <string name="settings_dialog_tasks">Processing Tasks</string>
     <string name="settings_dialog_tidy_title">Tidy Up</string>
@@ -599,18 +604,16 @@
     <string name="settings_dialog_backup_legacy_body">Exports only notes and audio, in the original Binot 1.x format. Use this only if you need to restore the backup on Binot 1.x itself. Labels and preferences are not included.</string>
 
     <string name="settings_dialog_got_it">Got it</string>
-
     <string name="settings_dialog_warning">Warning</string>
     <string name="settings_dialog_warning_body">Recording will be stopped and discarded. Continue?</string>
     <string name="settings_dialog_warning_continue">Continue</string>
     <string name="settings_dialog_apply_title">Save &amp; Apply to All Notes?</string>
     <string name="settings_dialog_apply_body">This will save your new preferences and reset the AI-generated results for all previous notes. They will be re-processed using your new preferences the next time you open them. Your original raw transcripts are completely safe.\n\nContinue?</string>
     <string name="settings_dialog_apply_button">Save &amp; Apply</string>
-
     <string name="settings_select_language">Select Language</string>
 
     <!-- ============================================================ -->
-    <!-- ResultViewModel — errors & loading messages                  -->
+    <!-- Errors & loading                                              -->
     <!-- ============================================================ -->
 
     <string name="error_audio_not_found_pending">Audio file not found.</string>
@@ -628,6 +631,7 @@
     <string name="error_note_empty">Note is empty!</string>
     <string name="error_generate_binot_failed">Failed to generate .binot file</string>
     <string name="error_file_ready">File ready!</string>
+    <string name="error_nvidia_cannot_transcribe">NVIDIA doesn\'t transcribe audio. Configure Gemini or Groq, or switch to Fast recording mode.</string>
 
     <string name="http_400">Bad Request (400). File format or data is unrecognized.</string>
     <string name="http_401">Invalid API Key (401). Please check your API Key in the Settings.</string>
@@ -648,7 +652,7 @@
     <string name="loading_ai_structuring">AI Engine is structuring your note…</string>
 
     <!-- ============================================================ -->
-    <!-- SettingsViewModel — backup, update & preferences              -->
+    <!-- Backup / update / prefs messages                              -->
     <!-- ============================================================ -->
 
     <string name="prefs_applied">Preferences applied! Old AI results have been reset.</string>
@@ -672,7 +676,7 @@
     <string name="update_install_failed">Installation Failed</string>
 
     <!-- ============================================================ -->
-    <!-- MainActivity — nav bar & import overlay                       -->
+    <!-- Nav bar & import overlay                                      -->
     <!-- ============================================================ -->
 
     <string name="nav_record">Record</string>
@@ -680,58 +684,6 @@
     <string name="nav_settings">Settings</string>
     <string name="main_import_failed">Failed to open or import note.</string>
     <string name="main_unpacking">Unpacking Obinot…</string>
-    
-    <!-- ============================================================ -->
-    <!-- App language (per-app locale selector)                        -->
-    <!-- ============================================================ -->
-
-    <string name="settings_app_language">App Language</string>
-    <string name="settings_app_language_desc">Interface language of the app.</string>
-    <string name="settings_language_device">Device language</string>
-    <string name="settings_language_english">English</string>
-    <string name="settings_language_spanish">Spanish</string>
-    <string name="settings_select_app_language">Select App Language</string>
-
-    <!-- Language names, translated to the app's current language.
-         Used by AppLanguage.displayLabel() in the language selector. -->
-    <string name="language_name_english">English</string>
-    <string name="language_name_spanish">Spanish</string>
-    <string name="language_name_german">German</string>
-
-    <!-- ============================================================ -->
-    <!-- Onboarding — skip without API key                             -->
-    <!-- ============================================================ -->
-
-    <string name="onboarding_no_key_title">No API Key</string>
-    <string name="onboarding_no_key_body">You can continue without an API key and add one later. AI won\'t work until then, but recording and reading notes will.</string>
-    <string name="onboarding_start_workspace_no_key">Continue without AI</string>
-
-    <!-- ============================================================ -->
-    <!-- D1b — Auto-process + Analyze manual                           -->
-    <!-- ============================================================ -->
-
-    <string name="settings_auto_process">Auto-process</string>
-    <string name="settings_auto_process_desc">Process notes with AI as soon as they\'re ready.</string>
-    <string name="result_analyze_chip">Analyze</string>
-
-    <!-- ============================================================ -->
-    <!-- D3 — Export Markdown + Checkboxes                             -->
-    <!-- ============================================================ -->
-
-    <string name="result_export_markdown">Export as Markdown</string>
-    <string name="result_export_markdown_success">Markdown file ready</string>
-    <string name="result_export_markdown_failed">Failed to export Markdown</string>
-    <string name="result_share_text_markdown">Obinot Note (Markdown): %1$s</string>
-    <string name="result_share_markdown_chooser">Share Markdown file via</string>
-
-    <!-- ============================================================ -->
-    <!-- B3 — Advanced section + About                                 -->
-    <!-- ============================================================ -->
-
-    <string name="settings_advanced">Advanced</string>
-    <string name="settings_advanced_desc">Rare settings and beta features.</string>
-    <string name="settings_about">About</string>
-    <string name="settings_about_fork_notice">Obinot is a community fork of Binot, originally created by DENSLnetion (github.com/DENSLnetion/Binot), licensed under MIT.</string>
 
     <!-- ============================================================ -->
     <!-- Crash screen                                                  -->
