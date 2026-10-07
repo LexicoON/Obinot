@@ -9,6 +9,12 @@ import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -446,6 +452,23 @@ private fun AudioFileRow(
     file: AudioFileInfo,
     onSelect: () -> Unit
 ) {
+    val context = LocalContext.current
+
+    // Carga lazy del artwork embebido. Arranca en null (muestra ícono
+    // genérico) y se actualiza en background cuando termina la extracción.
+    // Al ser lazy por row, solo se carga lo que el usuario ve; las filas
+    // fuera de pantalla recién cargan cuando aparecen por el reciclaje del
+    // LazyColumn.
+    var artwork by remember(file.uri) { mutableStateOf<ImageBitmap?>(null) }
+
+    LaunchedEffect(file.uri) {
+        if (artwork != null) return@LaunchedEffect
+        val loaded = withContext(Dispatchers.IO) {
+            loadAudioArtwork(context, file.uri)
+        }
+        if (loaded != null) artwork = loaded
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -461,12 +484,22 @@ private fun AudioFileRow(
                 .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.Audiotrack,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(20.dp)
-            )
+            val currentArt = artwork
+            if (currentArt != null) {
+                Image(
+                    bitmap = currentArt,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Audiotrack,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -483,6 +516,36 @@ private fun AudioFileRow(
                 Text(file.formatFormatted, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+}
+
+/**
+ * Extrae el artwork embebido de un archivo de audio. Devuelve null si
+ * el archivo no tiene artwork o si falla la extracción.
+ *
+ * Usamos MediaMetadataRetriever directamente (no loadThumbnail) porque
+ * loadThumbnail puede devolver un placeholder genérico del sistema cuando
+ * el archivo no tiene artwork, y eso taparía nuestro ícono de fallback
+ * con uno que no es nuestro.
+ *
+ * Es costoso por archivo (~5-15ms), por eso se llama lazy en cada row.
+ */
+private fun loadAudioArtwork(context: Context, uri: Uri): ImageBitmap? {
+    return try {
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(context, uri)
+            val picture = retriever.embeddedPicture
+            if (picture != null && picture.isNotEmpty()) {
+                BitmapFactory.decodeByteArray(picture, 0, picture.size)?.asImageBitmap()
+            } else {
+                null
+            }
+        } finally {
+            try { retriever.release() } catch (_: Exception) {}
+        }
+    } catch (e: Exception) {
+        null
     }
 }
 

@@ -1166,8 +1166,11 @@ fun DismissibleNoteCard(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
-    val maxOffsetPx = with(density) { 380.dp.toPx() }
-    val thresholdPx = with(density) { 110.dp.toPx() }
+    // Bajamos de 380dp a 300dp: la progress sube más rápido y el gesto
+    // se siente más sensible.
+    val maxOffsetPx = with(density) { 300.dp.toPx() }
+    // Subimos de 110dp a 130dp: más difícil de disparar por accidente.
+    val thresholdPx = with(density) { 130.dp.toPx() }
 
     var localOffsetX by remember { mutableFloatStateOf(0f) }
     val scope = rememberCoroutineScope()
@@ -1207,22 +1210,21 @@ fun DismissibleNoteCard(
         else Color.Transparent,
         label = "deleteColor"
     )
-    // El ícono crece más agresivamente con el drag: 0.7 → 1.2. La alpha se
-    // satura rápido (a 0.66 de progreso ya está full) para que sea visible
-    // apenas el usuario empieza el gesto.
-    val iconScale = 0.7f + 0.5f * dragProgress
-    val iconAlpha = (dragProgress * 1.5f).coerceIn(0f, 1f)
+    // El ícono crece 0.75 → 1.15 con el drag. Alpha satura rápido (a 60%
+    // del progress ya está full) para que sea visible apenas arranca.
+    val iconScale = 0.75f + 0.4f * dragProgress
+    val iconAlpha = (dragProgress * 1.7f).coerceIn(0f, 1f)
 
     Box(modifier = modifier.fillMaxWidth()) {
+        // Fondo rojo: matchParentSize() para que tome EXACTAMENTE el tamaño
+        // del Box padre (que a su vez mide lo que mide el NoteCard).
         Box(
             Modifier
-                .fillMaxSize()
+                .matchParentSize()
                 .background(deleteColor, RoundedCornerShape(16.dp)),
-            // El ícono va centrado en TODA la card. La card en movimiento
-            // tapa la mitad, así que el usuario solo ve la parte expuesta.
             contentAlignment = Alignment.Center
         ) {
-            if (isActive && dragProgress > 0.04f) {
+            if (isActive && dragProgress > 0.03f) {
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = stringResource(R.string.common_delete),
@@ -1250,26 +1252,29 @@ fun DismissibleNoteCard(
                                 swipeState.activeId = note.id
                             }
                             val progress = (abs(localOffsetX) / maxOffsetPx).coerceIn(0f, 1f)
-                            // Friction en dos fases:
-                            //   - Fase 1 (progress < 0.4): resistencia alta,
-                            //     el offset crece lento. Da sensación de peso.
-                            //   - Fase 2 (progress >= 0.4): la resistencia se
-                            //     desploma. La card empieza a "seguir al dedo"
-                            //     casi 1:1 y el gesto se siente inmediato.
-                            // Esto cumple el "friction hasta un punto donde se
-                            // snapea rápido a la posición del dedo".
-                            val friction = if (progress < 0.4f) {
-                                1f - progress * 0.9f
+                            // Friction en dos fases (corregido):
+                            //   - Etapa 1 (progress < 0.35): factor constante 0.78.
+                            //     La card sigue al dedo, un 22% más lento. Se
+                            //     siente "con peso" pero RESPONDE al dedo desde
+                            //     el primer pixel.
+                            //   - Etapa 2 (progress >= 0.35): el factor sube
+                            //     linealmente de 0.78 a 1.0. La card se "suelta"
+                            //     y sigue al dedo 1:1.
+                            val friction = if (progress < 0.35f) {
+                                0.78f
                             } else {
-                                0.64f - (progress - 0.4f) * 0.9f
-                            }.coerceIn(0.1f, 1f)
+                                val t = (progress - 0.35f) / 0.65f
+                                0.78f + t * 0.22f
+                            }
                             localOffsetX = (localOffsetX + delta * friction)
                                 .coerceIn(-maxOffsetPx, maxOffsetPx)
                             swipeState.dragX = localOffsetX
                         },
                         onDragStopped = { velocity ->
                             val currentOffset = localOffsetX
-                            val shouldDismiss = abs(currentOffset) > thresholdPx || abs(velocity) > 800f
+                            // Subimos el velocity threshold de 800 a 1200 para
+                            // que un flick suave no dispare el delete.
+                            val shouldDismiss = abs(currentOffset) > thresholdPx || abs(velocity) > 1200f
                             if (shouldDismiss) {
                                 val target = if (currentOffset > 0) maxOffsetPx * 1.6f else -maxOffsetPx * 1.6f
                                 scope.launch {

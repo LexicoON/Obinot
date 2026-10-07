@@ -37,7 +37,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
@@ -152,7 +151,6 @@ fun ResultScreen(
     onNavigateBack: () -> Unit
 ) {
 
-    val albumArt by viewModel.albumArt.collectAsState()
     val context = LocalContext.current
     val note by viewModel.note.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -417,22 +415,8 @@ fun ResultScreen(
     // En landscape esa línea es un no-op (el sheet no está abierto).
     // ============================================================
     val sidePanelContent: @Composable (Modifier) -> Unit = { modifier ->
-        // Stagger fade-in sutil: el panel aparece con un fade de 300ms al
-        // abrirse. Le da un toque menos "duro" a la entrada, sobre todo en
-        // portrait (donde es un ModalBottomSheet que aparece de golpe).
-        var panelVisible by remember { mutableStateOf(false) }
-        LaunchedEffect(Unit) {
-            delay(50)
-            panelVisible = true
-        }
-        val panelAlpha by androidx.compose.animation.core.animateFloatAsState(
-            targetValue = if (panelVisible) 1f else 0f,
-            animationSpec = tween(300),
-            label = "panelAlpha"
-        )
         Column(
             modifier = modifier
-                .graphicsLayer { alpha = panelAlpha }
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 24.dp)
@@ -672,26 +656,7 @@ fun ResultScreen(
                     }
                 }
 
-                if (note!!.audioPath != null && albumArt != null) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .size(96.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Image(
-                                bitmap = albumArt!!,
-                                contentDescription = null,
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(RoundedCornerShape(16.dp))
-                            )
-                        }
-                    }
-                }
+
 
                 if (note!!.audioPath != null) {
                     item {
