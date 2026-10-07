@@ -1213,17 +1213,16 @@ fun ResultScreen(
                                             }
                                         }
 
-                                        if (note!!.audioPath != null && !isLoading) {
-                                            CompactAudioPlayer(
-                                                isPlaying = isPlaying,
-                                                progress = playbackProgress,
-                                                onTogglePlay = { viewModel.toggleAudio() },
-                                                onSeek = { viewModel.seekAudio(it) },
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                                            )
-                                        }
+                                    if (note!!.audioPath != null && !isLoading) {
+                                        CompactAudioPlayer(
+                                            isPlaying = isPlaying,
+                                            progress = playbackProgress,
+                                            onTogglePlay = { viewModel.toggleAudio() },
+                                            onSeek = { viewModel.seekAudio(it) },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                                        )
                                     }
                                 }
                             }
