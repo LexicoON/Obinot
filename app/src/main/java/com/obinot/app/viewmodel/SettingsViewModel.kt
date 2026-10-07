@@ -40,6 +40,23 @@ import java.util.zip.ZipOutputStream
 
 enum class UpdateState { Idle, Checking, Available, Downloading, Downloaded, Error }
 
+/**
+ * Resultado de importar un backup.
+ *
+ * [message] es el texto a mostrar en el snackbar (éxito o error).
+ * [permissionsToRequest] son los permisos del sistema que hay que pedirle
+ * al usuario porque el backup ACTIVÓ una feature que los necesita. Ej: si
+ * el backup tenía background recording activado, hace falta
+ * POST_NOTIFICATIONS para que el foreground service sea visible.
+ *
+ * El launcher de permisos vive en el composable (Activity-scoped), no acá,
+ * por eso el ViewModel devuelve la lista y el composable la ejecuta.
+ */
+data class ImportResult(
+    val message: String,
+    val permissionsToRequest: List<String> = emptyList()
+)
+
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
     private val noteRepository: NoteRepository,
@@ -103,6 +120,12 @@ class SettingsViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = false
+    )
+
+    val dynamicMode: StateFlow<Int> = settingsRepository.dynamicModeFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0
     )
 
     val themeMode: StateFlow<Int> = settingsRepository.themeModeFlow.stateIn(
@@ -229,6 +252,10 @@ class SettingsViewModel(
 
     fun saveAlphaUnlocked(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.saveAlphaUnlocked(enabled) }
+    }
+
+    fun saveDynamicMode(mode: Int) {
+        viewModelScope.launch { settingsRepository.saveDynamicMode(mode) }
     }
 
     fun saveThemeMode(mode: Int) {
@@ -408,7 +435,7 @@ class SettingsViewModel(
         }
     }
 
-    fun importBackup(context: Context, uri: Uri, onResult: (String) -> Unit) {
+    fun importBackup(context: Context, uri: Uri, onResult: (ImportResult) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val audioDir = File(context.filesDir, "audio_records").apply { mkdirs() }
@@ -462,7 +489,7 @@ class SettingsViewModel(
 
                 val notes = notesAdapter.fromJson(notesJson!!)
                 if (notes == null) {
-                    launch(Dispatchers.Main) { onResult(context.getString(R.string.restore_invalid)) }
+                    launch(Dispatchers.Main) { onResult(ImportResult(context.getString(R.string.restore_invalid))) }
                     return@launch
                 }
 
@@ -500,11 +527,50 @@ class SettingsViewModel(
                 } else {
                     context.getString(R.string.restore_successful_legacy)
                 }
-                launch(Dispatchers.Main) { onResult(msg) }
+
+                // Detectar qué permisos activó el backup. Se chequea acá
+                // (después de aplicar los settings) porque las flows de
+                // DataStore ya tienen los valores nuevos, así que podemos
+                // leer el estado real post-restore sin parsear el JSON.
+                val requiredPermissions = computeRequiredPermissionsAfterRestore()
+
+                launch(Dispatchers.Main) {
+                    onResult(ImportResult(msg, requiredPermissions))
+                }
             } catch (e: Exception) {
-                launch(Dispatchers.Main) { onResult(context.getString(R.string.restore_failed, e.message ?: "")) }
+                launch(Dispatchers.Main) {
+                    onResult(ImportResult(context.getString(R.string.restore_failed, e.message ?: "")))
+                }
             }
         }
+    }
+
+    /**
+     * Devuelve los permisos del sistema que el backup acaba de activar y
+     * que el user todavía no tiene concedidos.
+     *
+     * Puntos de extensión documentados:
+     *   - POST_NOTIFICATIONS: activado por `backgroundRecordingEnabled = true`
+     *     en API 33+. Sin esto el foreground service igual corre, pero el
+     *     user no ve la notificación persistente y piensa que la grabación
+     *     se detuvo.
+     *
+     * Cuando se agregue otra feature que necesite permiso, se suma acá.
+     * El composable no necesita saber de esta lógica: solo itera la lista
+     * que le devolvemos.
+     */
+    private suspend fun computeRequiredPermissionsAfterRestore(): List<String> {
+        val permissions = mutableListOf<String>()
+
+        // Background recording usa un foreground service con notificación
+        // persistente. En Android 13+ sin POST_NOTIFICATIONS el service
+        // igual corre, pero la notificación no se muestra.
+        val bgRecording = settingsRepository.backgroundRecordingFlow.first()
+        if (bgRecording && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        return permissions
     }
 
     private suspend fun applyImportedSettings(settingsJson: String) {

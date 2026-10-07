@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.RemoveCircleOutline
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
@@ -591,6 +592,7 @@ fun SettingsScreen(
     val nvidiaApiKeys by viewModel.nvidiaApiKeys.collectAsState()
     val keyRotationEnabled by viewModel.keyRotationEnabled.collectAsState()
     val alphaUnlocked by viewModel.alphaUnlocked.collectAsState()
+    val dynamicMode by viewModel.dynamicMode.collectAsState()
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -604,6 +606,7 @@ fun SettingsScreen(
     var tempAiTask by remember(aiTask) { mutableStateOf(aiTask) }
     var tempAiFormat by remember(aiFormat) { mutableStateOf(aiFormat) }
     var tempAiProvider by remember(aiProvider) { mutableStateOf(aiProvider) }
+    var tempDynamicMode by remember(dynamicMode) { mutableStateOf(dynamicMode) }
 
     val updateState by viewModel.updateState.collectAsState()
     val downloadProgress by viewModel.downloadProgress.collectAsState()
@@ -670,7 +673,23 @@ fun SettingsScreen(
     }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let { viewModel.importBackup(context, it) { msg -> coroutineScope.launch { snackbarHostState.showSnackbar(msg) } } }
+        uri?.let {
+            viewModel.importBackup(context, it) { result ->
+                coroutineScope.launch { snackbarHostState.showSnackbar(result.message) }
+
+                // Pedir permisos que el backup activó. En este momento hay
+                // un solo launcher (notificaciones) porque todas las features
+                // que requieren permiso apuntan a POST_NOTIFICATIONS. Si en
+                // el futuro hay más, hay que agregar un launcher por permiso
+                // y encadenarlos con un delay (el sistema solo procesa uno
+                // por vez).
+                result.permissionsToRequest.forEach { permission ->
+                    if (permission == android.Manifest.permission.POST_NOTIFICATIONS) {
+                        notificationPermissionLauncher.launch(permission)
+                    }
+                }
+            }
+        }
     }
 
     // ============================================================
@@ -999,14 +1018,14 @@ fun SettingsScreen(
                     labels = listOf(
                         stringResource(R.string.settings_provider_gemini),
                         stringResource(R.string.settings_provider_groq),
-                        stringResource(R.string.settings_provider_dynamic),
-                        stringResource(R.string.settings_provider_full)
+                        stringResource(R.string.settings_provider_nvidia),
+                        stringResource(R.string.settings_provider_dynamic)
                     ),
                     icons = listOf(
                         Icons.Default.AutoAwesome,
                         Icons.Default.Bolt,
-                        Icons.Default.Shuffle,
-                        Icons.Default.Speed
+                        Icons.Default.Memory,
+                        Icons.Default.Shuffle
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1088,97 +1107,18 @@ fun SettingsScreen(
                             }
                         }
                         2 -> {
+                            // ============ NVIDIA SOLO ============
                             Column {
-                                val geminiKey = geminiKeyInputs.firstOrNull().orEmpty()
-                                val groqKey = groqKeyInputs.firstOrNull().orEmpty()
-                                val bothConfigured = geminiKey.isNotBlank() && groqKey.isNotBlank()
-
                                 Text(
-                                    stringResource(R.string.settings_dynamic_desc),
+                                    stringResource(R.string.settings_nvidia_desc),
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = stringResource(R.string.settings_dynamic_bullets),
+                                    text = stringResource(R.string.settings_nvidia_warning),
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                val geminiStatus = if (geminiKey.isNotBlank()) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
-                                val groqStatus = if (groqKey.isNotBlank()) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
-                                Text(
-                                    text = stringResource(R.string.settings_dynamic_gemini_status, geminiStatus),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (geminiKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                                )
-                                Text(
-                                    text = stringResource(R.string.settings_dynamic_groq_status, groqStatus),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (groqKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                BouncyButton(
-                                    onClick = {
-                                        viewModel.saveAiProvider(tempAiProvider)
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar(
-                                                context.getString(
-                                                    if (bothConfigured) R.string.snackbar_dynamic_enabled
-                                                    else R.string.snackbar_dynamic_needs_keys
-                                                )
-                                            )
-                                        }
-                                    },
-                                    enabled = tempAiProvider != aiProvider,
-                                    modifier = Modifier.align(Alignment.End)
-                                ) {
-                                    Text(stringResource(R.string.settings_save_selection))
-                                }
-                            }
-                        }
-                        3 -> {
-                            Column {
-                                val geminiKey = geminiKeyInputs.firstOrNull().orEmpty()
-                                val groqKey = groqKeyInputs.firstOrNull().orEmpty()
-                                val nvidiaKey = nvidiaKeyInputs.firstOrNull().orEmpty()
-                                val geminiConfigured = geminiKey.isNotBlank()
-                                val groqConfigured = groqKey.isNotBlank()
-                                val nvidiaConfigured = nvidiaKey.isNotBlank()
-
-                                Text(
-                                    stringResource(R.string.settings_full_desc),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = stringResource(R.string.settings_full_bullets),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                val geminiStatus = if (geminiConfigured) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
-                                val groqStatus = if (groqConfigured) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
-                                val nvidiaStatus = if (nvidiaConfigured) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_optional)
-
-                                Text(
-                                    text = stringResource(R.string.settings_dynamic_gemini_status, geminiStatus),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (geminiConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                                )
-                                Text(
-                                    text = stringResource(R.string.settings_dynamic_groq_status, groqStatus),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (groqConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                                )
-                                Text(
-                                    text = stringResource(R.string.settings_dynamic_nvidia_status, nvidiaStatus),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (nvidiaConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.error
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -1189,7 +1129,7 @@ fun SettingsScreen(
                                     labelBackupRes = R.string.settings_rotation_key_backup,
                                     rotationEnabled = keyRotationEnabled,
                                     maxKeys = maxKeys,
-                                    onDirty = { /* nvidia no tiene "dirty" flag propio; se guarda al toque */ }
+                                    onDirty = { /* nvidia no tiene flag dirty propio */ }
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
@@ -1218,20 +1158,105 @@ fun SettingsScreen(
                                     BouncyButton(
                                         onClick = {
                                             viewModel.saveAiProvider(tempAiProvider)
-                                            coroutineScope.launch {
-                                                snackbarHostState.showSnackbar(
-                                                    context.getString(
-                                                        if (geminiConfigured && groqConfigured) R.string.snackbar_full_enabled
-                                                        else R.string.snackbar_full_needs_keys
-                                                    )
-                                                )
-                                            }
+                                            coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_nvidia_only_enabled)) }
                                         },
                                         enabled = tempAiProvider != aiProvider,
                                         modifier = Modifier.weight(1f)
                                     ) {
                                         Text(stringResource(R.string.settings_save_selection))
                                     }
+                                }
+                            }
+                        }
+                        3 -> {
+                            // ============ DYNAMIC ============
+                            Column {
+                                // Sub-modo: Standard / Max.
+                                Text(
+                                    stringResource(R.string.settings_dynamic_submode_title),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                                TextToggleGroup(
+                                    selectedIndex = tempDynamicMode,
+                                    onSelect = { tempDynamicMode = it },
+                                    labels = listOf(
+                                        stringResource(R.string.settings_dynamic_submode_standard),
+                                        stringResource(R.string.settings_dynamic_submode_max)
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                val isMax = tempDynamicMode == 1
+                                Text(
+                                    stringResource(
+                                        if (isMax) R.string.settings_dynamic_max_desc
+                                        else R.string.settings_dynamic_standard_desc
+                                    ),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = stringResource(
+                                        if (isMax) R.string.settings_dynamic_max_bullets
+                                        else R.string.settings_dynamic_standard_bullets
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                val geminiKey = geminiKeyInputs.firstOrNull().orEmpty()
+                                val groqKey = groqKeyInputs.firstOrNull().orEmpty()
+                                val nvidiaKey = nvidiaKeyInputs.firstOrNull().orEmpty()
+                                val geminiConfigured = geminiKey.isNotBlank()
+                                val groqConfigured = groqKey.isNotBlank()
+                                val nvidiaConfigured = nvidiaKey.isNotBlank()
+                                val requiredOk = geminiConfigured && groqConfigured
+
+                                val geminiStatus = if (geminiConfigured) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
+                                val groqStatus = if (groqConfigured) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
+                                val nvidiaStatus = if (nvidiaConfigured) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_optional)
+
+                                Text(
+                                    text = stringResource(R.string.settings_dynamic_gemini_status, geminiStatus),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (geminiConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    text = stringResource(R.string.settings_dynamic_groq_status, groqStatus),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (groqConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                )
+                                if (isMax) {
+                                    Text(
+                                        text = stringResource(R.string.settings_dynamic_nvidia_status, nvidiaStatus),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (nvidiaConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                BouncyButton(
+                                    onClick = {
+                                        viewModel.saveDynamicMode(tempDynamicMode)
+                                        viewModel.saveAiProvider(tempAiProvider)
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                context.getString(
+                                                    if (requiredOk) R.string.snackbar_dynamic_enabled
+                                                    else R.string.snackbar_dynamic_needs_keys
+                                                )
+                                            )
+                                        }
+                                    },
+                                    enabled = tempAiProvider != aiProvider || tempDynamicMode != dynamicMode,
+                                    modifier = Modifier.align(Alignment.End)
+                                ) {
+                                    Text(stringResource(R.string.settings_save_selection))
                                 }
                             }
                         }

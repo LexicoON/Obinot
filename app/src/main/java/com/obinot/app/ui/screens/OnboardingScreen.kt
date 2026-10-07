@@ -383,20 +383,25 @@ fun OnboardingScreen(
 
                             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                                 SegmentedButton(
-                                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
+                                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 4),
                                     onClick = { aiProvider = 0 },
                                     selected = aiProvider == 0
-                                ) { Text(stringResource(R.string.onboarding_provider_gemini), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                ) { Text(stringResource(R.string.onboarding_provider_gemini), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                                 SegmentedButton(
-                                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
+                                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 4),
                                     onClick = { aiProvider = 1 },
                                     selected = aiProvider == 1
-                                ) { Text(stringResource(R.string.onboarding_provider_groq), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                ) { Text(stringResource(R.string.onboarding_provider_groq), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                                 SegmentedButton(
-                                    shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+                                    shape = SegmentedButtonDefaults.itemShape(index = 2, count = 4),
                                     onClick = { aiProvider = 2 },
                                     selected = aiProvider == 2
-                                ) { Text(stringResource(R.string.onboarding_provider_standard), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                ) { Text(stringResource(R.string.onboarding_provider_nvidia), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                SegmentedButton(
+                                    shape = SegmentedButtonDefaults.itemShape(index = 3, count = 4),
+                                    onClick = { aiProvider = 3 },
+                                    selected = aiProvider == 3
+                                ) { Text(stringResource(R.string.onboarding_provider_dynamic), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                             }
 
                             Spacer(modifier = Modifier.height(16.dp))
@@ -411,7 +416,14 @@ fun OnboardingScreen(
                                         textAlign = TextAlign.Center
                                     )
                                     2 -> Text(
-                                        text = stringResource(R.string.onboarding_provider_standard_hint),
+                                        text = stringResource(R.string.onboarding_provider_nvidia_hint),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    3 -> Text(
+                                        text = stringResource(R.string.onboarding_provider_dynamic_hint),
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold,
@@ -430,13 +442,12 @@ fun OnboardingScreen(
 
                             BouncyButton(
                                 onClick = {
-                                    // En modo Standard pedimos la key de Gemini
-                                    // primero (el user puede agregar la de Groq
-                                    // después desde Settings).
-                                    val url = if (aiProvider == 0 || aiProvider == 2) {
-                                        "https://aistudio.google.com/app/apikey"
-                                    } else {
-                                        "https://console.groq.com/keys"
+                                    // URL de la consola del provider seleccionado.
+                                    val url = when (aiProvider) {
+                                        0 -> "https://aistudio.google.com/app/apikey"
+                                        1 -> "https://console.groq.com/keys"
+                                        2 -> "https://build.nvidia.com"
+                                        else -> "https://aistudio.google.com/app/apikey"
                                     }
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                                     context.startActivity(intent)

@@ -1099,30 +1099,46 @@ fun ResultScreen(
                         ) {
                             // ============ HEADER DINÁMICO ============
                             // Agrupa hero + analyze + segmented + audio player
-                            // en un solo bloque que se oculta con el scroll,
-                            // sincronizado con el colapso del TopAppBar.
+                            // en un solo bloque que se oculta con el scroll.
                             //
-                            // scrollBehavior.state.collapsedFraction va de 0f
-                            // (barra expandida) a 1f (barra colapsada). Lo usamos
-                            // para hacer fade-out + slide-up del header.
+                            // Animación: usamos animateFloatAsState con un
+                            // spring para suavizar los cambios de
+                            // collapsedFraction. Aunque collapsedFraction ya
+                            // cambia continuamente, el spring elimina el
+                            // "chunkiness" que aparece en los extremos del
+                            // scroll (cuando la barra arranca/termina de
+                            // colapsar) y le da el feel expresivo del theme.
                             //
-                            // El multiplicador 1.5 hace que el header desaparezca
-                            // bastante antes de que el TopAppBar llegue al 100%,
-                            // así no se ve "medio transparente" al final.
+                            // El spring tiene dampingRatio < 1 para un
+                            // pequeñísimo rebote al llegar al final — es
+                            // sutil pero le da vida al fade.
                             val collapsedFraction = scrollBehavior.state.collapsedFraction
-                            val headerAlpha = (1f - collapsedFraction * 1.5f).coerceIn(0f, 1f)
-                            val headerOffsetPx = -collapsedFraction * 40f  // slide up 40px
+                            val headerAlpha by androidx.compose.animation.core.animateFloatAsState(
+                                targetValue = (1f - collapsedFraction).coerceIn(0f, 1f),
+                                animationSpec = spring(
+                                    dampingRatio = 0.85f,
+                                    stiffness = Spring.StiffnessMediumLow
+                                ),
+                                label = "headerAlpha"
+                            )
+                            val headerOffsetPx by androidx.compose.animation.core.animateFloatAsState(
+                                targetValue = -collapsedFraction * 28f,
+                                animationSpec = spring(
+                                    dampingRatio = 0.85f,
+                                    stiffness = Spring.StiffnessMediumLow
+                                ),
+                                label = "headerOffset"
+                            )
 
-                            if (headerAlpha > 0.01f) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .graphicsLayer {
-                                            alpha = headerAlpha
-                                            translationY = headerOffsetPx
-                                        }
-                                ) {
-                                    Column {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .graphicsLayer {
+                                        alpha = headerAlpha
+                                        translationY = headerOffsetPx
+                                    }
+                            ) {
+                                Column {
                                         if (!isEditMode) {
                                             ResultHeroHeader(
                                                 note = note!!,

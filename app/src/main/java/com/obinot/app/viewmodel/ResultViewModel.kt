@@ -669,18 +669,23 @@ class ResultViewModel(
 
     /**
      * Devuelve el provider preferido según el modo activo.
-     *   - Modo 0 (Gemini):  no aplica, solo hay un provider.
-     *   - Modo 1 (Groq):    idem.
-     *   - Modo 2 (Standard): pickPreferredProviderForMix.
-     *   - Modo 3 (Full):    pickPreferredProviderForFull.
      *
-     * Si el modo no es 2 ni 3, devuelve null (el router ignora el
-     * preferred y elige por orden de la lista de providers).
+     * Modos individuales (0, 1, 2): devuelve null. El router elige el
+     * único provider que esté en el map. Para NVIDIA (modo 2), si la
+     * tarea es TRANSCRIPTION y NVIDIA no lo soporta, el router devuelve
+     * null y el caller muestra un error claro.
+     *
+     * Modo Dynamic (3): el sub-modo decide.
+     *   - Standard: pickPreferredProviderForMix (solo Gemini + Groq).
+     *   - Max: pickPreferredProviderForFull (los 3, priorizando calidad).
      */
     private suspend fun pickPreferredProvider(provider: Int, task: MixTask): String? {
         return when (provider) {
-            2 -> pickPreferredProviderForMix(task)
-            3 -> pickPreferredProviderForFull(task)
+            3 -> {
+                val dynamicMode = settingsRepository.dynamicModeFlow.first()
+                if (dynamicMode == 1) pickPreferredProviderForFull(task)
+                else pickPreferredProviderForMix(task)
+            }
             else -> null
         }
     }
@@ -702,26 +707,34 @@ class ResultViewModel(
      * nunca activaron la rotación), el comportamiento es idéntico al de
      * Release 1.x / 2.0 / 2.1.
      */
+    /**
+     * Construye el map de listas de API keys según el modo configurado.
+     *
+     * Modos:
+     *   0 = Gemini solo → {gemini}
+     *   1 = Groq solo   → {groq}
+     *   2 = NVIDIA solo → {nvidia}
+     *   3 = Dynamic:
+     *       sub-modo 0 (Standard) → {gemini, groq}
+     *       sub-modo 1 (Max)      → {gemini, groq, nvidia}
+     */
     private suspend fun buildApiKeysMap(provider: Int): Map<String, List<String>> {
         val map = mutableMapOf<String, List<String>>()
-        val includeGemini = provider == 0 || provider == 2 || provider == 3
-        val includeGroq = provider == 1 || provider == 2 || provider == 3
-        val includeNvidia = provider == 3
 
-        if (includeGemini) {
-            val geminiKeys = settingsRepository.geminiApiKeysFlow.first()
-                .filter { it.isNotBlank() }
-            if (geminiKeys.isNotEmpty()) map["gemini"] = geminiKeys
-        }
-        if (includeGroq) {
-            val groqKeys = settingsRepository.groqApiKeysFlow.first()
-                .filter { it.isNotBlank() }
-            if (groqKeys.isNotEmpty()) map["groq"] = groqKeys
-        }
-        if (includeNvidia) {
-            val nvidiaKeys = settingsRepository.nvidiaApiKeysFlow.first()
-                .filter { it.isNotBlank() }
-            if (nvidiaKeys.isNotEmpty()) map["nvidia"] = nvidiaKeys
+        val geminiKeys = settingsRepository.geminiApiKeysFlow.first().filter { it.isNotBlank() }
+        val groqKeys = settingsRepository.groqApiKeysFlow.first().filter { it.isNotBlank() }
+        val nvidiaKeys = settingsRepository.nvidiaApiKeysFlow.first().filter { it.isNotBlank() }
+
+        when (provider) {
+            0 -> if (geminiKeys.isNotEmpty()) map["gemini"] = geminiKeys
+            1 -> if (groqKeys.isNotEmpty()) map["groq"] = groqKeys
+            2 -> if (nvidiaKeys.isNotEmpty()) map["nvidia"] = nvidiaKeys
+            3 -> {
+                val dynamicMode = settingsRepository.dynamicModeFlow.first()
+                if (geminiKeys.isNotEmpty()) map["gemini"] = geminiKeys
+                if (groqKeys.isNotEmpty()) map["groq"] = groqKeys
+                if (dynamicMode == 1 && nvidiaKeys.isNotEmpty()) map["nvidia"] = nvidiaKeys
+            }
         }
         return map
     }
@@ -888,6 +901,24 @@ class ResultViewModel(
                 return@launch
             }
 
+            // Check: ¿alguno de los providers en el map soporta transcripción?
+            // Esto cubre el caso de usuario en modo NVIDIA-solo: NVIDIA no
+            // transcribe audio, así que hay que darle un error claro en vez
+            // de un "no candidates" genérico.
+            val hasTranscriber = apiKeys.keys.any { id ->
+                when (id) {
+                    "gemini", "groq" -> true
+                    else -> false
+                }
+            }
+            if (!hasTranscriber) {
+                launch(Dispatchers.Main) {
+                    _error.value = appContext.getString(R.string.error_nvidia_cannot_transcribe)
+                    _isLoading.value = false
+                }
+                return@launch
+            }
+
             var compressedFile: File? = null
             try {
                 val originalFile = File(audioPath)
@@ -904,7 +935,12 @@ class ResultViewModel(
                 //   - Si no → Gemini (no tiene límite de tamaño)
                 // El preferred se pasa al router. Si el preferido falla con
                 // un error reintentable, el router cae al otro automáticamente.
-                val preferred: String? = if (provider == 2 || provider == 3) {
+                // El preferido para transcripción depende del modo:
+                //   - Modo individual (0/1/2): null, el router elige por
+                //     orden del map (solo hay uno).
+                //   - Dynamic (3): si entra en Groq → Groq. Si no → Gemini.
+                //     NVIDIA no participa porque no soporta TRANSCRIPTION.
+                val preferred: String? = if (provider == 3) {
                     val fits = originalFile.length() <= 20 * 1024 * 1024
                     val compressible = compressionModeForRouting > 0 &&
                         AudioCompressor.calculateTargetBitrate(
@@ -913,7 +949,6 @@ class ResultViewModel(
                         ) != null
                     if (fits || compressible) "groq" else "gemini"
                 } else {
-                    // En modos explícitos no importa: solo hay un provider.
                     null
                 }
 

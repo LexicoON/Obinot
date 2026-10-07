@@ -1187,17 +1187,6 @@ private fun RecordScreenActionButtons(
         var isStopPressed by remember { mutableStateOf(false) }
         var isImportPressed by remember { mutableStateOf(false) }
 
-        val infinite = rememberInfiniteTransition(label = "record_btn_breathing")
-        val breathingScale by infinite.animateFloat(
-            initialValue = 1f,
-            targetValue = if (!isSplit) 1.015f else 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(2400, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "breathingScale"
-        )
-
         val leftTargetWidth = when {
             isStopPressed && isSplit -> 88.dp
             isLeftPressed && isSplit -> 152.dp
@@ -1230,10 +1219,6 @@ private fun RecordScreenActionButtons(
                 modifier = Modifier
                     .width(leftButtonWidth)
                     .height(80.dp)
-                    .graphicsLayer {
-                        scaleX = breathingScale
-                        scaleY = breathingScale
-                    }
                     .clip(CircleShape)
                     .background(
                         when {
@@ -1394,61 +1379,118 @@ private fun RecordScreenActionButtons(
  * movimiento se percibe aunque el usuario no mire fijo. El vertical es
  * más sutil para no marear.
  */
+/**
+ * Fondo con dos burbujas de color que driftean lentamente.
+ *
+ * Decisión de diseño:
+ *   - Los colores son `secondary` y `tertiary`, no `primary`. El surface
+ *     base ya está derivado de primary, así que una burbuja primary casi
+ *     no se distingue del fondo (ese era el bug original: no se veía nada
+ *     porque el color no contrastaba). Secondary/tertiary tienen hue
+ *     distinto al primary → siempre se ven.
+ *   - El radio es 0.5 × min(w, h). Chico a propósito: la burbuja nunca
+ *     llega al borde del canvas, así no hay "corte" visible ni en el nav
+ *     bar inferior ni en landscape. Es un glow contenido, no un wash.
+ *   - El gradiente usa 3 stops (color, color*0.3, transparente) en vez
+ *     de 2. Esto alarga la zona de fade y hace que el borde sea
+ *     imperceptible.
+ *   - Alphas más bajos que la iteración anterior. Los colores correctos
+ *     hacen el trabajo; no hace falta subir la intensidad.
+ *
+ * Animación:
+ *   - Una sola animación continua (0..1) que mapea a un ángulo 0..2π.
+ *   - Cada burbuja recorre un círculo (cos/sin) con radios distintos.
+ *   - Los períodos son 14s y 18s, así las dos burbujas se desincronizan
+ *     solas y el patrón nunca se repite igual.
+ *   - Velocidad percibida: alta al principio/medio/final, baja en los
+ *     extremos del círculo — eso la hace sentir "orgánica" en vez de
+ *     robótica.
+ */
 @Composable
 private fun M3ExpressiveBackground() {
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val primaryColor = MaterialTheme.colorScheme.primary
+    // Secondary y tertiary, no primary. Ver comentario de la función.
+    val secondaryColor = MaterialTheme.colorScheme.secondary
     val tertiaryColor = MaterialTheme.colorScheme.tertiary
 
-    // Alphas por modo. Dark mode necesita ~2x el valor de light mode
-    // para verse igual de claro, por la diferencia de luminosidad base.
-    val primaryAlpha = if (isDark) 0.32f else 0.15f
-    val tertiaryAlpha = if (isDark) 0.24f else 0.12f
+    // Alphas sutiles. En dark mode un poco más altos porque el surface
+    // oscuro absorbe más el tinte.
+    val secondaryAlpha = if (isDark) 0.18f else 0.10f
+    val tertiaryAlpha = if (isDark) 0.14f else 0.08f
 
     val infinite = rememberInfiniteTransition(label = "bg_drift")
-    val drift by infinite.animateFloat(
+    val phaseA by infinite.animateFloat(
         initialValue = 0f,
-        targetValue = 1f,
+        targetValue = (2 * Math.PI).toFloat(),
         animationSpec = infiniteRepeatable(
             animation = tween(14000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
+            repeatMode = RepeatMode.Restart
         ),
-        label = "bg_drift_phase"
+        label = "bg_phase_a"
+    )
+    val phaseB by infinite.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(18000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "bg_phase_b"
     )
 
     Canvas(modifier = Modifier.fillMaxSize()) {
         val w = size.width
         val h = size.height
+        // Radio basado en la dimensión menor. Garantiza que las burbujas
+        // no toquen el borde en ninguna orientación.
+        val baseRadius = 0.5f * minOf(w, h)
 
-        // Burbuja primary: parte de arriba. Radio 1.0w cubre toda la
-        // mitad superior cuando está centrada horizontalmente.
-        val primaryRadius = w * 1.0f
-        val cx1 = w * (0.5f + (drift - 0.5f) * 0.30f)  // ±15% del ancho
-        val cy1 = h * (0.22f + (drift - 0.5f) * 0.10f) // ±5% del alto
+        // Burbuja A: orbita alrededor del centro-derecha superior.
+        // Amplitud horizontal grande (25% del ancho), vertical chica.
+        val ampAx = w * 0.25f
+        val ampAy = h * 0.15f
+        val baseCxA = w * 0.55f
+        val baseCyA = h * 0.30f
+        val cxA = baseCxA + kotlin.math.cos(phaseA) * ampAx
+        val cyA = baseCyA + kotlin.math.sin(phaseA) * ampAy
+        val radiusA = baseRadius * 1.15f
+
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(primaryColor.copy(alpha = primaryAlpha), Color.Transparent),
-                center = Offset(cx1, cy1),
-                radius = primaryRadius
+                colorStops = arrayOf(
+                    0.0f to secondaryColor.copy(alpha = secondaryAlpha),
+                    0.55f to secondaryColor.copy(alpha = secondaryAlpha * 0.30f),
+                    1.0f to Color.Transparent
+                ),
+                center = Offset(cxA, cyA),
+                radius = radiusA
             ),
-            center = Offset(cx1, cy1),
-            radius = primaryRadius
+            center = Offset(cxA, cyA),
+            radius = radiusA
         )
 
-        // Burbuja tertiary: parte de abajo. Drift invertido (mientras
-        // una va a la derecha, la otra va a la izquierda) para que el
-        // movimiento se sienta orgánico y no coreografiado.
-        val tertiaryRadius = w * 0.9f
-        val cx2 = w * (0.2f - (drift - 0.5f) * 0.22f)
-        val cy2 = h * (0.72f + (drift - 0.5f) * 0.08f)
+        // Burbuja B: orbita alrededor del centro-izquierda inferior.
+        // Amplitudes distintas para que el movimiento no sea espejado.
+        val ampBx = w * 0.20f
+        val ampBy = h * 0.18f
+        val baseCxB = w * 0.35f
+        val baseCyB = h * 0.70f
+        val cxB = baseCxB + kotlin.math.cos(phaseB) * ampBx
+        val cyB = baseCyB + kotlin.math.sin(phaseB) * ampBy
+        val radiusB = baseRadius * 1.0f
+
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(tertiaryColor.copy(alpha = tertiaryAlpha), Color.Transparent),
-                center = Offset(cx2, cy2),
-                radius = tertiaryRadius
+                colorStops = arrayOf(
+                    0.0f to tertiaryColor.copy(alpha = tertiaryAlpha),
+                    0.55f to tertiaryColor.copy(alpha = tertiaryAlpha * 0.30f),
+                    1.0f to Color.Transparent
+                ),
+                center = Offset(cxB, cyB),
+                radius = radiusB
             ),
-            center = Offset(cx2, cy2),
-            radius = tertiaryRadius
+            center = Offset(cxB, cyB),
+            radius = radiusB
         )
     }
 }

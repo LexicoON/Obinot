@@ -33,6 +33,12 @@ class SettingsRepository(private val context: Context) {
         // Alpha unlock: permite más de 3 keys por provider (hasta 6).
         val ALPHA_UNLOCKED = booleanPreferencesKey("alpha_unlocked")
 
+        // --- DYNAMIC SUB-MODE (Release 2) ---
+        // Solo aplica cuando AI_PROVIDER == 3 (Dynamic).
+        // 0 = Standard (Gemini + Groq).
+        // 1 = Max (Gemini + Groq + NVIDIA), prioriza calidad sobre velocidad.
+        val DYNAMIC_MODE_KEY = intPreferencesKey("dynamic_mode")
+
         // --- GLOBAL AI PREFERENCES ---
         val THEME_MODE_KEY = intPreferencesKey("theme_mode")
         val RECORD_MODE_KEY = intPreferencesKey("record_mode")
@@ -136,6 +142,9 @@ class SettingsRepository(private val context: Context) {
     val keyRotationEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[KEY_ROTATION_ENABLED] ?: false }
     val alphaUnlockedFlow: Flow<Boolean> = context.dataStore.data.map { it[ALPHA_UNLOCKED] ?: false }
 
+    // --- Dynamic sub-mode ---
+    val dynamicModeFlow: Flow<Int> = context.dataStore.data.map { it[DYNAMIC_MODE_KEY] ?: 0 }
+
     /**
      * Native picker: default ON desde 2.2. Para usuarios que actualizan desde
      * versiones anteriores, forzamos la activación una sola vez vía
@@ -196,6 +205,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun saveAlphaUnlocked(enabled: Boolean) {
         context.dataStore.edit { it[ALPHA_UNLOCKED] = enabled }
+    }
+
+    suspend fun saveDynamicMode(mode: Int) {
+        context.dataStore.edit { it[DYNAMIC_MODE_KEY] = mode.coerceIn(0, 1) }
     }
 
     // ============================================================

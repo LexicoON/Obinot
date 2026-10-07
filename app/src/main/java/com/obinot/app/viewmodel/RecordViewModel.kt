@@ -267,19 +267,36 @@ class RecordViewModel(
      * key única en una lista de 1. Si en el futuro queremos rotación acá
      * también, MainActivity tiene que pasar List<String> en vez de String.
      */
-    private fun buildApiKeysMap(provider: Int): Map<String, List<String>> {
+    /**
+     * Construye el map de API keys disponibles según el modo configurado.
+     *
+     * Modos:
+     *   0 = Gemini solo
+     *   1 = Groq solo
+     *   2 = NVIDIA solo (rara vez útil para títulos: NVIDIA no es el más
+     *       rápido para tareas triviales, pero respetamos la elección)
+     *   3 = Dynamic. El sub-modo decide si es Standard (Gemini+Groq) o
+     *       Max (Gemini+Groq+NVIDIA).
+     *
+     * NVIDIA keys se leen desde settingsRepository porque el constructor
+     * de este ViewModel solo recibe gemini y groq (los pasa MainActivity
+     * desde el composition). En el futuro, si queremos consistencia,
+     * podemos cambiar el constructor para recibir todas.
+     */
+    private suspend fun buildApiKeysMap(provider: Int): Map<String, List<String>> {
         val map = mutableMapOf<String, List<String>>()
-        // Modo 3 (Full) incluye Gemini + Groq. NVIDIA se suma en el
-        // ResultViewModel, no acá: la generación de títulos no amerita
-        // gastar cuota de NVIDIA, que tiene el RPM más ajustado.
-        val includeGemini = provider == 0 || provider == 2 || provider == 3
-        val includeGroq = provider == 1 || provider == 2 || provider == 3
+        val nvidiaKeys = settingsRepository.nvidiaApiKeysFlow.first().filter { it.isNotBlank() }
+        val dynamicMode = settingsRepository.dynamicModeFlow.first()
 
-        if (includeGemini && geminiApiKey.isNotBlank()) {
-            map["gemini"] = listOf(geminiApiKey)
-        }
-        if (includeGroq && groqApiKey.isNotBlank()) {
-            map["groq"] = listOf(groqApiKey)
+        when (provider) {
+            0 -> if (geminiApiKey.isNotBlank()) map["gemini"] = listOf(geminiApiKey)
+            1 -> if (groqApiKey.isNotBlank()) map["groq"] = listOf(groqApiKey)
+            2 -> if (nvidiaKeys.isNotEmpty()) map["nvidia"] = nvidiaKeys
+            3 -> {
+                if (geminiApiKey.isNotBlank()) map["gemini"] = listOf(geminiApiKey)
+                if (groqApiKey.isNotBlank()) map["groq"] = listOf(groqApiKey)
+                if (dynamicMode == 1 && nvidiaKeys.isNotEmpty()) map["nvidia"] = nvidiaKeys
+            }
         }
         return map
     }
