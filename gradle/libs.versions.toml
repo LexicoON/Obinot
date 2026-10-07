@@ -1,4 +1,5 @@
 [versions]
+baselineprofile = "1.4.0"
 coreSplashscreen = "1.0.1"
 agp = "9.1.1"
 appcompat = "1.7.0"
@@ -100,6 +101,8 @@ material-kolor = { group = "com.materialkolor", name = "material-kolor", version
 ratex-android = { group = "io.github.erweixin", name = "ratex-android", version.ref = "ratexAndroid" }
 
 [plugins]
+android-test = { id = "com.android.test", version.ref = "agp" }
+baselineprofile = { id = "androidx.baselineprofile", version.ref = "baselineprofile" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

@@ -1137,6 +1137,7 @@ fun ResultScreen(
                                         alpha = headerAlpha
                                         translationY = headerOffsetPx
                                     }
+                                    .clipToBounds()   // ← esto evita que el contenido se salga del área
                             ) {
                                 Column {
                                         if (!isEditMode) {

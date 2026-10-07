@@ -25,3 +25,4 @@ dependencyResolutionManagement {
 rootProject.name = "Obinot"
 
 include(":app")
+include(":baselineprofile")

@@ -184,9 +184,10 @@ object RetrofitClient {
     private const val GROQ_BASE_URL = "https://api.groq.com/"
 
     private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(300, TimeUnit.SECONDS)
-        .readTimeout(300, TimeUnit.SECONDS)
-        .writeTimeout(300, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(90, TimeUnit.SECONDS)
+        .writeTimeout(60, TimeUnit.SECONDS)
+        .callTimeout(120, TimeUnit.SECONDS)
         .build()
 
     val moshi = Moshi.Builder()

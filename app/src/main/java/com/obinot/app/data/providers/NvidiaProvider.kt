@@ -40,16 +40,16 @@ class NvidiaProvider : AiProvider() {
 
     override val models: List<ProviderModel> = listOf(
         ProviderModel(
-            id = "meta/llama-3.3-70b-instruct",
-            displayName = "Llama 3.3 70B",
+            id = "meta/llama-3.2-90b-vision-instruct",
+            displayName = "Llama 3.2 90B Vision",
             capabilities = setOf(
                 ProviderCapability.QUALITY,
                 ProviderCapability.LONG_CONTEXT
             )
         ),
         ProviderModel(
-            id = "meta/llama-4-maverick-17b-128e-instruct",
-            displayName = "Llama 4 Maverick 17B",
+            id = "meta/llama-3.2-11b-vision-instruct",
+            displayName = "Llama 3.2 11B Vision",
             capabilities = setOf(
                 ProviderCapability.FAST,
                 ProviderCapability.TITLE,
@@ -115,9 +115,10 @@ object NvidiaRetrofitClient {
     private const val BASE_URL = "https://integrate.api.nvidia.com/v1/"
 
     private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(120, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS)
-        .writeTimeout(120, TimeUnit.SECONDS)
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .callTimeout(90, TimeUnit.SECONDS)
         .build()
 
     val service: NvidiaApiService by lazy {
