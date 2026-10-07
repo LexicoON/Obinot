@@ -1748,6 +1748,7 @@ fun ResultScreen(
         ModalBottomSheet(
             onDismissRequest = { showSidePanel = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            sheetGesturesEnabled = false,
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ) {
             sidePanelContent(Modifier.fillMaxWidth())

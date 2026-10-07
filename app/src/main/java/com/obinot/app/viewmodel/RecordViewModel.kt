@@ -257,25 +257,26 @@ class RecordViewModel(
     }
 
     /**
-     * Construye el map de API keys disponibles según el modo configurado.
+     * Construye el map de listas de API keys disponibles según el modo
+     * configurado.
      *
-     * Modo 0 (Gemini):  solo la key de Gemini.
-     * Modo 1 (Groq):    solo la key de Groq.
-     * Modo 2 (Standard): ambas (las que estén configuradas).
-     * Modo 3 (Full):    las tres (NVIDIA se agrega en Release 2 cuando
-     *                   exista su key en SettingsRepository; por ahora no
-     *                   hay key de NVIDIA y el provider queda fuera).
+     * NOTA: RecordViewModel recibe las keys por constructor (una sola por
+     * provider, inyectadas desde MainActivity). Para rotación completa,
+     * ResultViewModel lee las listas desde SettingsRepository. Acá, como
+     * el único uso es generar títulos (tarea poco crítica), envolvemos la
+     * key única en una lista de 1. Si en el futuro queremos rotación acá
+     * también, MainActivity tiene que pasar List<String> en vez de String.
      */
-    private fun buildApiKeysMap(provider: Int): Map<String, String> {
-        val map = mutableMapOf<String, String>()
+    private fun buildApiKeysMap(provider: Int): Map<String, List<String>> {
+        val map = mutableMapOf<String, List<String>>()
         val includeGemini = provider == 0 || provider == 2
         val includeGroq = provider == 1 || provider == 2
 
         if (includeGemini && geminiApiKey.isNotBlank()) {
-            map["gemini"] = geminiApiKey
+            map["gemini"] = listOf(geminiApiKey)
         }
         if (includeGroq && groqApiKey.isNotBlank()) {
-            map["groq"] = groqApiKey
+            map["groq"] = listOf(groqApiKey)
         }
         return map
     }

@@ -1,14 +1,12 @@
 package com.obinot.app.data.providers
 
+import android.util.Log
 import retrofit2.HttpException
 import java.io.File
 import java.io.IOException
 import java.net.SocketTimeoutException
+import java.util.concurrent.ConcurrentHashMap
 
-/**
- * Candidato devuelto por el router: un provider + un modelo concreto
- * del provider que soporta la capability pedida.
- */
 data class ProviderCandidate(
     val provider: AiProvider,
     val model: ProviderModel
@@ -18,53 +16,44 @@ data class ProviderCandidate(
 }
 
 /**
- * Router de providers. Centraliza la lógica de:
+ * Router de providers con rotación de API keys y failover automático.
  *
- *   1) Qué (provider, model) son candidatos para una capability dada.
- *   2) En qué orden intentarlos (según el orden de `models` en cada provider
- *      y el orden de providers en el constructor).
- *   3) Failover automático: si un provider falla con 413/429/5xx, probar
- *      el siguiente sin que el caller se entere.
+ * RESPONSABILIDADES:
+ *   1. Elegir (provider, model) candidatos por capability.
+ *   2. Rotar entre las keys de un mismo provider cuando una tira 429.
+ *   3. Hacer failover a otro provider cuando el actual se agota.
  *
- * El router es puro: no lee DataStore, no toca strings de recursos, no
- * navega. El caller le pasa un Map<providerId, apiKey> con las keys que
- * están disponibles en este momento.
+ * ROTACIÓN DE KEYS:
+ *   - Cada provider puede tener hasta N keys (configurable en UI).
+ *   - La primera key de la lista es la "principal". Se intenta primero.
+ *   - Si tira 429, se marca en cooldown por 60 min y se pasa a la siguiente.
+ *   - Si TODAS las keys del provider están en cooldown, se pasa al siguiente
+ *     provider (o se propaga el último error).
+ *   - El cooldown vive en memoria (companion object del router) y se resetea
+ *     al reiniciar la app. Esto es intencional: si el user reinició, asumimos
+ *     que el rate limit del provider ya se liberó o cambió.
  *
- * PREFERENCIA:
- *   Los métodos de ejecución aceptan un `preferredProviderId` opcional.
- *   Si viene seteado, los candidatos de ese provider se ordenan primero
- *   (manteniendo el orden interno de modelos). Esto es lo que usa el modo
- *   Standard para alternar providers y estirar cuotas, SIN perder el
- *   fallback: si el preferido falla con un error reintentable, el router
- *   sigue con los demás.
- *
- * ROTACIÓN DE KEYS (Release 2, ronda E):
- *   Por ahora el router recibe una sola key por provider. Cuando se agregue
- *   rotación, el Map pasa a ser Map<providerId, List<apiKey>> y la lógica
- *   de failover dentro del mismo provider se agrega acá. La firma pública
- *   (generateTextWithFallback, transcribeWithFallback) se mantiene igual
- *   para no romper a los callers.
+ * COMPATIBILIDAD:
+ *   Si un provider tiene una sola key (el caso de Release 1.x / 2.0 / 2.1),
+ *   el comportamiento es idéntico al anterior: se usa esa única key, y si
+ *   falla con un error retriable, se hace fallback al siguiente provider.
  */
 class ProviderRouter(private val providers: List<AiProvider>) {
 
     /**
      * Devuelve los (provider, model) candidatos para [capability], en orden
-     * de preferencia. Filtra:
-     *   - Providers que no soportan la capability.
-     *   - Providers que requieren API key pero no la tienen configurada.
-     *   - Providers que requieren API key pero la tienen en blanco.
-     *
-     * No filtra por longitud del prompt/audio. Eso lo decide el caller
-     * antes de llamar (ej: elegir Gemini para audio grande).
+     * de preferencia. Filtra providers que no soportan la capability y
+     * providers que requieren API key y no la tienen configurada.
      */
     fun candidatesFor(
         capability: ProviderCapability,
-        apiKeys: Map<String, String>
+        apiKeys: Map<String, List<String>>
     ): List<ProviderCandidate> {
         return providers
             .filter { it.supports(capability) }
             .filter { provider ->
-                !provider.requiresApiKey || !apiKeys[provider.id].isNullOrBlank()
+                if (!provider.requiresApiKey) true
+                else apiKeys[provider.id]?.any { it.isNotBlank() } == true
             }
             .flatMap { provider ->
                 provider.modelsFor(capability).map { model ->
@@ -74,42 +63,43 @@ class ProviderRouter(private val providers: List<AiProvider>) {
     }
 
     /**
-     * Reordena la lista de candidatos para que los del [preferredProviderId]
-     * vayan primero. Los demás mantienen su orden relativo original.
-     * Si [preferredProviderId] es null o no matchea ningún candidato, la
-     * lista se devuelve intacta.
+     * Reordena los candidatos para que los del [preferredProviderId] vayan
+     * primero. Los demás mantienen su orden relativo original.
      */
     private fun orderCandidates(
         candidates: List<ProviderCandidate>,
         preferredProviderId: String?
     ): List<ProviderCandidate> {
         if (preferredProviderId == null) return candidates
-        // sortedBy es estable: los elementos con la misma key preservan
-        // su orden de aparición. Así, dentro del preferido y dentro del
-        // resto, el orden original (Gemini → Groq → NVIDIA) se mantiene.
         return candidates.sortedBy { if (it.providerId == preferredProviderId) 0 else 1 }
     }
 
     /**
-     * Ejecuta una tarea de texto con failover automático.
+     * Reordena las keys de un provider para intentar primero las que NO
+     * están en cooldown. Las que sí lo están van al final, con la esperanza
+     * de que el cooldown ya haya expirado. Si la lista queda vacía (provider
+     * sin keys), devuelve la lista vacía.
+     */
+    private fun orderKeysByUsability(providerId: String, keys: List<String>): List<String> {
+        if (keys.isEmpty()) return emptyList()
+        val (usable, cooling) = keys.partition { !isOnCooldown(providerId, it) }
+        return usable + cooling
+    }
+
+    /**
+     * Ejecuta una tarea de texto con rotación de keys + fallback automático.
      *
-     * Itera los candidatos en orden. Para cada uno:
-     *   - Si devuelve texto no vacío → devolver.
-     *   - Si devuelve null/vacío → probar el siguiente (respuesta vacía
-     *     puede ser transitoria).
-     *   - Si tira HttpException con código reintentable (413/429/5xx) →
-     *     probar el siguiente.
-     *   - Si tira cualquier otra excepción → propagar (es un error real
-     *     del input o de configuración, no vale la pena reintentar).
+     * Itera (provider, model) candidatos. Para cada uno, itera las keys del
+     * provider. Si una key tira 429, se marca en cooldown y se pasa a la
+     * siguiente. Si la operación devuelve texto válido, se limpia el cooldown
+     * de esa key (éxito = key sana) y se devuelve. Si ninguna key del provider
+     * funciona, se pasa al siguiente provider.
      *
-     * [preferredProviderId] mueve los candidatos de ese provider al frente.
-     *
-     * Si se agotan los candidatos, tira la última excepción vista (o
-     * devuelve null si nunca hubo excepción pero todos devolvieron vacío).
+     * Errores no retriables (400/401/403) se propagan inmediatamente.
      */
     suspend fun generateTextWithFallback(
         capability: ProviderCapability,
-        apiKeys: Map<String, String>,
+        apiKeys: Map<String, List<String>>,
         systemPrompt: String,
         userPrompt: String,
         maxOutputTokens: Int? = null,
@@ -122,20 +112,36 @@ class ProviderRouter(private val providers: List<AiProvider>) {
         var lastError: Exception? = null
 
         for (candidate in candidates) {
-            val key = apiKeys[candidate.provider.id] ?: continue
-            try {
-                val result = candidate.provider.generateText(
-                    apiKey = key,
-                    model = candidate.model,
-                    systemPrompt = systemPrompt,
-                    userPrompt = userPrompt,
-                    maxOutputTokens = maxOutputTokens
-                )
-                if (!result.isNullOrBlank()) return result
-                // Respuesta vacía: probar el siguiente.
-            } catch (e: Exception) {
-                if (!isRetryable(e)) throw e
-                lastError = e
+            val keys = apiKeys[candidate.provider.id].orEmpty()
+            val orderedKeys = orderKeysByUsability(candidate.provider.id, keys)
+
+            for (key in orderedKeys) {
+                try {
+                    val result = candidate.provider.generateText(
+                        apiKey = key,
+                        model = candidate.model,
+                        systemPrompt = systemPrompt,
+                        userPrompt = userPrompt,
+                        maxOutputTokens = maxOutputTokens
+                    )
+                    if (!result.isNullOrBlank()) {
+                        clearCooldown(candidate.provider.id, key)
+                        return result
+                    }
+                } catch (e: HttpException) {
+                    if (e.code() == 429) {
+                        markOnCooldown(candidate.provider.id, key)
+                        lastError = e
+                        continue
+                    }
+                    if (!isRetryable(e)) throw e
+                    lastError = e
+                    continue
+                } catch (e: Exception) {
+                    if (!isRetryable(e)) throw e
+                    lastError = e
+                    continue
+                }
             }
         }
 
@@ -144,20 +150,10 @@ class ProviderRouter(private val providers: List<AiProvider>) {
     }
 
     /**
-     * Ejecuta una transcripción de audio con failover automático.
-     *
-     * Igual lógica que generateTextWithFallback pero para audio. El caller
-     * ya se encargó de comprimir si hacía falta; acá solo se prueba cada
-     * provider que soporte TRANSCRIPTION.
-     *
-     * [preferredProviderId] mueve los candidatos de ese provider al frente.
-     *
-     * Devuelve el texto transcrito o null si todos los candidatos devolvieron
-     * vacío sin tirar excepción. Tira la última excepción vista si hubo
-     * alguna.
+     * Igual que [generateTextWithFallback] pero para transcripción.
      */
     suspend fun transcribeWithFallback(
-        apiKeys: Map<String, String>,
+        apiKeys: Map<String, List<String>>,
         audioFile: File,
         preferredProviderId: String? = null
     ): String? {
@@ -168,17 +164,34 @@ class ProviderRouter(private val providers: List<AiProvider>) {
         var lastError: Exception? = null
 
         for (candidate in candidates) {
-            val key = apiKeys[candidate.provider.id] ?: continue
-            try {
-                val result = candidate.provider.transcribe(
-                    apiKey = key,
-                    model = candidate.model,
-                    audioFile = audioFile
-                )
-                if (!result.isNullOrBlank()) return result
-            } catch (e: Exception) {
-                if (!isRetryable(e)) throw e
-                lastError = e
+            val keys = apiKeys[candidate.provider.id].orEmpty()
+            val orderedKeys = orderKeysByUsability(candidate.provider.id, keys)
+
+            for (key in orderedKeys) {
+                try {
+                    val result = candidate.provider.transcribe(
+                        apiKey = key,
+                        model = candidate.model,
+                        audioFile = audioFile
+                    )
+                    if (!result.isNullOrBlank()) {
+                        clearCooldown(candidate.provider.id, key)
+                        return result
+                    }
+                } catch (e: HttpException) {
+                    if (e.code() == 429) {
+                        markOnCooldown(candidate.provider.id, key)
+                        lastError = e
+                        continue
+                    }
+                    if (!isRetryable(e)) throw e
+                    lastError = e
+                    continue
+                } catch (e: Exception) {
+                    if (!isRetryable(e)) throw e
+                    lastError = e
+                    continue
+                }
             }
         }
 
@@ -187,32 +200,25 @@ class ProviderRouter(private val providers: List<AiProvider>) {
     }
 
     /**
-     * Devuelve el primer candidato para [capability] sin ejecutar nada.
-     * Útil para logs, telemetría, o para decidir el mensaje de "loading…"
-     * antes de disparar la request (ej: saber si va a ir a Gemini o Groq
-     * para mostrar el string correcto).
+     * Devuelve el primer candidato para [capability]. Útil para logs y para
+     * decidir el mensaje de "loading…" antes de disparar la request.
      */
     fun firstCandidateFor(
         capability: ProviderCapability,
-        apiKeys: Map<String, String>,
+        apiKeys: Map<String, List<String>>,
         preferredProviderId: String? = null
     ): ProviderCandidate? =
         orderCandidates(candidatesFor(capability, apiKeys), preferredProviderId).firstOrNull()
 
     /**
-     * Decide si una excepción amerita probar otro provider.
-     *
-     * Reintentables: problemas del provider o de la red que probablemente
-     * no se repitan con otro provider.
-     *   - 413: payload demasiado grande (otro provider puede tener límites más laxos).
-     *   - 429: rate limit (otro provider tiene su propia cuota).
-     *   - 5xx: el provider está caído, otro puede estar sano.
-     *   - Timeout / IOException: falla de red transitoria.
-     *
-     * NO reintentables: culpa del input o de la config.
-     *   - 400: request mal formado (mismo input fallaría en todos lados).
-     *   - 401/403: key inválida o sin permisos (el user tiene que arreglarla).
-     *   - Cualquier otra: no hay razón para pensar que otro provider ande mejor.
+     * Devuelve cuántas keys usables (no en cooldown) tiene un provider.
+     * Útil para la UI de la ronda 9 (mostrar "2 de 3 keys disponibles").
+     */
+    fun usableKeyCount(providerId: String, keys: List<String>): Int =
+        keys.count { !isOnCooldown(providerId, it) }
+
+    /**
+     * Decide si una excepción amerita probar otro provider / otra key.
      */
     private fun isRetryable(e: Exception): Boolean {
         return when (e) {
@@ -224,15 +230,59 @@ class ProviderRouter(private val providers: List<AiProvider>) {
     }
 
     companion object {
+        private const val TAG = "ProviderRouter"
+
+        /**
+         * Códigos HTTP reintentables.
+         *   413: payload demasiado grande — otra key no ayuda pero otro
+         *        provider puede tener límites más laxos.
+         *   429: rate limit — se resuelve rotando a otra key o esperando.
+         *   5xx: provider caído, otra key del mismo provider puede estar sana.
+         */
         private val RETRYABLE_HTTP_CODES = setOf(413, 429, 500, 502, 503, 504)
+
+        /** Cooldown de una key que tiró 429. */
+        private const val KEY_COOLDOWN_MS = 60L * 60L * 1000L  // 60 min
+
+        /**
+         * Estado compartido de cooldowns entre todas las instancias del router.
+         * Clave: "$providerId::$apiKey". Valor: timestamp de expiración.
+         *
+         * Se comparte vía companion para que múltiples ViewModels vean el
+         * mismo estado (ej: si Gemini rate-limita desde ResultViewModel,
+         * RecordViewModel también lo sabe).
+         *
+         * Vive en memoria. Se resetea al reiniciar la app, lo cual es
+         * intencional: si el user reinició, el rate limit probablemente
+         * ya cambió.
+         */
+        private val keyCooldowns = ConcurrentHashMap<String, Long>()
+
+        private fun cooldownKey(providerId: String, apiKey: String): String =
+            "$providerId::$apiKey"
+
+        fun isOnCooldown(providerId: String, apiKey: String): Boolean {
+            val expiry = keyCooldowns[cooldownKey(providerId, apiKey)] ?: return false
+            if (System.currentTimeMillis() >= expiry) {
+                keyCooldowns.remove(cooldownKey(providerId, apiKey))
+                return false
+            }
+            return true
+        }
+
+        fun markOnCooldown(providerId: String, apiKey: String) {
+            val expiry = System.currentTimeMillis() + KEY_COOLDOWN_MS
+            keyCooldowns[cooldownKey(providerId, apiKey)] = expiry
+            Log.d(TAG, "Key $providerId/${apiKey.take(6)}… on cooldown for 60 min")
+        }
+
+        fun clearCooldown(providerId: String, apiKey: String) {
+            keyCooldowns.remove(cooldownKey(providerId, apiKey))
+        }
 
         /**
          * Construye el router con los 3 providers del set final.
-         *
-         * El orden acá define la preferencia global cuando dos providers
-         * tienen un modelo con la misma capability. Gemini primero (mejor
-         * calidad general), Groq segundo (velocidad), NVIDIA tercero
-         * (último recurso, solo en modo Full).
+         * El orden define la preferencia global: Gemini → Groq → NVIDIA.
          */
         fun default(): ProviderRouter = ProviderRouter(
             listOf(

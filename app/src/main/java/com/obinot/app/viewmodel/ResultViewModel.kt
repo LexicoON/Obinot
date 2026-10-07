@@ -618,27 +618,32 @@ class ResultViewModel(
     // ============================================================
 
     /**
-     * Construye el map de keys disponibles según el modo configurado.
+     * Construye el map de listas de API keys disponibles según el modo
+     * configurado.
      *
-     * Modo 0 (Gemini):  solo la key de Gemini.
-     * Modo 1 (Groq):    solo la key de Groq.
-     * Modo 2 (Standard): ambas (las que estén configuradas).
+     * Modo 0 (Gemini):  solo las keys de Gemini.
+     * Modo 1 (Groq):    solo las keys de Groq.
+     * Modo 2 (Standard): ambas listas (las que estén configuradas).
      *
-     * NVIDIA se agrega en Release 2 (modo Full) cuando exista su key en
-     * SettingsRepository. Por ahora no se incluye.
+     * El router se encarga de rotar entre las keys de cada lista si alguna
+     * tira 429. Si una lista tiene 1 solo elemento (el caso de usuarios que
+     * nunca activaron la rotación), el comportamiento es idéntico al de
+     * Release 1.x / 2.0 / 2.1.
      */
-    private suspend fun buildApiKeysMap(provider: Int): Map<String, String> {
-        val map = mutableMapOf<String, String>()
+    private suspend fun buildApiKeysMap(provider: Int): Map<String, List<String>> {
+        val map = mutableMapOf<String, List<String>>()
         val includeGemini = provider == 0 || provider == 2
         val includeGroq = provider == 1 || provider == 2
 
         if (includeGemini) {
-            val geminiKey = settingsRepository.geminiApiKeyFlow.first()
-            if (geminiKey.isNotBlank()) map["gemini"] = geminiKey
+            val geminiKeys = settingsRepository.geminiApiKeysFlow.first()
+                .filter { it.isNotBlank() }
+            if (geminiKeys.isNotEmpty()) map["gemini"] = geminiKeys
         }
         if (includeGroq) {
-            val groqKey = settingsRepository.groqApiKeyFlow.first()
-            if (groqKey.isNotBlank()) map["groq"] = groqKey
+            val groqKeys = settingsRepository.groqApiKeysFlow.first()
+                .filter { it.isNotBlank() }
+            if (groqKeys.isNotEmpty()) map["groq"] = groqKeys
         }
         return map
     }

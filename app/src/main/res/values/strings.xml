@@ -401,7 +401,16 @@
     <string name="settings_updates_card_title">Updates</string>
     <string name="settings_backup_card_title">Backup &amp; Restore</string>
     <string name="settings_advanced_rotation_title">API Key Rotation</string>
-    <string name="settings_advanced_rotation_desc">Rotate between up to 3 keys per provider when one hits the rate limit. Coming in the next update.</string>
+    <string name="settings_advanced_rotation_desc">Rotate between multiple API keys per provider when one hits the rate limit.</string>
+    <string name="settings_rotation_key_primary">Primary key</string>
+    <string name="settings_rotation_key_backup">Key %1$d</string>
+    <string name="settings_rotation_key_remove_cd">Remove this key</string>
+    <string name="settings_rotation_key_add">Add another key</string>
+    <string name="settings_rotation_key_limit">Maximum of %1$d keys reached</string>
+    <string name="settings_rotation_alpha_title">Unlock more keys</string>
+    <string name="settings_rotation_alpha_desc">Extend the rotation limit from 3 to 6 keys per provider.</string>
+    <string name="settings_rotation_alpha_unlocked_desc">Extended to 6 keys per provider.</string>
+    <string name="settings_rotation_alpha_button">Unlock</string>
     <string name="settings_personalization">Personalization</string>
     <string name="settings_your_name">Your Name</string>
     <string name="settings_save_name">Save Name</string>

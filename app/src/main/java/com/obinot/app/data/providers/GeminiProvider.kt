@@ -1,31 +1,36 @@
 package com.obinot.app.data.providers
 
+import android.util.Log
 import com.obinot.app.data.Content
 import com.obinot.app.data.FileData
 import com.obinot.app.data.GenerateContentRequest
+import com.obinot.app.data.GenerateContentResponse
+import com.obinot.app.data.GeminiFile
 import com.obinot.app.data.Part
 import com.obinot.app.data.RetrofitClient
 import kotlinx.coroutines.delay
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.asRequestBody
+import retrofit2.HttpException
 import java.io.File
+import java.io.IOException
 
 /**
- * Provider de Google Gemini.
+ * Provider de Google Gemini, blindado contra fallos transitorios.
  *
- * Ventajas: ventana de contexto gigante (no tiene límite práctico de
- * tamaño de archivo para audio), buen soporte de LaTeX y Mermaid.
+ * Capas de protección:
+ *  1. Modelo único: gemini-3.5-flash-lite. Evita el 503 estructural que
+ *     tenía gemini-3.8-flash (que está sobrecargado la mayor parte del día).
+ *  2. Retry con backoff exponencial (1s, 2s, 4s, 8s) en 429/500/502/503/504.
+ *  3. Upload con retry propio en errores de red (hasta 3 intentos).
+ *  4. Polling adaptativo del file state: 2s → 4s → 8s, 280s máximo.
+ *  5. Detección de File FAILED y de respuesta vacía como errores transitorios.
  *
- * Desventajas: más lento que Groq, cuota diaria limitada (1.000 req/día
- * para Flash-Lite en el free tier).
+ * Si todos los reintentos internos se agotan, la excepción llega al
+ * ProviderRouter, que hace fallback automático a Groq (o NVIDIA en modo Full).
  *
- * Modelos:
- *   - gemini-3.8-flash: calidad alta, largo contexto, transcripción.
- *   - gemini-3.5-flash-lite: rápido y barato, ideal para títulos y chat.
- *
- * El orden de la lista importa: el router itera en orden. Ponemos primero
- * el Flash (calidad) porque la mayoría de las tareas que caen a Gemini son
- * de procesamiento/análisis, no de chat rápido.
+ * Logs: con tag "GeminiProvider". Filtrable con:
+ *   adb logcat -s GeminiProvider:D
  */
 class GeminiProvider : AiProvider() {
 
@@ -36,21 +41,15 @@ class GeminiProvider : AiProvider() {
 
     override val models: List<ProviderModel> = listOf(
         ProviderModel(
-            id = "gemini-3.8-flash",
-            displayName = "Gemini Flash",
-            capabilities = setOf(
-                ProviderCapability.QUALITY,
-                ProviderCapability.LONG_CONTEXT,
-                ProviderCapability.TRANSCRIPTION
-            )
-        ),
-        ProviderModel(
-            id = "gemini-3.5-flash-lite",
+            id = MODEL_FLASH_LITE,
             displayName = "Gemini Flash-Lite",
             capabilities = setOf(
                 ProviderCapability.FAST,
-                ProviderCapability.TITLE,
-                ProviderCapability.CHAT
+                ProviderCapability.QUALITY,
+                ProviderCapability.LONG_CONTEXT,
+                ProviderCapability.TRANSCRIPTION,
+                ProviderCapability.CHAT,
+                ProviderCapability.TITLE
             )
         )
     )
@@ -61,7 +60,7 @@ class GeminiProvider : AiProvider() {
         systemPrompt: String,
         userPrompt: String,
         maxOutputTokens: Int?
-    ): String? {
+    ): String? = withContentRetries {
         val request = GenerateContentRequest(
             systemInstruction = Content(parts = listOf(Part(text = systemPrompt))),
             contents = listOf(Content(parts = listOf(Part(text = userPrompt))))
@@ -71,7 +70,7 @@ class GeminiProvider : AiProvider() {
             apiKey = apiKey,
             request = request
         )
-        return response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
+        extractTextOrThrow(response)
     }
 
     override suspend fun transcribe(
@@ -79,9 +78,105 @@ class GeminiProvider : AiProvider() {
         model: ProviderModel,
         audioFile: File
     ): String? {
-        val mimeType = "audio/mp4"
+        if (audioFile.length() == 0L) {
+            throw IOException("Audio file is empty: ${audioFile.absolutePath}")
+        }
 
-        // 1) Subir el archivo al server de Google.
+        val mimeType = "audio/mp4"
+        val uploaded = uploadWithRetry(apiKey, audioFile, mimeType)
+
+        try {
+            waitForFileActive(apiKey, uploaded.name)
+            return withContentRetries {
+                val request = GenerateContentRequest(
+                    systemInstruction = Content(parts = listOf(Part(text = TRANSCRIPTION_PROMPT))),
+                    contents = listOf(
+                        Content(
+                            parts = listOf(
+                                Part(fileData = FileData(mimeType = mimeType, fileUri = uploaded.uri))
+                            )
+                        )
+                    )
+                )
+                val response = RetrofitClient.service.generateContent(
+                    model = model.id,
+                    apiKey = apiKey,
+                    request = request
+                )
+                extractTextOrThrow(response)
+            }
+        } finally {
+            deleteRemoteFile(apiKey, uploaded.name)
+        }
+    }
+
+    // ============================================================
+    // Internals
+    // ============================================================
+
+    /**
+     * Extrae el texto de la respuesta de Gemini. Tira excepción si:
+     *  - El body trae un error explícito (permanente, no retriable).
+     *  - No hay candidates (transitorio, retriable).
+     *  - El texto vino vacío/blank (transitorio, retriable).
+     */
+    private fun extractTextOrThrow(response: GenerateContentResponse): String {
+        response.error?.let { err ->
+            throw RuntimeException("Gemini API error: ${err.message ?: "unknown"}")
+        }
+        val candidates = response.candidates
+        if (candidates.isNullOrEmpty()) {
+            throw TransientApiException("Gemini returned no candidates")
+        }
+        val text = candidates.firstOrNull()
+            ?.content
+            ?.parts
+            ?.firstOrNull()
+            ?.text
+            ?.trim()
+        if (text.isNullOrBlank()) {
+            throw TransientApiException("Gemini returned empty text")
+        }
+        return text
+    }
+
+    /**
+     * Sube el archivo con retry en errores de red y 5xx. Hasta 3 intentos
+     * (1 inicial + 2 retries), esperando 2s y 5s entre intentos.
+     *
+     * Reintentar el upload en errores de red es importante porque un
+     * upload de 20MB puede tardar 30-60s en 4G y una caída de red
+     * transitoria no debería mandar todo al fallback.
+     */
+    private suspend fun uploadWithRetry(
+        apiKey: String,
+        audioFile: File,
+        mimeType: String
+    ): GeminiFile {
+        val delays = longArrayOf(2_000L, 5_000L)
+        var attempt = 0
+        while (true) {
+            try {
+                return performUpload(apiKey, audioFile, mimeType)
+            } catch (e: HttpException) {
+                if (e.code() !in RETRYABLE_HTTP_CODES || attempt >= delays.size) throw e
+                Log.w(TAG, "Upload HTTP ${e.code()} on attempt ${attempt + 1}, retrying in ${delays[attempt]}ms")
+                delay(delays[attempt])
+                attempt++
+            } catch (e: IOException) {
+                if (attempt >= delays.size) throw e
+                Log.w(TAG, "Upload network error on attempt ${attempt + 1}, retrying in ${delays[attempt]}ms", e)
+                delay(delays[attempt])
+                attempt++
+            }
+        }
+    }
+
+    private suspend fun performUpload(
+        apiKey: String,
+        audioFile: File,
+        mimeType: String
+    ): GeminiFile {
         val requestBody = audioFile.asRequestBody(mimeType.toMediaTypeOrNull())
         val uploadResponse = RetrofitClient.service.uploadFile(
             apiKey = apiKey,
@@ -90,50 +185,92 @@ class GeminiProvider : AiProvider() {
             mimeType = mimeType,
             fileBytes = requestBody
         )
-        val uploaded = uploadResponse.file
-            ?: throw IllegalStateException("Failed to upload file to Gemini server.")
+        return uploadResponse.file
+            ?: throw IOException("Gemini upload returned no file reference (${uploadResponse.error?.message ?: "unknown"})")
+    }
 
+    /**
+     * Polling adaptativo del estado del archivo hasta que esté ACTIVE.
+     *
+     * Intervalos: 20 polls × 2s + 20 polls × 4s + 20 polls × 8s.
+     * Total máximo: 280s (~4:40). Si después de eso sigue PROCESSING,
+     * tiramos excepción transitoria.
+     *
+     * Si el estado es FAILED o cualquier otro que no sea PROCESSING/ACTIVE,
+     * tira TransientApiException para que el router haga fallback.
+     *
+     * El log solo emite cada 10 polls para no spamear.
+     */
+    private suspend fun waitForFileActive(apiKey: String, fileName: String) {
+        val pollDelays = buildList {
+            repeat(20) { add(2_000L) }
+            repeat(20) { add(4_000L) }
+            repeat(20) { add(8_000L) }
+        }
+
+        var lastState = "PROCESSING"
+        pollDelays.forEachIndexed { index, delayMs ->
+            delay(delayMs)
+            lastState = RetrofitClient.service.getFile(fileName, apiKey).state
+            when (lastState) {
+                "ACTIVE" -> {
+                    Log.d(TAG, "File became ACTIVE after ${index + 1} polls")
+                    return
+                }
+                "PROCESSING" -> {
+                    if ((index + 1) % 10 == 0) {
+                        Log.d(TAG, "File still PROCESSING after ${index + 1} polls")
+                    }
+                }
+                else -> {
+                    throw TransientApiException("File processing ended with state: $lastState")
+                }
+            }
+        }
+
+        throw TransientApiException("File processing timed out after ${pollDelays.size} polls (last state: $lastState)")
+    }
+
+    /**
+     * Delete best-effort del archivo remoto. No propaga errores: si falla,
+     * Google eventualmente lo limpia solo.
+     */
+    private suspend fun deleteRemoteFile(apiKey: String, fileName: String) {
         try {
-            // 2) Esperar a que Google termine de procesar el archivo.
-            var fileState = uploaded.state
-            var attempts = 0
-            while (fileState == "PROCESSING" && attempts < 60) {
-                delay(3000)
-                fileState = RetrofitClient.service.getFile(uploaded.name, apiKey).state
-                attempts++
-            }
-            if (fileState != "ACTIVE") {
-                throw IllegalStateException("File processing timeout or failed at Google server.")
-            }
+            RetrofitClient.service.deleteFile(fileName, apiKey)
+        } catch (e: Exception) {
+            Log.d(TAG, "Failed to delete remote file $fileName (non-fatal)", e)
+        }
+    }
 
-            // 3) Pedir la transcripción.
-            val systemPrompt = TRANSCRIPTION_PROMPT
-            val request = GenerateContentRequest(
-                systemInstruction = Content(parts = listOf(Part(text = systemPrompt))),
-                contents = listOf(
-                    Content(
-                        parts = listOf(
-                            Part(
-                                fileData = FileData(
-                                    mimeType = mimeType,
-                                    fileUri = uploaded.uri
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-            val response = RetrofitClient.service.generateContent(
-                model = model.id,
-                apiKey = apiKey,
-                request = request
-            )
-            return response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
-        } finally {
-            // 4) Limpiar el archivo remoto. Best-effort.
+    /**
+     * Retry con backoff exponencial para llamadas a generateContent.
+     *
+     * Delays: 1s, 2s, 4s, 8s. Total: 5 intentos.
+     *
+     * Reintenta en:
+     *  - TransientApiException (empty candidates, empty text, etc.)
+     *  - HttpException con código en RETRYABLE_HTTP_CODES.
+     *
+     * NO reintenta en 400/401/403/413 ni en errores de red puros: para esos,
+     * el router hace fallback inmediato sin esperar 15s.
+     */
+    private suspend fun <T> withContentRetries(block: suspend () -> T): T {
+        val delays = longArrayOf(1_000L, 2_000L, 4_000L, 8_000L)
+        var attempt = 0
+        while (true) {
             try {
-                RetrofitClient.service.deleteFile(uploaded.name, apiKey)
-            } catch (_: Exception) {
+                return block()
+            } catch (e: TransientApiException) {
+                if (attempt >= delays.size) throw e
+                Log.w(TAG, "Transient error on attempt ${attempt + 1}, retrying in ${delays[attempt]}ms: ${e.message}")
+                delay(delays[attempt])
+                attempt++
+            } catch (e: HttpException) {
+                if (e.code() !in RETRYABLE_HTTP_CODES || attempt >= delays.size) throw e
+                Log.w(TAG, "HTTP ${e.code()} on attempt ${attempt + 1}, retrying in ${delays[attempt]}ms")
+                delay(delays[attempt])
+                attempt++
             }
         }
     }
@@ -141,11 +278,20 @@ class GeminiProvider : AiProvider() {
     companion object {
         const val PROVIDER_ID = "gemini"
 
+        private const val TAG = "GeminiProvider"
+        private const val MODEL_FLASH_LITE = "gemini-3.5-flash-lite"
+
+        /**
+         * Códigos HTTP reintentables.
+         *   429: rate limit — se resuelve esperando.
+         *   500, 502, 503, 504: errores de infra de Google, típicamente transitorios.
+         *   501 NO va: significa que pedimos algo que el server no implementa.
+         */
+        private val RETRYABLE_HTTP_CODES = setOf(429, 500, 502, 503, 504)
+
         /**
          * Prompt de transcripción verbatim. Reusa el mismo que tenía el
-         * ResultViewModel antes del refactor. Es específico de Gemini
-         * porque Groq usa Whisper (que no acepta system prompt) y NVIDIA
-         * no transcribe.
+         * ResultViewModel antes del refactor de providers.
          */
         private val TRANSCRIPTION_PROMPT = """
             You are a highly accurate audio transcription AI. Your ONLY task is to transcribe the audio exactly word-for-word.
@@ -160,3 +306,13 @@ class GeminiProvider : AiProvider() {
         """.trimIndent()
     }
 }
+
+/**
+ * Excepción para errores transitorios que ameritan retry.
+ *
+ * Extiende IOException a propósito: el ProviderRouter trata IOException
+ * como retryable, así que si nuestros reintentos internos se agotan, el
+ * router igual hace fallback a otro provider en vez de propagar el error
+ * crudo al user.
+ */
+private class TransientApiException(message: String) : IOException(message)

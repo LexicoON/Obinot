@@ -31,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Bolt
@@ -47,6 +48,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhoneAndroid
@@ -322,6 +324,103 @@ private fun AlphaBadge() {
 }
 
 /**
+ * Editor de lista de API keys para un provider.
+ *
+ * Comportamiento según [rotationEnabled]:
+ *   - OFF: muestra solo el primer campo (comportamiento previo a 2.2).
+ *          La lista completa se preserva internamente para no perder las
+ *          keys extra al guardar.
+ *   - ON:  muestra todos los campos, con botón [x] por campo (excepto
+ *          cuando queda 1 solo) y botón [+ Add key] mientras no se alcance
+ *          [maxKeys].
+ *
+ * El primer campo es siempre la "primary key": el router la intenta
+ * primero y solo pasa a las siguientes si tira 429.
+ */
+@Composable
+private fun KeyListEditor(
+    keys: List<String>,
+    onKeysChange: (List<String>) -> Unit,
+    labelPrimaryRes: Int,
+    labelBackupRes: Int,
+    rotationEnabled: Boolean,
+    maxKeys: Int,
+    onDirty: () -> Unit
+) {
+    val visibleKeys = if (rotationEnabled) keys else listOf(keys.firstOrNull().orEmpty())
+
+    Column {
+        visibleKeys.forEachIndexed { visibleIdx, keyValue ->
+            val actualIndex = if (rotationEnabled) visibleIdx else 0
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = keyValue,
+                    onValueChange = { newValue ->
+                        val newList = keys.toMutableList()
+                        while (newList.size <= actualIndex) newList.add("")
+                        newList[actualIndex] = newValue
+                        onKeysChange(newList)
+                        onDirty()
+                    },
+                    label = {
+                        Text(
+                            if (actualIndex == 0) stringResource(labelPrimaryRes)
+                            else stringResource(labelBackupRes, actualIndex + 1)
+                        )
+                    },
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.weight(1f)
+                )
+                if (rotationEnabled && keys.size > 1) {
+                    Spacer(Modifier.width(4.dp))
+                    BouncyIconButton(
+                        onClick = {
+                            val newList = keys.toMutableList().also { it.removeAt(actualIndex) }
+                            onKeysChange(newList.ifEmpty { listOf("") })
+                            onDirty()
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.RemoveCircleOutline,
+                            contentDescription = stringResource(R.string.settings_rotation_key_remove_cd),
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+            if (visibleIdx < visibleKeys.lastIndex) Spacer(Modifier.height(8.dp))
+        }
+
+        if (rotationEnabled && keys.size < maxKeys) {
+            Spacer(Modifier.height(10.dp))
+            BouncyOutlinedButton(
+                onClick = {
+                    onKeysChange(keys + "")
+                    onDirty()
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.settings_rotation_key_add))
+            }
+        }
+
+        if (rotationEnabled && keys.size >= maxKeys) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                stringResource(R.string.settings_rotation_key_limit, maxKeys),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/**
  * Tipo de badge que puede llevar una fila.
  */
 private enum class FeatureBadge { NONE, BETA, ALPHA }
@@ -486,6 +585,10 @@ fun SettingsScreen(
     val colorStyle by viewModel.colorStyle.collectAsState()
     val appLanguage by viewModel.appLanguage.collectAsState()
     val autoProcessEnabled by viewModel.autoProcessEnabled.collectAsState()
+    val geminiApiKeys by viewModel.geminiApiKeys.collectAsState()
+    val groqApiKeys by viewModel.groqApiKeys.collectAsState()
+    val keyRotationEnabled by viewModel.keyRotationEnabled.collectAsState()
+    val alphaUnlocked by viewModel.alphaUnlocked.collectAsState()
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -505,8 +608,15 @@ fun SettingsScreen(
     val latestVersionStr by viewModel.latestVersionStr.collectAsState()
 
     var nameInput by remember(userName) { mutableStateOf(userName) }
-    var geminiKeyInput by remember(geminiApiKey) { mutableStateOf(geminiApiKey) }
-    var groqKeyInput by remember(groqApiKey) { mutableStateOf(groqApiKey) }
+    // Inputs de las API keys. Cada uno es una lista: cuando rotation está
+    // OFF, solo se renderiza el primero, pero la lista completa se preserva
+    // acá para no perder las keys extra al guardar.
+    var geminiKeyInputs by remember(geminiApiKeys) {
+        mutableStateOf(geminiApiKeys.ifEmpty { listOf("") })
+    }
+    var groqKeyInputs by remember(groqApiKeys) {
+        mutableStateOf(groqApiKeys.ifEmpty { listOf("") })
+    }
 
     var isNameDirty by remember { mutableStateOf(false) }
     var isGeminiKeyDirty by remember { mutableStateOf(false) }
@@ -897,18 +1007,19 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 AnimatedContent(targetState = tempAiProvider, label = "ApiKeyInput") { provider ->
+                    val maxKeys = if (alphaUnlocked) 6 else 3
+
                     when (provider) {
                         0 -> {
                             Column {
-                                OutlinedTextField(
-                                    value = geminiKeyInput,
-                                    onValueChange = {
-                                        geminiKeyInput = it
-                                        isGeminiKeyDirty = true
-                                    },
-                                    label = { Text(stringResource(R.string.settings_gemini_key_label)) },
-                                    visualTransformation = PasswordVisualTransformation(),
-                                    modifier = Modifier.fillMaxWidth()
+                                KeyListEditor(
+                                    keys = geminiKeyInputs,
+                                    onKeysChange = { geminiKeyInputs = it },
+                                    labelPrimaryRes = R.string.settings_rotation_key_primary,
+                                    labelBackupRes = R.string.settings_rotation_key_backup,
+                                    rotationEnabled = keyRotationEnabled,
+                                    maxKeys = maxKeys,
+                                    onDirty = { isGeminiKeyDirty = true }
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
@@ -922,7 +1033,7 @@ fun SettingsScreen(
                                 Spacer(modifier = Modifier.height(12.dp))
                                 BouncyButton(
                                     onClick = {
-                                        viewModel.saveApiKey(geminiKeyInput)
+                                        viewModel.saveGeminiApiKeys(geminiKeyInputs.filter { it.isNotBlank() })
                                         viewModel.saveAiProvider(tempAiProvider)
                                         isGeminiKeyDirty = false
                                         coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_gemini_saved)) }
@@ -936,15 +1047,14 @@ fun SettingsScreen(
                         }
                         1 -> {
                             Column {
-                                OutlinedTextField(
-                                    value = groqKeyInput,
-                                    onValueChange = {
-                                        groqKeyInput = it
-                                        isGroqKeyDirty = true
-                                    },
-                                    label = { Text(stringResource(R.string.settings_groq_key_label)) },
-                                    visualTransformation = PasswordVisualTransformation(),
-                                    modifier = Modifier.fillMaxWidth()
+                                KeyListEditor(
+                                    keys = groqKeyInputs,
+                                    onKeysChange = { groqKeyInputs = it },
+                                    labelPrimaryRes = R.string.settings_rotation_key_primary,
+                                    labelBackupRes = R.string.settings_rotation_key_backup,
+                                    rotationEnabled = keyRotationEnabled,
+                                    maxKeys = maxKeys,
+                                    onDirty = { isGroqKeyDirty = true }
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
@@ -958,7 +1068,7 @@ fun SettingsScreen(
                                 Spacer(modifier = Modifier.height(12.dp))
                                 BouncyButton(
                                     onClick = {
-                                        viewModel.saveGroqApiKey(groqKeyInput)
+                                        viewModel.saveGroqApiKeys(groqKeyInputs.filter { it.isNotBlank() })
                                         viewModel.saveAiProvider(tempAiProvider)
                                         isGroqKeyDirty = false
                                         coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_groq_saved)) }
@@ -972,8 +1082,8 @@ fun SettingsScreen(
                         }
                         else -> {
                             Column {
-                                val geminiKey = geminiKeyInput
-                                val groqKey = groqKeyInput
+                                val geminiKey = geminiKeyInputs.firstOrNull().orEmpty()
+                                val groqKey = groqKeyInputs.firstOrNull().orEmpty()
                                 val bothConfigured = geminiKey.isNotBlank() && groqKey.isNotBlank()
 
                                 Text(
@@ -1523,9 +1633,7 @@ fun SettingsScreen(
             subtitle = stringResource(R.string.settings_advanced_subtitle)
         ) {
             Column {
-                // Placeholder de rotación de API keys. La funcionalidad real
-                // llega en la ronda E de Release 2. Por ahora solo mostramos
-                // el label explicando qué va a pasar.
+                // Toggle de rotación de API keys.
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
@@ -1535,7 +1643,7 @@ fun SettingsScreen(
                             Text(
                                 stringResource(R.string.settings_advanced_rotation_title),
                                 style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                color = MaterialTheme.colorScheme.primary,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f, fill = false)
@@ -1552,10 +1660,55 @@ fun SettingsScreen(
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Switch(
-                        checked = false,
-                        onCheckedChange = null,
-                        enabled = false
+                        checked = keyRotationEnabled,
+                        onCheckedChange = { viewModel.saveKeyRotationEnabled(it) }
                     )
+                }
+
+                // ALPHA unlock: solo visible cuando la rotación está activa.
+                // Permite extender el límite de keys por provider de 3 a 6.
+                if (keyRotationEnabled) {
+                    SectionRowDivider()
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    stringResource(R.string.settings_rotation_alpha_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                AlphaBadge()
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                if (alphaUnlocked) stringResource(R.string.settings_rotation_alpha_unlocked_desc)
+                                else stringResource(R.string.settings_rotation_alpha_desc),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        if (alphaUnlocked) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        } else {
+                            BouncyButton(onClick = { viewModel.saveAlphaUnlocked(true) }) {
+                                Text(stringResource(R.string.settings_rotation_alpha_button))
+                            }
+                        }
+                    }
                 }
             }
         }

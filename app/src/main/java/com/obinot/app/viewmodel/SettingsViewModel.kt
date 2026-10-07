@@ -75,6 +75,30 @@ class SettingsViewModel(
         initialValue = ""
     )
 
+    val geminiApiKeys: StateFlow<List<String>> = settingsRepository.geminiApiKeysFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val groqApiKeys: StateFlow<List<String>> = settingsRepository.groqApiKeysFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val keyRotationEnabled: StateFlow<Boolean> = settingsRepository.keyRotationEnabledFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    val alphaUnlocked: StateFlow<Boolean> = settingsRepository.alphaUnlockedFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
     val themeMode: StateFlow<Int> = settingsRepository.themeModeFlow.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -179,6 +203,22 @@ class SettingsViewModel(
 
     fun saveGroqApiKey(key: String) {
         viewModelScope.launch { settingsRepository.saveGroqApiKey(key) }
+    }
+
+    fun saveGeminiApiKeys(keys: List<String>) {
+        viewModelScope.launch { settingsRepository.saveGeminiApiKeys(keys) }
+    }
+
+    fun saveGroqApiKeys(keys: List<String>) {
+        viewModelScope.launch { settingsRepository.saveGroqApiKeys(keys) }
+    }
+
+    fun saveKeyRotationEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.saveKeyRotationEnabled(enabled) }
+    }
+
+    fun saveAlphaUnlocked(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.saveAlphaUnlocked(enabled) }
     }
 
     fun saveThemeMode(mode: Int) {

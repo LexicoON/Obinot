@@ -401,7 +401,16 @@
     <string name="settings_updates_card_title">Updates</string>
     <string name="settings_backup_card_title">Backup &amp; Wiederherstellung</string>
     <string name="settings_advanced_rotation_title">API-Schlüsselrotation</string>
-    <string name="settings_advanced_rotation_desc">Wechselt zwischen bis zu 3 Schlüsseln pro Anbieter bei Erreichen des Limits. Kommt im nächsten Update.</string>
+    <string name="settings_advanced_rotation_desc">Wechselt zwischen mehreren API-Schlüsseln pro Anbieter bei Erreichen des Limits.</string>
+    <string name="settings_rotation_key_primary">Primärschlüssel</string>
+    <string name="settings_rotation_key_backup">Schlüssel %1$d</string>
+    <string name="settings_rotation_key_remove_cd">Diesen Schlüssel entfernen</string>
+    <string name="settings_rotation_key_add">Weiteren Schlüssel hinzufügen</string>
+    <string name="settings_rotation_key_limit">Maximal %1$d Schlüssel erreicht</string>
+    <string name="settings_rotation_alpha_title">Mehr Schlüssel freischalten</string>
+    <string name="settings_rotation_alpha_desc">Erweitert das Rotationslimit von 3 auf 6 Schlüssel pro Anbieter.</string>
+    <string name="settings_rotation_alpha_unlocked_desc">Auf 6 Schlüssel pro Anbieter erweitert.</string>
+    <string name="settings_rotation_alpha_button">Freischalten</string>
     <string name="settings_personalization">Personalisierung</string>
     <string name="settings_your_name">Dein Name</string>
     <string name="settings_save_name">Namen speichern</string>

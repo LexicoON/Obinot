@@ -401,7 +401,16 @@
     <string name="settings_updates_card_title">Actualizaciones</string>
     <string name="settings_backup_card_title">Respaldo y restauración</string>
     <string name="settings_advanced_rotation_title">Rotación de API Keys</string>
-    <string name="settings_advanced_rotation_desc">Rota entre hasta 3 keys por proveedor cuando una llega al límite. Próximamente.</string>
+    <string name="settings_advanced_rotation_desc">Rota entre varias claves API por proveedor cuando una llega al límite.</string>
+    <string name="settings_rotation_key_primary">Clave principal</string>
+    <string name="settings_rotation_key_backup">Clave %1$d</string>
+    <string name="settings_rotation_key_remove_cd">Eliminar esta clave</string>
+    <string name="settings_rotation_key_add">Agregar otra clave</string>
+    <string name="settings_rotation_key_limit">Se alcanzó el máximo de %1$d claves</string>
+    <string name="settings_rotation_alpha_title">Desbloquear más claves</string>
+    <string name="settings_rotation_alpha_desc">Extiende el límite de rotación de 3 a 6 claves por proveedor.</string>
+    <string name="settings_rotation_alpha_unlocked_desc">Extendido a 6 claves por proveedor.</string>
+    <string name="settings_rotation_alpha_button">Desbloquear</string>
     <string name="settings_personalization">Personalización</string>
     <string name="settings_your_name">Tu nombre</string>
     <string name="settings_save_name">Guardar nombre</string>

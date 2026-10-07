@@ -13,72 +13,108 @@ class SettingsRepository(private val context: Context) {
 
     companion object {
         val USER_NAME_KEY = stringPreferencesKey("user_name")
+
+        // --- API KEYS (listas, separadas por \n) ---
+        // A partir de 2.2 soportamos rotación: cada provider puede tener
+        // hasta N keys. La primera es la "principal". Las listas se serializan
+        // como strings con separator \n (las API keys no contienen \n).
+        val GEMINI_API_KEYS = stringPreferencesKey("gemini_api_keys")
+        val GROQ_API_KEYS = stringPreferencesKey("groq_api_keys")
+        val NVIDIA_API_KEYS = stringPreferencesKey("nvidia_api_keys")
+
+        // --- API KEYS (singular, retrocompat con <=2.1.1) ---
+        // Se leen si las listas nuevas no existen. Se limpian cuando el user
+        // guarda algo con la UI nueva (evita duplicaciones).
         val API_KEY = stringPreferencesKey("api_key")
         val GROQ_API_KEY = stringPreferencesKey("groq_api_key")
-        val THEME_MODE_KEY = intPreferencesKey("theme_mode")
-        val RECORD_MODE_KEY = intPreferencesKey("record_mode")
-        val AI_PROVIDER_KEY = intPreferencesKey("ai_provider") // 0 = Gemini, 1 = Groq, 2 = Dynamic
+
+        // --- KEY ROTATION (Release 2) ---
+        val KEY_ROTATION_ENABLED = booleanPreferencesKey("key_rotation_enabled")
+        // Alpha unlock: permite más de 3 keys por provider (hasta 6).
+        val ALPHA_UNLOCKED = booleanPreferencesKey("alpha_unlocked")
 
         // --- GLOBAL AI PREFERENCES ---
+        val THEME_MODE_KEY = intPreferencesKey("theme_mode")
+        val RECORD_MODE_KEY = intPreferencesKey("record_mode")
+        val AI_PROVIDER_KEY = intPreferencesKey("ai_provider")
+
         val AI_LANGUAGE_KEY = stringPreferencesKey("ai_language")
-        val AI_TASK_KEY = intPreferencesKey("ai_task") // 0: Tidy Up, 1: Summarize, 2: Analyze
-        val AI_FORMAT_KEY = intPreferencesKey("ai_format") // 0: Paragraphs, 1: Bullets
+        val AI_TASK_KEY = intPreferencesKey("ai_task")
+        val AI_FORMAT_KEY = intPreferencesKey("ai_format")
         val BACKGROUND_RECORDING_KEY = booleanPreferencesKey("background_recording_enabled")
 
-        // --- LIVE TRANSCRIPT (Accurate mode, alpha desde 2.2) ---
-        // Default OFF. Con esto apagado, Accurate NO arranca el SpeechRecognizer del
-        // teléfono (que es el que falla en muchos dispositivos), y solo graba audio
-        // para que la IA lo transcriba después.
         val LIVE_TRANSCRIPT_KEY = booleanPreferencesKey("live_transcript_enabled")
 
-        // --- AUTO COMPRESSION ---
-        // 0 = Off, 1 = Balanced (target 24 MB), 2 = Max (target 15 MB)
         val AUTO_COMPRESSION_MODE_KEY = intPreferencesKey("auto_compression_mode")
 
-        // --- MIX COUNTER ---
         val MIX_COUNTER_KEY = intPreferencesKey("mix_counter")
 
-        // --- NATIVE AUDIO PICKER (default ON desde 2.2) ---
         val NATIVE_PICKER_KEY = booleanPreferencesKey("native_audio_picker_enabled")
-        // Flag de migración one-time: cuando pasa a true, nunca volvemos a
-        // forzar el native picker. Se setea tanto por migrateNativePickerIfNeeded()
-        // como por cualquier saveNativePicker() explícito del usuario.
         val NATIVE_PICKER_MIGRATED_KEY = booleanPreferencesKey("native_picker_migrated")
 
-        // --- COLOR STYLE ---
-        // 0 = Tonal Spot, 1 = Vibrant, 2 = Expressive, 3 = Fruit Salad,
-        // 4 = Neutral, 5 = Fidelity, 6 = Monochrome
         val COLOR_STYLE_KEY = intPreferencesKey("color_style")
 
-        // --- APP LANGUAGE (per-app locale) ---
-        // Valores: "device" (default, sigue el idioma del sistema), "en", "es".
         val APP_LANGUAGE_KEY = stringPreferencesKey("app_language")
 
-        // --- D1b: AUTO-PROCESS TRANSCRIPTIONS ---
-        // Default ON para no romper el comportamiento previo.
         val AUTO_PROCESS_KEY = booleanPreferencesKey("auto_process_enabled")
 
-        // --- F4b: READING FONT ---
-        // 0 = Sans (default), 1 = Serif, 2 = Mono.
         val READING_FONT_KEY = intPreferencesKey("reading_font")
 
-        // --- 2.1: AI CHAT ABOUT NOTE ---
-        // Primera vez que el usuario abre ResultScreen, mostramos un popup
-        // explicando que el botón de 3-puntos tiene long press para chat
-        // directo. Después de verlo una vez, no se vuelve a mostrar.
         val AI_CHAT_TOOLTIP_SHOWN_KEY = booleanPreferencesKey("ai_chat_tooltip_shown")
 
-        // --- 2.2: NATIVE PICKER .binot TAB PERMISSION PROMPT ---
-        // Primera vez que el usuario entra al tab .binot sin permiso de
-        // almacenamiento, mostramos un aviso explicando qué necesita y un
-        // botón "Continue" que dispara el popup del sistema. Después de la
-        // primera interacción, no se vuelve a mostrar.
         val BINOT_TAB_PERMISSION_PROMPTED_KEY = booleanPreferencesKey("binot_tab_permission_prompted")
+
+        /** Separator para serializar listas de API keys en DataStore. */
+        private const val KEY_LIST_SEPARATOR = "\n"
+
+        /** Convierte una lista de keys a string para persistir. */
+        fun joinKeys(keys: List<String>): String =
+            keys.map { it.trim() }.filter { it.isNotBlank() }
+                .joinToString(KEY_LIST_SEPARATOR)
+
+        /** Convierte un string persistido a lista de keys. */
+        fun splitKeys(stored: String?): List<String> =
+            stored?.split(KEY_LIST_SEPARATOR)
+                ?.map { it.trim() }
+                ?.filter { it.isNotBlank() }
+                ?: emptyList()
     }
 
+    // ============================================================
+    // API KEYS (nuevas, listas)
+    // ============================================================
+
+    /**
+     * Lista completa de API keys de Gemini. Retrocompat: si la lista nueva
+     * no existe pero la key singular vieja sí, la devuelve como lista de 1.
+     */
+    val geminiApiKeysFlow: Flow<List<String>> = context.dataStore.data.map { prefs ->
+        val fromList = splitKeys(prefs[GEMINI_API_KEYS])
+        if (fromList.isNotEmpty()) fromList
+        else prefs[API_KEY]?.takeIf { it.isNotBlank() }?.let { listOf(it) } ?: emptyList()
+    }
+
+    val groqApiKeysFlow: Flow<List<String>> = context.dataStore.data.map { prefs ->
+        val fromList = splitKeys(prefs[GROQ_API_KEYS])
+        if (fromList.isNotEmpty()) fromList
+        else prefs[GROQ_API_KEY]?.takeIf { it.isNotBlank() }?.let { listOf(it) } ?: emptyList()
+    }
+
+    val nvidiaApiKeysFlow: Flow<List<String>> = context.dataStore.data.map { prefs ->
+        splitKeys(prefs[NVIDIA_API_KEYS])
+    }
+
+    // --- Retrocompat: singular flows. Devuelven la primera key, o "". ---
+
+    val geminiApiKeyFlow: Flow<String> = geminiApiKeysFlow.map { it.firstOrNull() ?: "" }
+    val groqApiKeyFlow: Flow<String> = groqApiKeysFlow.map { it.firstOrNull() ?: "" }
+    val nvidiaApiKeyFlow: Flow<String> = nvidiaApiKeysFlow.map { it.firstOrNull() ?: "" }
+
+    // ============================================================
+    // Otros flows
+    // ============================================================
+
     val userNameFlow: Flow<String> = context.dataStore.data.map { it[USER_NAME_KEY] ?: "" }
-    val geminiApiKeyFlow: Flow<String> = context.dataStore.data.map { it[API_KEY] ?: "" }
-    val groqApiKeyFlow: Flow<String> = context.dataStore.data.map { it[GROQ_API_KEY] ?: "" }
     val themeModeFlow: Flow<Int> = context.dataStore.data.map { it[THEME_MODE_KEY] ?: 0 }
     val recordModeFlow: Flow<Int> = context.dataStore.data.map { it[RECORD_MODE_KEY] ?: 0 }
     val aiProviderFlow: Flow<Int> = context.dataStore.data.map { it[AI_PROVIDER_KEY] ?: 0 }
@@ -96,19 +132,16 @@ class SettingsRepository(private val context: Context) {
     val autoProcessFlow: Flow<Boolean> = context.dataStore.data.map { it[AUTO_PROCESS_KEY] ?: true }
     val readingFontFlow: Flow<Int> = context.dataStore.data.map { it[READING_FONT_KEY] ?: 0 }
 
+    // --- Key rotation flags ---
+    val keyRotationEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[KEY_ROTATION_ENABLED] ?: false }
+    val alphaUnlockedFlow: Flow<Boolean> = context.dataStore.data.map { it[ALPHA_UNLOCKED] ?: false }
+
     /**
      * Native picker: default ON desde 2.2. Para usuarios que actualizan desde
      * versiones anteriores, forzamos la activación una sola vez vía
      * NATIVE_PICKER_MIGRATED_KEY. Si el usuario después lo desactiva
      * manualmente (saveNativePicker), el flag queda seteado y respetamos su
      * elección.
-     *
-     * Lógica:
-     *  - Si migrated == false: devolvemos true (comportamiento forzado).
-     *    La persistencia real la hace migrateNativePickerIfNeeded() en el
-     *    arranque, o saveNativePicker() si el usuario toca el toggle.
-     *  - Si migrated == true: respetamos el valor guardado. Default true si
-     *    la key no existe (instalación nueva).
      */
     val nativePickerFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
         val migrated = prefs[NATIVE_PICKER_MIGRATED_KEY] ?: false
@@ -122,16 +155,55 @@ class SettingsRepository(private val context: Context) {
     val aiChatTooltipShownFlow: Flow<Boolean> = context.dataStore.data.map { it[AI_CHAT_TOOLTIP_SHOWN_KEY] ?: false }
     val binotTabPermissionPromptedFlow: Flow<Boolean> = context.dataStore.data.map { it[BINOT_TAB_PERMISSION_PROMPTED_KEY] ?: false }
 
+    // ============================================================
+    // Setters — API keys (nuevos, listas)
+    // ============================================================
+
+    suspend fun saveGeminiApiKeys(keys: List<String>) {
+        context.dataStore.edit { prefs ->
+            prefs[GEMINI_API_KEYS] = joinKeys(keys)
+            // Limpiamos la key singular vieja para evitar duplicaciones
+            // cuando el user guarda desde la UI nueva.
+            prefs.remove(API_KEY)
+        }
+    }
+
+    suspend fun saveGroqApiKeys(keys: List<String>) {
+        context.dataStore.edit { prefs ->
+            prefs[GROQ_API_KEYS] = joinKeys(keys)
+            prefs.remove(GROQ_API_KEY)
+        }
+    }
+
+    suspend fun saveNvidiaApiKeys(keys: List<String>) {
+        context.dataStore.edit { prefs ->
+            prefs[NVIDIA_API_KEYS] = joinKeys(keys)
+        }
+    }
+
+    // --- Retrocompat: los setters viejos guardan lista de 1. ---
+
+    suspend fun saveGeminiApiKey(key: String) = saveGeminiApiKeys(listOf(key))
+    suspend fun saveGroqApiKey(key: String) = saveGroqApiKeys(listOf(key))
+
+    // ============================================================
+    // Setters — key rotation
+    // ============================================================
+
+    suspend fun saveKeyRotationEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_ROTATION_ENABLED] = enabled }
+    }
+
+    suspend fun saveAlphaUnlocked(enabled: Boolean) {
+        context.dataStore.edit { it[ALPHA_UNLOCKED] = enabled }
+    }
+
+    // ============================================================
+    // Setters — resto
+    // ============================================================
+
     suspend fun saveUserName(name: String) {
         context.dataStore.edit { it[USER_NAME_KEY] = name }
-    }
-
-    suspend fun saveGeminiApiKey(key: String) {
-        context.dataStore.edit { it[API_KEY] = key }
-    }
-
-    suspend fun saveGroqApiKey(key: String) {
-        context.dataStore.edit { it[GROQ_API_KEY] = key }
     }
 
     suspend fun saveThemeMode(mode: Int) {
@@ -172,7 +244,6 @@ class SettingsRepository(private val context: Context) {
 
     /**
      * Persiste la elección del native picker y marca la migración como hecha.
-     * A partir de este momento, nativePickerFlow respeta el valor guardado.
      */
     suspend fun saveNativePicker(enabled: Boolean) {
         context.dataStore.edit {
@@ -183,12 +254,7 @@ class SettingsRepository(private val context: Context) {
 
     /**
      * Migración one-time: activa el native picker para todos los usuarios
-     * existentes. Se recomienda llamarla una vez en el arranque de la app
-     * (BinotApplication.onCreate) para "sellar" el flag y que la lógica del
-     * flow no tenga que evaluar el caso migrated == false en cada emisión.
-     *
-     * Es idempotente: si NATIVE_PICKER_MIGRATED_KEY ya está en true, no hace
-     * nada.
+     * existentes. Idempotente.
      */
     suspend fun migrateNativePickerIfNeeded() {
         context.dataStore.edit { prefs ->
