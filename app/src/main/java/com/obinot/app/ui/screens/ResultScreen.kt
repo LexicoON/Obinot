@@ -1097,100 +1097,119 @@ fun ResultScreen(
                                 Modifier.fillMaxSize()
                             }
                         ) {
-                            // ============ HERO HEADER ============
-                            // Fecha + word count + indicador de audio.
-                            // Solo se muestra cuando no estamos en edit mode
-                            // (para no cargar la pantalla mientras editás).
-                            if (!isEditMode) {
-                                ResultHeroHeader(
-                                    note = note!!,
-                                    hasPhoneTranscription = hasPhoneTranscription
-                                )
-                            }
+                            // ============ HEADER DINÁMICO ============
+                            // Agrupa hero + analyze + segmented + audio player
+                            // en un solo bloque que se oculta con el scroll,
+                            // sincronizado con el colapso del TopAppBar.
+                            //
+                            // scrollBehavior.state.collapsedFraction va de 0f
+                            // (barra expandida) a 1f (barra colapsada). Lo usamos
+                            // para hacer fade-out + slide-up del header.
+                            //
+                            // El multiplicador 1.5 hace que el header desaparezca
+                            // bastante antes de que el TopAppBar llegue al 100%,
+                            // así no se ve "medio transparente" al final.
+                            val collapsedFraction = scrollBehavior.state.collapsedFraction
+                            val headerAlpha = (1f - collapsedFraction * 1.5f).coerceIn(0f, 1f)
+                            val headerOffsetPx = -collapsedFraction * 40f  // slide up 40px
 
-                            // ============ ANALYZE CHIP ============
-                            if (showAnalyzeChip) {
+                            if (headerAlpha > 0.01f) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                                        .graphicsLayer {
+                                            alpha = headerAlpha
+                                            translationY = headerOffsetPx
+                                        }
                                 ) {
-                                    BouncyChip(
-                                        onClick = {
-                                            forceTranscript = false
-                                            viewModel.analyzeManually()
-                                        },
-                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.AutoAwesome,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(
-                                            text = stringResource(R.string.result_analyze_chip),
-                                            fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.labelMedium
-                                        )
+                                    Column {
+                                        if (!isEditMode) {
+                                            ResultHeroHeader(
+                                                note = note!!,
+                                                hasPhoneTranscription = hasPhoneTranscription
+                                            )
+                                        }
+
+                                        if (showAnalyzeChip) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                                            ) {
+                                                BouncyChip(
+                                                    onClick = {
+                                                        forceTranscript = false
+                                                        viewModel.analyzeManually()
+                                                    },
+                                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.AutoAwesome,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                    Spacer(Modifier.width(6.dp))
+                                                    Text(
+                                                        text = stringResource(R.string.result_analyze_chip),
+                                                        fontWeight = FontWeight.Bold,
+                                                        style = MaterialTheme.typography.labelMedium
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        val hasSummary = !note!!.summary.isNullOrEmpty()
+                                        val hasRawText = note!!.rawText.isNotBlank()
+                                            && note!!.rawText != AudioRecorderManager.PENDING_TRANSCRIPTION
+                                        if (hasSummary && hasRawText && !isLoading && !isEditMode) {
+                                            SingleChoiceSegmentedButtonRow(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                                            ) {
+                                                SegmentedButton(
+                                                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                                                    onClick = { forceTranscript = false },
+                                                    selected = !forceTranscript,
+                                                    icon = {
+                                                        Icon(
+                                                            Icons.Default.AutoAwesome,
+                                                            contentDescription = null,
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    },
+                                                    label = { Text(stringResource(R.string.result_tab_summary)) }
+                                                )
+                                                SegmentedButton(
+                                                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                                                    onClick = { forceTranscript = true },
+                                                    selected = forceTranscript,
+                                                    icon = {
+                                                        Icon(
+                                                            Icons.Default.Description,
+                                                            contentDescription = null,
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    },
+                                                    label = { Text(stringResource(R.string.result_tab_transcript)) }
+                                                )
+                                            }
+                                        }
+
+                                        if (note!!.audioPath != null && !isLoading) {
+                                            CompactAudioPlayer(
+                                                isPlaying = isPlaying,
+                                                progress = playbackProgress,
+                                                onTogglePlay = { viewModel.toggleAudio() },
+                                                onSeek = { viewModel.seekAudio(it) },
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                                            )
+                                        }
                                     }
                                 }
-                            }
-
-                            // ============ SEGMENTED CONTROL ============
-                            // Solo si existen Summary + Transcript.
-                            val hasSummary = !note!!.summary.isNullOrEmpty()
-                            val hasRawText = note!!.rawText.isNotBlank()
-                                && note!!.rawText != AudioRecorderManager.PENDING_TRANSCRIPTION
-                            if (hasSummary && hasRawText && !isLoading && !isEditMode) {
-                                SingleChoiceSegmentedButtonRow(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                                ) {
-                                    SegmentedButton(
-                                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                                        onClick = { forceTranscript = false },
-                                        selected = !forceTranscript
-                                    ) {
-                                        Icon(
-                                            Icons.Default.AutoAwesome,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(stringResource(R.string.result_tab_summary))
-                                    }
-                                    SegmentedButton(
-                                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                                        onClick = { forceTranscript = true },
-                                        selected = forceTranscript
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Description,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(stringResource(R.string.result_tab_transcript))
-                                    }
-                                }
-                            }
-
-                            // ============ AUDIO PLAYER (compacto) ============
-                            // Solo si hay audio. Reemplaza el play button + barra
-                            // que antes estaban dispersos en el side panel.
-                            if (note!!.audioPath != null && !isLoading) {
-                                CompactAudioPlayer(
-                                    isPlaying = isPlaying,
-                                    progress = playbackProgress,
-                                    onTogglePlay = { viewModel.toggleAudio() },
-                                    onSeek = { viewModel.seekAudio(it) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                                )
                             }
 
                             // ============ LOADING ============

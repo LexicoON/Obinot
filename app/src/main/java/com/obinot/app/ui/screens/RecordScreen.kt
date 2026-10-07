@@ -1378,10 +1378,32 @@ private fun RecordScreenActionButtons(
  * interactúa. El desplazamiento es de ~5% del tamaño de la pantalla, muy
  * sutil para no distraer.
  */
+/**
+ * Fondo con dos burbujas de color (primary + tertiary) que driftean
+ * lentamente.
+ *
+ * Alphas por modo: dark mode necesita un valor mucho más alto porque la
+ * superficie base es oscura y el contraste entre primary y surface es
+ * bajo — con alpha chica el tinte se pierde completamente.
+ *
+ * El radio es 1.0w (el ancho completo de la pantalla) para que cada
+ * burbuja cubra una zona amplia. Con radios más chicos quedaba un borde
+ * "limpio" visible entre burbuja y burbuja que se veía raro.
+ *
+ * El drift horizontal es ±15% del ancho (antes era ±4%), así el
+ * movimiento se percibe aunque el usuario no mire fijo. El vertical es
+ * más sutil para no marear.
+ */
 @Composable
 private fun M3ExpressiveBackground() {
-    val primaryColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
-    val secondaryColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f)
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val tertiaryColor = MaterialTheme.colorScheme.tertiary
+
+    // Alphas por modo. Dark mode necesita ~2x el valor de light mode
+    // para verse igual de claro, por la diferencia de luminosidad base.
+    val primaryAlpha = if (isDark) 0.32f else 0.15f
+    val tertiaryAlpha = if (isDark) 0.24f else 0.12f
 
     val infinite = rememberInfiniteTransition(label = "bg_drift")
     val drift by infinite.animateFloat(
@@ -1398,33 +1420,35 @@ private fun M3ExpressiveBackground() {
         val w = size.width
         val h = size.height
 
-        // Círculo primary: centro base en (0.5w, 0.2h). Drift horizontal ±4%
-        // y vertical ±2% del tamaño.
-        val cx1 = w * (0.5f + (drift - 0.5f) * 0.08f)
-        val cy1 = h * (0.2f + (drift - 0.5f) * 0.04f)
+        // Burbuja primary: parte de arriba. Radio 1.0w cubre toda la
+        // mitad superior cuando está centrada horizontalmente.
+        val primaryRadius = w * 1.0f
+        val cx1 = w * (0.5f + (drift - 0.5f) * 0.30f)  // ±15% del ancho
+        val cy1 = h * (0.22f + (drift - 0.5f) * 0.10f) // ±5% del alto
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(primaryColor, Color.Transparent),
+                colors = listOf(primaryColor.copy(alpha = primaryAlpha), Color.Transparent),
                 center = Offset(cx1, cy1),
-                radius = w * 0.8f
+                radius = primaryRadius
             ),
             center = Offset(cx1, cy1),
-            radius = w * 0.8f
+            radius = primaryRadius
         )
 
-        // Círculo secondary: centro base en (0.2w, 0.7h). Drift invertido
-        // (mientras uno va a la derecha, el otro va a la izquierda) para
-        // que el movimiento se sienta orgánico.
-        val cx2 = w * (0.2f - (drift - 0.5f) * 0.06f)
-        val cy2 = h * (0.7f + (drift - 0.5f) * 0.03f)
+        // Burbuja tertiary: parte de abajo. Drift invertido (mientras
+        // una va a la derecha, la otra va a la izquierda) para que el
+        // movimiento se sienta orgánico y no coreografiado.
+        val tertiaryRadius = w * 0.9f
+        val cx2 = w * (0.2f - (drift - 0.5f) * 0.22f)
+        val cy2 = h * (0.72f + (drift - 0.5f) * 0.08f)
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(secondaryColor, Color.Transparent),
+                colors = listOf(tertiaryColor.copy(alpha = tertiaryAlpha), Color.Transparent),
                 center = Offset(cx2, cy2),
-                radius = w * 0.7f
+                radius = tertiaryRadius
             ),
             center = Offset(cx2, cy2),
-            radius = w * 0.7f
+            radius = tertiaryRadius
         )
     }
 }

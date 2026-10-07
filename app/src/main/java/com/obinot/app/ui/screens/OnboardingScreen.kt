@@ -383,30 +383,41 @@ fun OnboardingScreen(
 
                             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                                 SegmentedButton(
-                                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
                                     onClick = { aiProvider = 0 },
                                     selected = aiProvider == 0
-                                ) { Text(stringResource(R.string.onboarding_provider_gemini)) }
+                                ) { Text(stringResource(R.string.onboarding_provider_gemini), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                                 SegmentedButton(
-                                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
                                     onClick = { aiProvider = 1 },
                                     selected = aiProvider == 1
-                                ) { Text(stringResource(R.string.onboarding_provider_groq)) }
+                                ) { Text(stringResource(R.string.onboarding_provider_groq), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                SegmentedButton(
+                                    shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+                                    onClick = { aiProvider = 2 },
+                                    selected = aiProvider == 2
+                                ) { Text(stringResource(R.string.onboarding_provider_standard), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                             }
 
                             Spacer(modifier = Modifier.height(16.dp))
 
                             AnimatedContent(targetState = aiProvider, label = "provider_info") { provider ->
-                                if (provider == 1) {
-                                    Text(
+                                when (provider) {
+                                    1 -> Text(
                                         text = stringResource(R.string.onboarding_provider_groq_hint),
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold,
                                         textAlign = TextAlign.Center
                                     )
-                                } else {
-                                    Text(
+                                    2 -> Text(
+                                        text = stringResource(R.string.onboarding_provider_standard_hint),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    else -> Text(
                                         text = stringResource(R.string.onboarding_provider_gemini_hint),
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -419,7 +430,14 @@ fun OnboardingScreen(
 
                             BouncyButton(
                                 onClick = {
-                                    val url = if (aiProvider == 0) "https://aistudio.google.com/app/apikey" else "https://console.groq.com/keys"
+                                    // En modo Standard pedimos la key de Gemini
+                                    // primero (el user puede agregar la de Groq
+                                    // después desde Settings).
+                                    val url = if (aiProvider == 0 || aiProvider == 2) {
+                                        "https://aistudio.google.com/app/apikey"
+                                    } else {
+                                        "https://console.groq.com/keys"
+                                    }
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                                     context.startActivity(intent)
                                 },

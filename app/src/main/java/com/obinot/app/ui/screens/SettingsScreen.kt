@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.RemoveCircleOutline
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhoneAndroid
@@ -587,6 +588,7 @@ fun SettingsScreen(
     val autoProcessEnabled by viewModel.autoProcessEnabled.collectAsState()
     val geminiApiKeys by viewModel.geminiApiKeys.collectAsState()
     val groqApiKeys by viewModel.groqApiKeys.collectAsState()
+    val nvidiaApiKeys by viewModel.nvidiaApiKeys.collectAsState()
     val keyRotationEnabled by viewModel.keyRotationEnabled.collectAsState()
     val alphaUnlocked by viewModel.alphaUnlocked.collectAsState()
 
@@ -616,6 +618,9 @@ fun SettingsScreen(
     }
     var groqKeyInputs by remember(groqApiKeys) {
         mutableStateOf(groqApiKeys.ifEmpty { listOf("") })
+    }
+    var nvidiaKeyInputs by remember(nvidiaApiKeys) {
+        mutableStateOf(nvidiaApiKeys.ifEmpty { listOf("") })
     }
 
     var isNameDirty by remember { mutableStateOf(false) }
@@ -994,12 +999,14 @@ fun SettingsScreen(
                     labels = listOf(
                         stringResource(R.string.settings_provider_gemini),
                         stringResource(R.string.settings_provider_groq),
-                        stringResource(R.string.settings_provider_dynamic)
+                        stringResource(R.string.settings_provider_dynamic),
+                        stringResource(R.string.settings_provider_full)
                     ),
                     icons = listOf(
                         Icons.Default.AutoAwesome,
                         Icons.Default.Bolt,
-                        Icons.Default.Shuffle
+                        Icons.Default.Shuffle,
+                        Icons.Default.Speed
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1080,7 +1087,7 @@ fun SettingsScreen(
                                 }
                             }
                         }
-                        else -> {
+                        2 -> {
                             Column {
                                 val geminiKey = geminiKeyInputs.firstOrNull().orEmpty()
                                 val groqKey = groqKeyInputs.firstOrNull().orEmpty()
@@ -1129,6 +1136,102 @@ fun SettingsScreen(
                                     modifier = Modifier.align(Alignment.End)
                                 ) {
                                     Text(stringResource(R.string.settings_save_selection))
+                                }
+                            }
+                        }
+                        3 -> {
+                            Column {
+                                val geminiKey = geminiKeyInputs.firstOrNull().orEmpty()
+                                val groqKey = groqKeyInputs.firstOrNull().orEmpty()
+                                val nvidiaKey = nvidiaKeyInputs.firstOrNull().orEmpty()
+                                val geminiConfigured = geminiKey.isNotBlank()
+                                val groqConfigured = groqKey.isNotBlank()
+                                val nvidiaConfigured = nvidiaKey.isNotBlank()
+
+                                Text(
+                                    stringResource(R.string.settings_full_desc),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = stringResource(R.string.settings_full_bullets),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                val geminiStatus = if (geminiConfigured) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
+                                val groqStatus = if (groqConfigured) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
+                                val nvidiaStatus = if (nvidiaConfigured) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_optional)
+
+                                Text(
+                                    text = stringResource(R.string.settings_dynamic_gemini_status, geminiStatus),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (geminiConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    text = stringResource(R.string.settings_dynamic_groq_status, groqStatus),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (groqConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    text = stringResource(R.string.settings_dynamic_nvidia_status, nvidiaStatus),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (nvidiaConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                KeyListEditor(
+                                    keys = nvidiaKeyInputs,
+                                    onKeysChange = { nvidiaKeyInputs = it },
+                                    labelPrimaryRes = R.string.settings_rotation_key_primary,
+                                    labelBackupRes = R.string.settings_rotation_key_backup,
+                                    rotationEnabled = keyRotationEnabled,
+                                    maxKeys = maxKeys,
+                                    onDirty = { /* nvidia no tiene "dirty" flag propio; se guarda al toque */ }
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    stringResource(R.string.settings_nvidia_get_key_hint),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.clickable {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://build.nvidia.com")))
+                                    }
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    BouncyOutlinedButton(
+                                        onClick = {
+                                            viewModel.saveNvidiaApiKeys(nvidiaKeyInputs.filter { it.isNotBlank() })
+                                            coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_nvidia_saved)) }
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(stringResource(R.string.settings_save_nvidia_key))
+                                    }
+                                    BouncyButton(
+                                        onClick = {
+                                            viewModel.saveAiProvider(tempAiProvider)
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar(
+                                                    context.getString(
+                                                        if (geminiConfigured && groqConfigured) R.string.snackbar_full_enabled
+                                                        else R.string.snackbar_full_needs_keys
+                                                    )
+                                                )
+                                            }
+                                        },
+                                        enabled = tempAiProvider != aiProvider,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(stringResource(R.string.settings_save_selection))
+                                    }
                                 }
                             }
                         }

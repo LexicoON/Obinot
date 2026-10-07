@@ -269,8 +269,11 @@ class RecordViewModel(
      */
     private fun buildApiKeysMap(provider: Int): Map<String, List<String>> {
         val map = mutableMapOf<String, List<String>>()
-        val includeGemini = provider == 0 || provider == 2
-        val includeGroq = provider == 1 || provider == 2
+        // Modo 3 (Full) incluye Gemini + Groq. NVIDIA se suma en el
+        // ResultViewModel, no acá: la generación de títulos no amerita
+        // gastar cuota de NVIDIA, que tiene el RPM más ajustado.
+        val includeGemini = provider == 0 || provider == 2 || provider == 3
+        val includeGroq = provider == 1 || provider == 2 || provider == 3
 
         if (includeGemini && geminiApiKey.isNotBlank()) {
             map["gemini"] = listOf(geminiApiKey)

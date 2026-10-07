@@ -601,6 +601,15 @@ class ResultViewModel(
      *   - SHORT_TEXT / TITLE / EXPLAIN / CHAT → alterna (contador par → Gemini,
      *     impar → Groq) para repartir cuota.
      */
+    /**
+     * Routing del modo Standard (Gemini + Groq).
+     *
+     *   - Audio largo → Gemini (sin límite de tamaño).
+     *   - Audio corto → Groq (Whisper Turbo, el más rápido).
+     *   - Texto largo → Gemini (contexto grande, mejor calidad).
+     *   - Texto corto / título / explicación / chat → alterna 50/50
+     *     para estirar las cuotas.
+     */
     private suspend fun pickPreferredProviderForMix(task: MixTask): String {
         return when (task) {
             MixTask.LONG_AUDIO -> "gemini"
@@ -610,6 +619,69 @@ class ResultViewModel(
                 val counter = settingsRepository.incrementMixCounter()
                 if (counter % 2 == 0) "gemini" else "groq"
             }
+        }
+    }
+
+    /**
+     * Routing del modo Full (Gemini + Groq + NVIDIA).
+     *
+     * Acá sí optimizamos por tarea usando el mejor provider disponible:
+     *
+     *   - Audio largo → Gemini (ningún otro acepta archivos grandes).
+     *   - Audio corto → Groq (Whisper Turbo, latencia mínima).
+     *   - Texto largo → Gemini (70B-class con contexto grande).
+     *   - Título → Groq (tarea trivial, Groq es el más rápido).
+     *   - Explicación → alterna los 3 (Gemini por calidad, NVIDIA por
+     *     privacidad, Groq por velocidad).
+     *   - Chat → alterna Groq/NVIDIA (los 2 más rápidos; Gemini queda
+     *     como fallback silencioso si los otros fallan).
+     *   - Texto corto → alterna los 3.
+     *
+     * El router hace el fallback automático si el preferido falla, así
+     * que el "en equipo" lo garantiza el router sin que tengamos que
+     * orquestar requests paralelas.
+     */
+    private suspend fun pickPreferredProviderForFull(task: MixTask): String {
+        return when (task) {
+            MixTask.LONG_AUDIO -> "gemini"
+            MixTask.SHORT_AUDIO -> "groq"
+            MixTask.LONG_TEXT -> "gemini"
+            MixTask.TITLE -> "groq"
+            MixTask.EXPLAIN -> {
+                when (settingsRepository.incrementMixCounter() % 3) {
+                    0 -> "gemini"
+                    1 -> "nvidia"
+                    else -> "groq"
+                }
+            }
+            MixTask.CHAT -> {
+                if (settingsRepository.incrementMixCounter() % 2 == 0) "groq" else "nvidia"
+            }
+            MixTask.SHORT_TEXT -> {
+                when (settingsRepository.incrementMixCounter() % 3) {
+                    0 -> "gemini"
+                    1 -> "nvidia"
+                    else -> "groq"
+                }
+            }
+        }
+    }
+
+    /**
+     * Devuelve el provider preferido según el modo activo.
+     *   - Modo 0 (Gemini):  no aplica, solo hay un provider.
+     *   - Modo 1 (Groq):    idem.
+     *   - Modo 2 (Standard): pickPreferredProviderForMix.
+     *   - Modo 3 (Full):    pickPreferredProviderForFull.
+     *
+     * Si el modo no es 2 ni 3, devuelve null (el router ignora el
+     * preferred y elige por orden de la lista de providers).
+     */
+    private suspend fun pickPreferredProvider(provider: Int, task: MixTask): String? {
+        return when (provider) {
+            2 -> pickPreferredProviderForMix(task)
+            3 -> pickPreferredProviderForFull(task)
+            else -> null
         }
     }
 
@@ -632,8 +704,9 @@ class ResultViewModel(
      */
     private suspend fun buildApiKeysMap(provider: Int): Map<String, List<String>> {
         val map = mutableMapOf<String, List<String>>()
-        val includeGemini = provider == 0 || provider == 2
-        val includeGroq = provider == 1 || provider == 2
+        val includeGemini = provider == 0 || provider == 2 || provider == 3
+        val includeGroq = provider == 1 || provider == 2 || provider == 3
+        val includeNvidia = provider == 3
 
         if (includeGemini) {
             val geminiKeys = settingsRepository.geminiApiKeysFlow.first()
@@ -644,6 +717,11 @@ class ResultViewModel(
             val groqKeys = settingsRepository.groqApiKeysFlow.first()
                 .filter { it.isNotBlank() }
             if (groqKeys.isNotEmpty()) map["groq"] = groqKeys
+        }
+        if (includeNvidia) {
+            val nvidiaKeys = settingsRepository.nvidiaApiKeysFlow.first()
+                .filter { it.isNotBlank() }
+            if (nvidiaKeys.isNotEmpty()) map["nvidia"] = nvidiaKeys
         }
         return map
     }
@@ -696,9 +774,7 @@ class ResultViewModel(
                 // En Standard mode, el preferido se decide por el contador
                 // (alterna). En modos explícitos el preferred es irrelevante
                 // porque solo hay un provider en el map.
-                val preferred = if (provider == 2) {
-                    pickPreferredProviderForMix(MixTask.EXPLAIN)
-                } else null
+                val preferred = pickPreferredProvider(provider, MixTask.EXPLAIN)
 
                 val resultText = router.generateTextWithFallback(
                     capability = ProviderCapability.FAST,
@@ -828,7 +904,7 @@ class ResultViewModel(
                 //   - Si no → Gemini (no tiene límite de tamaño)
                 // El preferred se pasa al router. Si el preferido falla con
                 // un error reintentable, el router cae al otro automáticamente.
-                val preferred: String? = if (provider == 2) {
+                val preferred: String? = if (provider == 2 || provider == 3) {
                     val fits = originalFile.length() <= 20 * 1024 * 1024
                     val compressible = compressionModeForRouting > 0 &&
                         AudioCompressor.calculateTargetBitrate(
@@ -992,9 +1068,7 @@ class ResultViewModel(
         """.trimIndent()
         val userPrompt = "Teks:\n${transcript.take(500)}"
 
-        val preferred = if (provider == 2) {
-            pickPreferredProviderForMix(MixTask.TITLE)
-        } else null
+        val preferred = pickPreferredProvider(provider, MixTask.TITLE)
 
         val aiTitle = router.generateTextWithFallback(
             capability = ProviderCapability.TITLE,
@@ -1100,10 +1174,8 @@ class ResultViewModel(
 
                 val userContent = "Process this text strictly into $language:\n\n${currentNote.rawText}"
 
-                val preferred = if (provider == 2) {
-                    val taskType = if (currentNote.rawText.length > 600) MixTask.LONG_TEXT else MixTask.SHORT_TEXT
-                    pickPreferredProviderForMix(taskType)
-                } else null
+                val taskType = if (currentNote.rawText.length > 600) MixTask.LONG_TEXT else MixTask.SHORT_TEXT
+                val preferred = pickPreferredProvider(provider, taskType)
 
                 val processedText = router.generateTextWithFallback(
                     capability = ProviderCapability.QUALITY,
@@ -1294,9 +1366,7 @@ class ResultViewModel(
                         }
                     }
 
-                val preferred = if (provider == 2) {
-                    pickPreferredProviderForMix(MixTask.CHAT)
-                } else null
+                val preferred = pickPreferredProvider(provider, MixTask.CHAT)
 
                 val responseText = router.generateTextWithFallback(
                     capability = ProviderCapability.CHAT,

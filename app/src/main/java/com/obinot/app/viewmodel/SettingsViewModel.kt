@@ -87,6 +87,12 @@ class SettingsViewModel(
         initialValue = emptyList()
     )
 
+    val nvidiaApiKeys: StateFlow<List<String>> = settingsRepository.nvidiaApiKeysFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     val keyRotationEnabled: StateFlow<Boolean> = settingsRepository.keyRotationEnabledFlow.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -211,6 +217,10 @@ class SettingsViewModel(
 
     fun saveGroqApiKeys(keys: List<String>) {
         viewModelScope.launch { settingsRepository.saveGroqApiKeys(keys) }
+    }
+
+    fun saveNvidiaApiKeys(keys: List<String>) {
+        viewModelScope.launch { settingsRepository.saveNvidiaApiKeys(keys) }
     }
 
     fun saveKeyRotationEnabled(enabled: Boolean) {
