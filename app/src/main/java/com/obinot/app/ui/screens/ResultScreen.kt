@@ -2035,8 +2035,7 @@ private fun RawTranscriptView(
 
     Column(
         modifier = Modifier
-            .weight(1f)
-            .fillMaxWidth()
+            .fillMaxSize()
             .padding(horizontal = 16.dp)
             .verticalScroll(rawTextScrollState)
     ) {
