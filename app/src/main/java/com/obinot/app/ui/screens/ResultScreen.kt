@@ -1332,7 +1332,7 @@ fun ResultScreen(
                                                         },
                                                         fontFamily = selectedFont,
                                                         linePositions = markdownLinePositions,
-                                                        modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
+                                                        modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp)
                                                     )
                                                 }
                                             }
@@ -1342,8 +1342,7 @@ fun ResultScreen(
                                     "edit" -> {
                                         Column(
                                             modifier = Modifier
-                                                .weight(1f)
-                                                .fillMaxWidth()
+                                                .fillMaxSize()
                                                 .padding(horizontal = 16.dp)
                                                 .padding(bottom = 16.dp)
                                         ) {

@@ -510,7 +510,7 @@ fun RecordScreen(
                         } else {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text(
-                                    text = stringResource(R.string.history_no_notes),
+                                    text = stringResource(R.string.history_empty_title),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                     textAlign = TextAlign.Center,
