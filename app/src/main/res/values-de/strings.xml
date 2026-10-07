@@ -228,8 +228,12 @@
     <string name="history_selected_count">%1$d ausgewählt</string>
     <string name="history_search_placeholder">Notizen suchen…</string>
     <string name="history_toggle_view_cd">Ansichtsmodus umschalten</string>
-    <string name="history_no_results">Keine Ergebnisse gefunden.</string>
-    <string name="history_no_notes">Noch keine Notizen.\nFang an aufzunehmen oder importiere Audio!</string>
+    <string name="history_no_results_title">Keine Ergebnisse</string>
+    <string name="history_no_results_subtitle">Versuche einen anderen Suchbegriff oder entferne die Filter.</string>
+    <string name="history_empty_title">Noch keine Notizen</string>
+    <string name="history_empty_subtitle">Nimm auf oder importiere Audio, um sie hier zu sehen.</string>
+    <string name="history_drawer_title">Deine Bibliothek</string>
+    <string name="history_drawer_subtitle">Sortiere, filtere und organisiere deine Notizen.</string>
     <string name="history_section_pinned">Angeheftet</string>
     <string name="history_section_collection">Sammlung</string>
     <string name="history_fab_import">Datei importieren</string>
@@ -282,6 +286,11 @@
     <!-- ============================================================ -->
     <!-- Plurals                                                       -->
     <!-- ============================================================ -->
+
+    <plurals name="history_results_count">
+        <item quantity="one">1 Ergebnis</item>
+        <item quantity="other">%1$d Ergebnisse</item>
+    </plurals>
 
     <plurals name="notes_moved_to_trash">
         <item quantity="one">1 Notiz in den Papierkorb verschoben</item>

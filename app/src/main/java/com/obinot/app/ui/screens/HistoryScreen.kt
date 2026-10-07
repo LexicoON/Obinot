@@ -39,6 +39,7 @@ import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.*
@@ -141,6 +142,19 @@ class MagneticSwipeState {
     var activeId by mutableStateOf<Int?>(null)
     var dragX by mutableFloatStateOf(0f)
     var isDismissing by mutableStateOf(false)
+
+    /**
+     * Columnas actuales del grid que contiene las cards.
+     * 1 = lista simple (portrait, vista lista).
+     * 2+ = grid (multi-columna).
+     *
+     * Lo usa DismissibleNoteCard para decidir el ripple de vecinos:
+     *   - 1 columna: ripple sobre todos los vecinos verticales.
+     *   - 2+ columnas: solo el vecino inmediato en la MISMA columna.
+     *     Los vecinos de la misma fila (columnas adyacentes) NO se mueven,
+     *     para evitar overlap horizontal.
+     */
+    var columnCount by mutableIntStateOf(1)
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalSharedTransitionApi::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -191,15 +205,11 @@ fun HistoryScreen(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
 
-    // Mapa id → note para lookups O(1). Antes isAllPinned hacía notes.find{} en bucle,
-    // lo que con 100 notas y 20 seleccionadas eran 2000 comparaciones por recomposición.
     val notesById = remember(notes) { notes.associateBy { it.id } }
     val isAllPinned = remember(selectedNotes, notesById) {
         selectedNotes.isNotEmpty() && selectedNotes.all { notesById[it]?.isPinned == true }
     }
 
-    // filter() recorre la lista entera. Recordarlo evita recorrerla en cada recomposición
-    // disparada por cualquier estado no relacionado (focus del search, sheet, etc).
     val pinnedNotes = remember(notes) { notes.filter { it.isPinned } }
     val unpinnedNotes = remember(notes) { notes.filter { !it.isPinned } }
 
@@ -211,8 +221,19 @@ fun HistoryScreen(
         pinnedNotes.map { it.id } + unpinnedNotes.map { it.id }
     }
 
-    // Lista estática de opciones de sort. Guardamos el resource ID del label para
-    // que se resuelva en el momento de la composición (y respete cambios de locale).
+    // Número real de columnas del grid. Se computa acá (en vez de in-line
+    // en el LazyVerticalStaggeredGrid) porque también lo consume
+    // swipeState.columnCount para el ripple de vecinos.
+    val gridColumnCount = when {
+        !isGridView -> if (isLandscape) 2 else 1
+        isLandscape -> 3
+        else -> 2
+    }
+
+    LaunchedEffect(gridColumnCount) {
+        swipeState.columnCount = gridColumnCount
+    }
+
     val sortOptions = remember {
         listOf(
             Icons.Default.AccessTime to R.string.sort_newest,
@@ -258,8 +279,6 @@ fun HistoryScreen(
 
     var isDragHovering by remember { mutableStateOf(false) }
 
-    // Handler de drag & drop. Las URIs se obtienen exclusivamente del clipData,
-    // que es la única fuente que expone la API de DragEvent.
     val dragAndDropCallback = remember(context, coroutineScope, snackbarHostState, onImportFile) {
         object : DragAndDropTarget {
             override fun onStarted(event: DragAndDropEvent) {
@@ -335,7 +354,7 @@ fun HistoryScreen(
         drawerContent = {
             ModalDrawerSheet(
                 drawerContainerColor = MaterialTheme.colorScheme.surface,
-                modifier = Modifier.width(280.dp)
+                modifier = Modifier.width(300.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -343,10 +362,34 @@ fun HistoryScreen(
                         .verticalScroll(rememberScrollState())
                 ) {
                     Spacer(Modifier.height(24.dp))
-                    Text(stringResource(R.string.history_sort_by), modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+
+                    // ---------- Drawer header ----------
+                    Text(
+                        text = stringResource(R.string.history_drawer_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
+                    )
+                    Text(
+                        text = stringResource(R.string.history_drawer_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
+                    )
+
+                    Spacer(Modifier.height(20.dp))
+
+                    // ---------- Sort ----------
+                    DrawerSectionHeader(
+                        icon = Icons.AutoMirrored.Filled.Sort,
+                        title = stringResource(R.string.history_sort_by)
+                    )
 
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
                     ) {
                         sortOptions.forEachIndexed { index, (icon, descriptionRes) ->
@@ -358,47 +401,95 @@ fun HistoryScreen(
                                 },
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Icon(icon, contentDescription = stringResource(descriptionRes), modifier = Modifier.size(18.dp))
+                                Icon(
+                                    icon,
+                                    contentDescription = stringResource(descriptionRes),
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
                     }
 
-                    Spacer(Modifier.height(16.dp))
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Spacer(Modifier.height(20.dp))
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+                        modifier = Modifier.padding(horizontal = 20.dp)
+                    )
+                    Spacer(Modifier.height(12.dp))
 
+                    // ---------- Labels ----------
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 4.dp)
                     ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Label,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
                         Text(
                             stringResource(R.string.history_labels_header),
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.weight(1f)
                         )
                         if (isMultiSelectLabelMode && selectedLabels.isNotEmpty()) {
-                            BouncyIconButton(onClick = { showDeleteMultipleLabelsDialog = true }) {
-                                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.history_labels_delete_cd), tint = MaterialTheme.colorScheme.error)
+                            BouncyIconButton(
+                                onClick = { showDeleteMultipleLabelsDialog = true },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = stringResource(R.string.history_labels_delete_cd),
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
-                        BouncyIconButton(onClick = { viewModel.setMultiSelectLabelMode(!isMultiSelectLabelMode) }) {
+                        BouncyIconButton(
+                            onClick = { viewModel.setMultiSelectLabelMode(!isMultiSelectLabelMode) },
+                            modifier = Modifier.size(36.dp)
+                        ) {
                             Icon(
                                 Icons.Default.Checklist,
                                 contentDescription = stringResource(R.string.history_labels_multiselect_cd),
-                                tint = if (isMultiSelectLabelMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = if (isMultiSelectLabelMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
 
-                    NavigationDrawerItem(
-                        label = { Text(stringResource(R.string.history_all_notes)) },
-                        selected = selectedLabels.isEmpty(),
+                    Spacer(Modifier.height(4.dp))
+
+                    // All notes item
+                    LabelDrawerItem(
+                        text = stringResource(R.string.history_all_notes),
+                        leadingContent = {
+                            Icon(
+                                Icons.Default.History,
+                                contentDescription = null,
+                                tint = if (selectedLabels.isEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        isSelected = selectedLabels.isEmpty(),
                         onClick = {
                             viewModel.clearLabelFilter()
                             if (!isMultiSelectLabelMode) coroutineScope.launch { drawerState.close() }
-                        },
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                        }
                     )
 
                     uniqueLabels.forEach { label ->
@@ -409,9 +500,9 @@ fun HistoryScreen(
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
-                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                                .padding(horizontal = 12.dp, vertical = 2.dp)
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(28.dp))
+                                .clip(RoundedCornerShape(20.dp))
                                 .background(
                                     if (isLabelSelected) MaterialTheme.colorScheme.secondaryContainer
                                     else Color.Transparent
@@ -437,7 +528,7 @@ fun HistoryScreen(
                             } else {
                                 Box(
                                     modifier = Modifier
-                                        .size(20.dp)
+                                        .size(16.dp)
                                         .clip(CircleShape)
                                         .background(dotColor)
                                 )
@@ -457,45 +548,100 @@ fun HistoryScreen(
                                         labelBeingManaged = label
                                         renameLabelInput = label
                                         renameLabelColor = assignedHex ?: LabelEntity.DEFAULT_COLOR
-                                    }
+                                    },
+                                    modifier = Modifier.size(32.dp)
                                 ) {
                                     Icon(
                                         Icons.Default.Edit,
                                         contentDescription = stringResource(R.string.history_label_edit_cd),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
                             }
                         }
                     }
 
-                    NavigationDrawerItem(
-                        label = { Text(stringResource(R.string.history_create_label)) },
-                        icon = { Icon(Icons.Default.Add, null) },
-                        selected = false,
-                        onClick = {
-                            newLabelInput = ""
-                            newLabelColor = LabelEntity.DEFAULT_COLOR
-                            showNewLabelDialog = true
-                            coroutineScope.launch { drawerState.close() }
-                        },
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                    )
+                    Spacer(Modifier.height(4.dp))
 
-                    Spacer(Modifier.height(16.dp))
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    // Create label item
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp, vertical = 2.dp)
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .bouncyClickable(pressedScale = 0.97f) {
+                                newLabelInput = ""
+                                newLabelColor = LabelEntity.DEFAULT_COLOR
+                                showNewLabelDialog = true
+                                coroutineScope.launch { drawerState.close() }
+                            }
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .border(
+                                    width = 1.5.dp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            stringResource(R.string.history_create_label),
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
 
-                    NavigationDrawerItem(
-                        label = { Text(stringResource(R.string.trash_title), color = MaterialTheme.colorScheme.error) },
-                        icon = { Icon(Icons.Outlined.Delete, null, tint = MaterialTheme.colorScheme.error) },
-                        selected = false,
-                        onClick = {
-                            coroutineScope.launch { drawerState.close() }
-                            onTrashClick()
-                        },
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                    Spacer(Modifier.height(20.dp))
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+                        modifier = Modifier.padding(horizontal = 20.dp)
                     )
+                    Spacer(Modifier.height(12.dp))
+
+                    // ---------- Trash ----------
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp, vertical = 2.dp)
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .bouncyClickable(pressedScale = 0.97f) {
+                                coroutineScope.launch { drawerState.close() }
+                                onTrashClick()
+                            }
+                            .padding(horizontal = 16.dp, vertical = 14.dp)
+                    ) {
+                        Icon(
+                            Icons.Outlined.Delete,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            stringResource(R.string.trash_title),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
 
                     Spacer(Modifier.height(24.dp))
                 }
@@ -512,7 +658,12 @@ fun HistoryScreen(
                         modifier = Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.displayCutout)
                     ) {
                         TopAppBar(
-                            title = { Text(stringResource(R.string.history_selected_count, selectedNotes.size)) },
+                            title = {
+                                Text(
+                                    stringResource(R.string.history_selected_count, selectedNotes.size),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            },
                             navigationIcon = {
                                 BouncyIconButton(onClick = { selectionMode = false; selectedNotes = emptySet() }) {
                                     Icon(Icons.Default.Close, stringResource(R.string.common_cancel))
@@ -695,26 +846,67 @@ fun HistoryScreen(
                         target = dragAndDropCallback
                     )
             ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    if (notes.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(
-                                text = if (searchQuery.isNotEmpty() || selectedLabels.isNotEmpty()) stringResource(R.string.history_no_results) else stringResource(R.string.history_no_notes),
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                        }
+                val isFiltered = searchQuery.isNotEmpty() || selectedLabels.isNotEmpty()
+
+                if (notes.isEmpty()) {
+                    if (isFiltered) {
+                        HistoryEmptyState(
+                            icon = Icons.Default.Search,
+                            title = stringResource(R.string.history_no_results_title),
+                            subtitle = stringResource(R.string.history_no_results_subtitle),
+                            modifier = Modifier.fillMaxSize()
+                        )
                     } else {
+                        HistoryEmptyState(
+                            icon = Icons.Default.Audiotrack,
+                            title = stringResource(R.string.history_empty_title),
+                            subtitle = stringResource(R.string.history_empty_subtitle),
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                } else {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // Chip de filtro activo (solo si hay search o labels).
+                        if (isFiltered) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                            ) {
+                                val resultCount = notes.size
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Search,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = context.resources.getQuantityString(
+                                                R.plurals.history_results_count,
+                                                resultCount,
+                                                resultCount
+                                            ),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
                         with(animatedVisibilityScope) {
                             LazyVerticalStaggeredGrid(
-                                columns = StaggeredGridCells.Fixed(
-                                    when {
-                                        !isGridView -> if (isLandscape) 2 else 1
-                                        isLandscape -> 3
-                                        else -> 2
-                                    }
-                                ),
+                                columns = StaggeredGridCells.Fixed(gridColumnCount),
                                 state = gridState,
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -729,7 +921,13 @@ fun HistoryScreen(
                             ) {
                                 if (pinnedNotes.isNotEmpty()) {
                                     item(span = StaggeredGridItemSpan.FullLine) {
-                                        Text(stringResource(R.string.history_section_pinned), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 4.dp))
+                                        HistorySectionChip(
+                                            icon = Icons.Default.PushPin,
+                                            title = stringResource(R.string.history_section_pinned),
+                                            count = pinnedNotes.size,
+                                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
                                     }
                                     staggeredItems(pinnedNotes, key = { it.id }) { note ->
                                         DismissibleNoteCard(
@@ -759,7 +957,13 @@ fun HistoryScreen(
 
                                 if (unpinnedNotes.isNotEmpty()) {
                                     item(span = StaggeredGridItemSpan.FullLine) {
-                                        Text(stringResource(R.string.history_section_collection), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp))
+                                        HistorySectionChip(
+                                            icon = Icons.Default.History,
+                                            title = stringResource(R.string.history_section_collection),
+                                            count = unpinnedNotes.size,
+                                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
                                     }
                                     staggeredItems(unpinnedNotes, key = { it.id }) { note ->
                                         DismissibleNoteCard(
@@ -888,7 +1092,11 @@ fun HistoryScreen(
                     }
                 ) { Text(stringResource(R.string.history_create)) }
             },
-            dismissButton = { TextButton(onClick = { showNewLabelDialog = false }) { Text(stringResource(R.string.common_cancel)) } }
+            dismissButton = {
+                TextButton(onClick = { showNewLabelDialog = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            }
         )
     }
 
@@ -994,7 +1202,9 @@ fun HistoryScreen(
                     }
                 }) { Text(stringResource(R.string.common_delete), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text(stringResource(R.string.common_cancel)) } }
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text(stringResource(R.string.common_cancel)) }
+            }
         )
     }
 
@@ -1026,11 +1236,12 @@ fun HistoryScreen(
                 Text(stringResource(R.string.update_version_ready, latestRelease!!.tag_name), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Box(modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                    .nestedScroll(scrollWall)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                        .nestedScroll(scrollWall)
                 ) {
                     MarkdownText(
                         text = latestRelease!!.body ?: stringResource(R.string.update_default_body),
@@ -1045,14 +1256,204 @@ fun HistoryScreen(
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
-                Button(onClick = { val apkUrl = latestRelease!!.assets?.firstOrNull()?.browser_download_url ?: latestRelease!!.html_url; context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl))); viewModel.dismissUpdateNotification() }, modifier = Modifier.fillMaxWidth().height(50.dp)) { Text(stringResource(R.string.update_download_button)) }
+                Button(
+                    onClick = {
+                        val apkUrl = latestRelease!!.assets?.firstOrNull()?.browser_download_url ?: latestRelease!!.html_url
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl)))
+                        viewModel.dismissUpdateNotification()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                ) { Text(stringResource(R.string.update_download_button)) }
                 Spacer(modifier = Modifier.height(12.dp))
-                OutlinedButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(latestRelease!!.html_url))); viewModel.dismissUpdateNotification() }, modifier = Modifier.fillMaxWidth().height(50.dp)) { Text(stringResource(R.string.update_view_github)) }
+                OutlinedButton(
+                    onClick = {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(latestRelease!!.html_url)))
+                        viewModel.dismissUpdateNotification()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                ) { Text(stringResource(R.string.update_view_github)) }
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
 }
+
+// ============================================================
+// Helper composables
+// ============================================================
+
+/**
+ * Header de sección del drawer: ícono circular + título.
+ */
+@Composable
+private fun DrawerSectionHeader(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier.size(28.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+/**
+ * Item de label en el drawer (All Notes y labels). Con dot + edit icon.
+ */
+@Composable
+private fun LabelDrawerItem(
+    text: String,
+    leadingContent: @Composable () -> Unit,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .padding(horizontal = 12.dp, vertical = 2.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+            )
+            .bouncyClickable(pressedScale = 0.97f) { onClick() }
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        leadingContent()
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text,
+            color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+/**
+ * Chip de header de sección del grid (Pinned / Collection).
+ */
+@Composable
+private fun HistorySectionChip(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    count: Int,
+    containerColor: Color,
+    contentColor: Color
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp, top = 8.dp, bottom = 4.dp)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = containerColor
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = contentColor,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = count.toString(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = contentColor.copy(alpha = 0.7f)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Empty state del History: ícono circular grande + título + subtítulo.
+ * Consistente con el empty state del TrashScreen.
+ */
+@Composable
+private fun HistoryEmptyState(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(horizontal = 32.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.size(96.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+        }
+    }
+}
+
+// ============================================================
+// Selection dropdown
+// ============================================================
 
 @Composable
 private fun SelectionDropdownMenu(
@@ -1100,6 +1501,10 @@ private fun SelectionDropdownMenu(
     }
 }
 
+// ============================================================
+// Label color picker
+// ============================================================
+
 @Composable
 private fun LabelColorPicker(
     selectedHex: String,
@@ -1145,6 +1550,10 @@ private fun LabelColorPicker(
     }
 }
 
+// ============================================================
+// Dismissible note card (con fix multi-columna)
+// ============================================================
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun DismissibleNoteCard(
@@ -1166,10 +1575,7 @@ fun DismissibleNoteCard(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
-    // Bajamos de 380dp a 300dp: la progress sube más rápido y el gesto
-    // se siente más sensible.
     val maxOffsetPx = with(density) { 300.dp.toPx() }
-    // Subimos de 110dp a 130dp: más difícil de disparar por accidente.
     val thresholdPx = with(density) { 130.dp.toPx() }
 
     var localOffsetX by remember { mutableFloatStateOf(0f) }
@@ -1182,16 +1588,29 @@ fun DismissibleNoteCard(
         swipeState.activeId?.let { orderedNoteIds.indexOf(it) } ?: -1
     }
     val distance = if (myIndex == -1 || activeIndex == -1) 0 else abs(myIndex - activeIndex)
+    val columnCount = swipeState.columnCount.coerceAtLeast(1)
 
     val neighborFactor = when {
         isActive -> 1f
         distance == 0 -> 0f
-        else -> (1f / (distance.toFloat() * distance.toFloat())) * 0.30f
+        columnCount == 1 -> {
+            // Vista lista (1 columna): ripple exponencial sobre vecinos
+            // verticales. Comportamiento original, funciona perfecto.
+            (1f / (distance.toFloat() * distance.toFloat())) * 0.30f
+        }
+        else -> {
+            // Vista grid (multi-columna): solo el vecino inmediato en la
+            // MISMA columna. Los vecinos de la misma fila NO se mueven,
+            // porque el ripple horizontal causaba overlap entre cards.
+            val myColumn = myIndex % columnCount
+            val activeColumn = activeIndex % columnCount
+            val sameColumn = myColumn == activeColumn
+            val rowDistance = distance / columnCount
+            if (sameColumn && rowDistance == 1) 0.20f else 0f
+        }
     }
 
     val neighborTarget = swipeState.dragX * neighborFactor
-    // Vecinos con snap más firme: StiffnessHigh + DampingRatioLowBouncy da
-    // la sensación de "volver a posición con snap" en vez de flotar.
     val animatedNeighborOffset by androidx.compose.animation.core.animateFloatAsState(
         targetValue = neighborTarget,
         animationSpec = spring(
@@ -1210,18 +1629,14 @@ fun DismissibleNoteCard(
         else Color.Transparent,
         label = "deleteColor"
     )
-    // El ícono crece 0.75 → 1.15 con el drag. Alpha satura rápido (a 60%
-    // del progress ya está full) para que sea visible apenas arranca.
     val iconScale = 0.75f + 0.4f * dragProgress
     val iconAlpha = (dragProgress * 1.7f).coerceIn(0f, 1f)
 
     Box(modifier = modifier.fillMaxWidth()) {
-        // Fondo rojo: matchParentSize() para que tome EXACTAMENTE el tamaño
-        // del Box padre (que a su vez mide lo que mide el NoteCard).
         Box(
             Modifier
                 .matchParentSize()
-                .background(deleteColor, RoundedCornerShape(16.dp)),
+                .background(deleteColor, RoundedCornerShape(20.dp)),
             contentAlignment = Alignment.Center
         ) {
             if (isActive && dragProgress > 0.03f) {
@@ -1252,14 +1667,6 @@ fun DismissibleNoteCard(
                                 swipeState.activeId = note.id
                             }
                             val progress = (abs(localOffsetX) / maxOffsetPx).coerceIn(0f, 1f)
-                            // Friction en dos fases (corregido):
-                            //   - Etapa 1 (progress < 0.35): factor constante 0.78.
-                            //     La card sigue al dedo, un 22% más lento. Se
-                            //     siente "con peso" pero RESPONDE al dedo desde
-                            //     el primer pixel.
-                            //   - Etapa 2 (progress >= 0.35): el factor sube
-                            //     linealmente de 0.78 a 1.0. La card se "suelta"
-                            //     y sigue al dedo 1:1.
                             val friction = if (progress < 0.35f) {
                                 0.78f
                             } else {
@@ -1272,8 +1679,6 @@ fun DismissibleNoteCard(
                         },
                         onDragStopped = { velocity ->
                             val currentOffset = localOffsetX
-                            // Subimos el velocity threshold de 800 a 1200 para
-                            // que un flick suave no dispare el delete.
                             val shouldDismiss = abs(currentOffset) > thresholdPx || abs(velocity) > 1200f
                             if (shouldDismiss) {
                                 val target = if (currentOffset > 0) maxOffsetPx * 1.6f else -maxOffsetPx * 1.6f
@@ -1347,6 +1752,10 @@ fun DismissibleNoteCard(
     }
 }
 
+// ============================================================
+// Morphing search bar
+// ============================================================
+
 @Composable
 fun MorphingSearchBar(
     query: String,
@@ -1399,17 +1808,26 @@ fun MorphingSearchBar(
                 Icon(Icons.Default.Search, stringResource(R.string.common_search), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.width(12.dp))
                 Box(modifier = Modifier.weight(1f)) {
-                    if (query.isEmpty()) { Text(stringResource(R.string.history_search_placeholder), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) }
+                    if (query.isEmpty()) {
+                        Text(
+                            stringResource(R.string.history_search_placeholder),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    }
                     BasicTextField(
-                        value = query, onValueChange = onQueryChange,
+                        value = query,
+                        onValueChange = onQueryChange,
                         textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary), singleLine = true,
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth().onFocusChanged { onFocusChange(it.isFocused) }
                     )
                 }
                 if (isFocused || query.isNotEmpty()) {
                     Icon(
-                        imageVector = Icons.Default.Close, contentDescription = stringResource(R.string.history_close_cd), tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(R.string.history_close_cd),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.clickable { onQueryChange(""); onClearFocus() }
                     )
                 }
@@ -1432,6 +1850,10 @@ fun MorphingSearchBar(
     }
 }
 
+// ============================================================
+// Note card (revamped)
+// ============================================================
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NoteCard(
@@ -1445,7 +1867,9 @@ fun NoteCard(
     onLabelClick: (String) -> Unit = {}
 ) {
     val formatter = remember { SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()) }
-    val rawDisplayText = if (!note.summary.isNullOrEmpty()) note.summary else if (note.rawText.isNotBlank()) note.rawText else null
+    val rawDisplayText = if (!note.summary.isNullOrEmpty()) note.summary
+        else if (note.rawText.isNotBlank()) note.rawText
+        else null
 
     val interactionSource = remember { MutableInteractionSource() }
     val cardScale = remember { Animatable(1f) }
@@ -1454,7 +1878,7 @@ fun NoteCard(
     }
 
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
         ),
@@ -1465,8 +1889,8 @@ fun NoteCard(
                 scaleY = cardScale.value
             }
             .fillMaxWidth()
-            .heightIn(max = 320.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .heightIn(max = 280.dp)
+            .clip(RoundedCornerShape(20.dp))
             .combinedClickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -1474,40 +1898,92 @@ fun NoteCard(
                 onLongClick = onLongClick
             )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            // Metadata chip: fecha. Con ícono de calendario.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.AccessTime,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(11.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = formatter.format(Date(note.timestamp)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+                if (note.audioPath != null) {
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        Icons.Default.Audiotrack,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+
+            // Labels: una sola fila con scroll horizontal.
             if (!note.label.isNullOrBlank()) {
                 val labels = note.label.split("|").map { it.trim() }.filter { it.isNotBlank() }
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    labels.forEach { label ->
-                        val isLabelActive = label in selectedLabels
-                        val assignedHex = labelColors[label]
+                if (labels.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        labels.forEach { label ->
+                            val isLabelActive = label in selectedLabels
+                            val assignedHex = labelColors[label]
+                            val (chipColor, chipContentColor) = resolveLabelColors(assignedHex, isLabelActive)
 
-                        val (chipColor, chipContentColor) = resolveLabelColors(assignedHex, isLabelActive)
-
-                        Box(
-                            modifier = Modifier
-                                .background(chipColor, RoundedCornerShape(50))
-                                .clickable { onLabelClick(label) }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.AutoMirrored.Filled.Label, null, tint = chipContentColor, modifier = Modifier.size(12.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    label,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = chipContentColor,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                            Box(
+                                modifier = Modifier
+                                    .background(chipColor, RoundedCornerShape(50))
+                                    .clickable { onLabelClick(label) }
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.Label,
+                                        contentDescription = null,
+                                        tint = chipContentColor,
+                                        modifier = Modifier.size(11.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = chipContentColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
             }
 
             if (note.title.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
                 Text(
                     text = note.title,
                     style = MaterialTheme.typography.titleMedium,
@@ -1515,16 +1991,17 @@ fun NoteCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(6.dp))
             }
 
             if (rawDisplayText != null) {
+                Spacer(Modifier.height(6.dp))
                 CardMarkdownPreview(
                     text = rawDisplayText,
-                    maxLines = 7,
+                    maxLines = 6,
                     modifier = Modifier.weight(1f, fill = false)
                 )
             } else {
+                Spacer(Modifier.height(6.dp))
                 Text(
                     text = stringResource(R.string.history_waiting_ai),
                     style = MaterialTheme.typography.bodySmall,
@@ -1532,16 +2009,13 @@ fun NoteCard(
                     modifier = Modifier.weight(1f, fill = false)
                 )
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = formatter.format(Date(note.timestamp)),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-            )
         }
     }
 }
+
+// ============================================================
+// Card markdown preview
+// ============================================================
 
 @Composable
 fun CardMarkdownPreview(

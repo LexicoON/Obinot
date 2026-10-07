@@ -228,8 +228,12 @@
     <string name="history_selected_count">%1$d seleccionada(s)</string>
     <string name="history_search_placeholder">Buscar notas…</string>
     <string name="history_toggle_view_cd">Alternar modo de vista</string>
-    <string name="history_no_results">No se encontraron resultados.</string>
-    <string name="history_no_notes">Todavía no hay notas.\n¡Empezá a grabar o importá audio!</string>
+    <string name="history_no_results_title">Sin resultados</string>
+    <string name="history_no_results_subtitle">Probá con otra búsqueda o quitá los filtros.</string>
+    <string name="history_empty_title">Todavía no hay notas</string>
+    <string name="history_empty_subtitle">Empezá a grabar o importá audio para verlas acá.</string>
+    <string name="history_drawer_title">Tu biblioteca</string>
+    <string name="history_drawer_subtitle">Ordená, filtrá y organizá tus notas.</string>
     <string name="history_section_pinned">Fijadas</string>
     <string name="history_section_collection">Colección</string>
     <string name="history_fab_import">Importar archivo</string>
@@ -282,6 +286,11 @@
     <!-- ============================================================ -->
     <!-- Plurals                                                       -->
     <!-- ============================================================ -->
+
+    <plurals name="history_results_count">
+        <item quantity="one">1 resultado</item>
+        <item quantity="other">%1$d resultados</item>
+    </plurals>
 
     <plurals name="notes_moved_to_trash">
         <item quantity="one">1 nota movida a la papelera</item>

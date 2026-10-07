@@ -228,8 +228,12 @@
     <string name="history_selected_count">%1$d Selected</string>
     <string name="history_search_placeholder">Search notes…</string>
     <string name="history_toggle_view_cd">Toggle View Mode</string>
-    <string name="history_no_results">No results found.</string>
-    <string name="history_no_notes">No notes yet.\nStart recording or import audio!</string>
+    <string name="history_no_results_title">No results</string>
+    <string name="history_no_results_subtitle">Try a different search term or clear the filters.</string>
+    <string name="history_empty_title">No notes yet</string>
+    <string name="history_empty_subtitle">Start recording or import audio to see your notes here.</string>
+    <string name="history_drawer_title">Your Library</string>
+    <string name="history_drawer_subtitle">Sort, filter and organize your notes.</string>
     <string name="history_section_pinned">Pinned</string>
     <string name="history_section_collection">Collection</string>
     <string name="history_fab_import">Import File</string>
@@ -282,6 +286,11 @@
     <!-- ============================================================ -->
     <!-- Plurals                                                       -->
     <!-- ============================================================ -->
+
+    <plurals name="history_results_count">
+        <item quantity="one">1 result</item>
+        <item quantity="other">%1$d results</item>
+    </plurals>
 
     <plurals name="notes_moved_to_trash">
         <item quantity="one">1 note moved to Trash</item>
