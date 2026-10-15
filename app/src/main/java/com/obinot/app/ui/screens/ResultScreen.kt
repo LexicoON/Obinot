@@ -102,7 +102,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
@@ -1092,7 +1093,7 @@ fun ResultScreen(
                         }
                 ) {
                     Row(modifier = Modifier.fillMaxSize()) {
-                        Column(
+                        Box(
                             modifier = if (isLandscape) {
                                 Modifier.weight(1f).fillMaxHeight()
                             } else {
@@ -1100,24 +1101,13 @@ fun ResultScreen(
                             }
                         ) {
                             // ============ HEADER DINÁMICO ============
-                            // Agrupa hero + analyze + segmented + audio player
-                            // en un solo bloque que se oculta con el scroll.
-                            //
-                            // Animación: usamos animateFloatAsState con un
-                            // spring para suavizar los cambios de
-                            // collapsedFraction. Aunque collapsedFraction ya
-                            // cambia continuamente, el spring elimina el
-                            // "chunkiness" que aparece en los extremos del
-                            // scroll (cuando la barra arranca/termina de
-                            // colapsar) y le da el feel expresivo del theme.
-                            //
-                            // El spring tiene dampingRatio < 1 para un
-                            // pequeñísimo rebote al llegar al final — es
-                            // sutil pero le da vida al fade.
-                            // El header vive "dentro de la página": su altura se
-                            // reduce 1:1 con el scroll del contenido, así que no
-                            // deja hueco y solo se ve al estar arriba del todo.
-                            // Título, flecha y menú quedan en la barra superior.
+                            var headerHeightPx by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+                            val headerHeightDp = with(androidx.compose.ui.platform.LocalDensity.current) { headerHeightPx.toDp() }
+                            // Hero + analyze + segmented + audio player. Es una capa
+                            // que se desplaza 1:1 con el scroll del contenido (sin
+                            // fades ni animaciones); el contenido reserva su altura
+                            // arriba con un espacio, así que al subir se ve "dentro
+                            // de la página" y al bajar no deja ningún hueco.
                             val headerScrollState =
                                 if (!note!!.summary.isNullOrEmpty() && !forceTranscript && !isLoading) markdownScrollState
                                 else rawTextScrollState
@@ -1125,15 +1115,11 @@ fun ResultScreen(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clipToBounds()
-                                    .layout { measurable, constraints ->
-                                        val placeable = measurable.measure(
-                                            constraints.copy(maxHeight = androidx.compose.ui.unit.Constraints.Infinity)
-                                        )
-                                        val scrolled = headerScrollState.value.coerceIn(0, placeable.height)
-                                        layout(placeable.width, placeable.height - scrolled) {
-                                            placeable.placeRelative(0, -scrolled)
-                                        }
+                                    .zIndex(1f)
+                                    .onSizeChanged { headerHeightPx = it.height }
+                                    .graphicsLayer {
+                                        translationY = -headerScrollState.value
+                                            .coerceAtMost(headerHeightPx).toFloat()
                                     }
                             ) {
                                 Column {
@@ -1225,6 +1211,7 @@ fun ResultScreen(
                                 }
                             }
 
+                            Column(modifier = Modifier.fillMaxSize()) {
                             // ============ LOADING ============
                             if (isLoading) {
                                 val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
@@ -1240,6 +1227,7 @@ fun ResultScreen(
                                 val skeletonColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
 
                                 Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+                                    Spacer(modifier = Modifier.height(headerHeightDp))
                                     Box(modifier = Modifier.fillMaxWidth(0.6f).height(28.dp).clip(RoundedCornerShape(8.dp)).background(skeletonColor))
                                     Spacer(modifier = Modifier.height(24.dp))
                                     Box(modifier = Modifier.fillMaxWidth().height(14.dp).clip(RoundedCornerShape(4.dp)).background(skeletonColor))
@@ -1258,7 +1246,16 @@ fun ResultScreen(
                                         horizontalArrangement = Arrangement.Center,
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        AiThinkingAnimation(color = MaterialTheme.colorScheme.primary)
+                                        val compressingText = stringResource(R.string.loading_compressing)
+                                        val loadPhase = when {
+                                            loadingMessage.contains('%') || loadingMessage == compressingText -> com.obinot.app.ui.components.LoadPhase.COMPRESSING
+                                            loadingMessage == stringResource(R.string.loading_transcribing_groq) ||
+                                                loadingMessage == stringResource(R.string.loading_uploading_google) -> com.obinot.app.ui.components.LoadPhase.TRANSCRIBING
+                                            else -> com.obinot.app.ui.components.LoadPhase.PROCESSING
+                                        }
+                                        androidx.compose.animation.Crossfade(targetState = loadPhase, label = "phase_swap") { ph ->
+                                            com.obinot.app.ui.components.PhaseLoader(phase = ph, size = 40.dp)
+                                        }
                                         Spacer(modifier = Modifier.width(16.dp))
                                         Text(
                                             text = loadingMessage.ifBlank { stringResource(R.string.result_processing) },
@@ -1340,6 +1337,10 @@ fun ResultScreen(
                                                     val cleanSummary = remember(note!!.summary) {
                                                         note!!.summary!!.replace(Regex("<!--BINOT_META:.*?-->"), "").trimEnd()
                                                     }
+                                                    androidx.compose.runtime.CompositionLocalProvider(
+                                                        com.obinot.app.ui.components.LocalColorSpans provides
+                                                            remember(note!!.colorSpans) { com.obinot.app.utils.ColorSpans.parse(note!!.colorSpans) }
+                                                    ) {
                                                     MarkdownText(
                                                         text = cleanSummary,
                                                         scrollState = markdownScrollState,
@@ -1364,8 +1365,10 @@ fun ResultScreen(
                                                         },
                                                         fontFamily = selectedFont,
                                                         linePositions = markdownLinePositions,
-                                                        modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp)
+                                                        modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
+                                                        topPadding = headerHeightDp
                                                     )
+                                                    }
                                                 }
                                             }
                                         }
@@ -1376,7 +1379,7 @@ fun ResultScreen(
                                             modifier = Modifier
                                                 .fillMaxSize()
                                                 .padding(horizontal = 16.dp)
-                                                .padding(bottom = 16.dp)
+                                                .padding(top = headerHeightDp, bottom = 16.dp)
                                         ) {
                                             Box(
                                                 modifier = Modifier
@@ -1411,6 +1414,7 @@ fun ResultScreen(
                                             hasPhoneTranscription = hasPhoneTranscription,
                                             selectedFont = selectedFont,
                                             rawTextScrollState = rawTextScrollState,
+                                            topPadding = headerHeightDp,
                                             temporaryHighlight = temporaryHighlight,
                                             onReanalyze = { viewModel.reanalyzeWithAI() },
                                             onRawTextLayout = { rawTextLayoutResult = it },
@@ -1426,6 +1430,7 @@ fun ResultScreen(
                                         )
                                     }
                                 }
+                            }
                             }
                         }
 
@@ -1796,7 +1801,7 @@ fun ResultScreen(
 
     // Side panel sheet — solo portrait.
     if (showSidePanel && note != null && !isLandscape) {
-        ModalBottomSheet(
+        FrostedModalBottomSheet(
             onDismissRequest = { showSidePanel = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             sheetGesturesEnabled = false,
@@ -1980,6 +1985,7 @@ private fun RawTranscriptView(
     hasPhoneTranscription: Boolean,
     selectedFont: FontFamily,
     rawTextScrollState: androidx.compose.foundation.ScrollState,
+    topPadding: androidx.compose.ui.unit.Dp = 0.dp,
     temporaryHighlight: String,
     onReanalyze: () -> Unit,
     onRawTextLayout: (androidx.compose.ui.text.TextLayoutResult) -> Unit,
@@ -2071,6 +2077,7 @@ private fun RawTranscriptView(
             .padding(horizontal = 16.dp)
             .verticalScroll(rawTextScrollState)
     ) {
+        Spacer(modifier = Modifier.height(topPadding))
         if (hasPhoneTranscription) {
             PhoneTranscriptionBanner(onReanalyze = onReanalyze)
             Spacer(modifier = Modifier.height(12.dp))

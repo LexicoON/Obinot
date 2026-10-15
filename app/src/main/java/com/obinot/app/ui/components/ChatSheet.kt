@@ -81,7 +81,7 @@ fun ChatSheet(
         }
     }
 
-    ModalBottomSheet(
+    FrostedModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow
@@ -355,11 +355,15 @@ private fun ThinkingBubble() {
                 ),
                 label = "thinking_alpha"
             )
-            Text(
-                text = stringResource(R.string.chat_thinking),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = thinkingAlpha)
-            )
+            androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+                PhaseLoader(phase = LoadPhase.CHATTING, size = 28.dp)
+                androidx.compose.foundation.layout.Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.chat_thinking),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = thinkingAlpha)
+                )
+            }
         }
     }
 }

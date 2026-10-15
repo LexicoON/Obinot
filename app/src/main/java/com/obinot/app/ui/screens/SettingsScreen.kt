@@ -238,7 +238,7 @@ private fun SettingsSelectionSheet(
     onSelect: (String) -> Unit
 ) {
     var query by remember { mutableStateOf("") }
-    ModalBottomSheet(
+    FrostedModalBottomSheet(
         onDismissRequest = { onDismiss(); query = "" },
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
@@ -1820,6 +1820,7 @@ fun SettingsScreen(
                     .padding(bottom = innerPadding.calculateBottomPadding())
                     .padding(horizontal = 16.dp)
                     .verticalScroll(rememberScrollState())
+                    .padding(bottom = com.obinot.app.ui.components.LocalBottomBarInset.current + 8.dp)
                     .animateEnterExit(
                         enter = slideInVertically(
                             initialOffsetY = { 100 },

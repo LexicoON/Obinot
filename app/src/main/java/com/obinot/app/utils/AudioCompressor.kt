@@ -75,6 +75,52 @@ object AudioCompressor {
     /** Tope absoluto de seguridad: 10 minutos. */
     private const val HARD_TIMEOUT_MS = 10 * 60 * 1000L
 
+    /** Resultado del cálculo previo (puramente matemático, sin tocar el audio). */
+    data class Estimate(
+        /** true si vale la pena comprimir (el archivo pasa el objetivo y el bitrate actual es mayor que el necesario). */
+        val worthCompressing: Boolean,
+        /** true si, comprimiendo al mínimo aceptable, el archivo quedaría bajo [limitBytes]. */
+        val canFitLimit: Boolean,
+        /** Bitrate al que se comprimiría; null si no se puede cumplir el objetivo sin arruinar la voz. */
+        val targetBitrate: Int?,
+        /** Tamaño estimado tras comprimir (bytes), 0 si se desconoce la duración. */
+        val estimatedBytes: Long,
+        /** Tamaño mínimo posible (bytes) al bitrate mínimo aceptable. */
+        val minPossibleBytes: Long
+    )
+
+    private const val CONTAINER_OVERHEAD = 1.03   // cabeceras MP4/AAC
+
+    /**
+     * Cálculo instantáneo: tamaño = duración × bitrate / 8. Permite decidir
+     * ANTES de comprimir si el audio va a entrar en [limitBytes] (p. ej. el
+     * máximo de Groq) y avisar al usuario de una vez si no.
+     */
+    fun estimate(
+        durationMs: Long,
+        originalBytes: Long,
+        limitBytes: Long,
+        targetSizeMB: Double
+    ): Estimate {
+        if (durationMs <= 0) {
+            return Estimate(originalBytes > (targetSizeMB * 1024 * 1024).toLong(), true, IDEAL_VOICE_BITRATE, 0L, 0L)
+        }
+        val sec = durationMs / 1000.0
+        val minBytes = (sec * MIN_ACCEPTABLE_BITRATE / 8.0 * CONTAINER_OVERHEAD).toLong()
+        val target = calculateTargetBitrate(durationMs, targetSizeMB)
+        val originalBitrate = originalBytes * 8.0 / sec
+        val estimated = if (target != null) (sec * target / 8.0 * CONTAINER_OVERHEAD).toLong() else minBytes
+        val overTarget = originalBytes > (targetSizeMB * 1024 * 1024).toLong()
+        val reduces = target != null && originalBitrate > target * 1.08   // si ya está cerca, no gana nada
+        return Estimate(
+            worthCompressing = overTarget && reduces,
+            canFitLimit = minBytes <= limitBytes,
+            targetBitrate = target,
+            estimatedBytes = estimated,
+            minPossibleBytes = minBytes
+        )
+    }
+
     sealed class Result {
         data class Success(
             val outputFile: File,

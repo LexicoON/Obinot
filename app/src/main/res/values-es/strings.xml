@@ -643,4 +643,5 @@
     <string name="settings_dynamic_bullets">• Audio largo → Gemini (sin límite de tamaño)\n• Audio corto → Groq Whisper\n• Texto largo → Gemini\n• Títulos, chat y explicaciones → Groq\n• Rota tus claves y cambia de proveedor automáticamente</string>
     <string name="settings_blur">Desenfoque esmerilado</string>
     <string name="settings_blur_desc">Efecto de vidrio esmerilado en vivo en barras y menús. Desactivarlo ahorra batería en teléfonos antiguos.</string>
+    <string name="error_audio_cannot_fit_groq">Aun comprimido, este audio no entra en Groq. Cambiá a Gemini o a Dinámico.</string>
 </resources>

@@ -2,6 +2,8 @@ package com.obinot.app.ui.components
 
 import android.os.Build
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.compositionLocalOf
@@ -98,3 +100,72 @@ fun Modifier.frostedSurface(
             drawContent()
         }
 }
+
+// ───────────────────────── Backdrop global + utilidades ─────────────────────────
+
+/** Backdrop de la app (contenido de la NavHost). null si el blur no está disponible. */
+val LocalFrostedBackdrop = androidx.compose.runtime.compositionLocalOf<FrostedBackdrop?> { null }
+
+/**
+ * Alto de la barra inferior flotante que tapa el contenido (0.dp si no hay
+ * barra o el blur está apagado). Las pantallas lo suman a su padding inferior
+ * para que nada quede debajo de la barra y los botones flotantes queden encima.
+ */
+val LocalBottomBarInset = androidx.compose.runtime.compositionLocalOf { 0.dp }
+
+/**
+ * ModalBottomSheet esmerilado: usa el backdrop de la app con blur en vivo.
+ * Sin blur (apagado o API < 31) es idéntico a un ModalBottomSheet normal.
+ */
+@androidx.compose.runtime.Composable
+@androidx.compose.material3.ExperimentalMaterial3Api
+fun FrostedModalBottomSheet(
+    onDismissRequest: () -> Unit,
+    sheetState: androidx.compose.material3.SheetState,
+    containerColor: Color = androidx.compose.material3.BottomSheetDefaults.ContainerColor,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
+) {
+    val backdrop = LocalFrostedBackdrop.current
+    val frosted = LocalBlurEnabled.current && isLiveBlurSupported && backdrop != null
+    if (!frosted) {
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = onDismissRequest,
+            sheetState = sheetState,
+            containerColor = containerColor,
+            content = content
+        )
+        return
+    }
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        sheetState = sheetState,
+        containerColor = Color.Transparent,
+        shape = shape,
+        dragHandle = null,
+        tonalElevation = 0.dp,
+        contentWindowInsets = { androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0) }
+    ) {
+        androidx.compose.foundation.layout.Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .frostedSurface(
+                    backdrop = backdrop!!,
+                    shape = shape,
+                    tint = containerColor.copy(alpha = 0.72f),
+                    fallbackColor = containerColor,
+                    radius = 28.dp
+                )
+        ) {
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) { androidx.compose.material3.BottomSheetDefaults.DragHandle() }
+            content()
+            androidx.compose.foundation.layout.Spacer(
+                Modifier.windowInsetsBottomHeight(androidx.compose.foundation.layout.WindowInsets.navigationBars)
+            )
+        }
+    }
+}
+

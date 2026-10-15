@@ -187,6 +187,7 @@ object ImportExportHelper {
                 put("rawText", note.rawText)
                 put("summary", note.summary)
                 put("highlightsInfo", note.highlightsInfo)
+                put("colorSpans", note.colorSpans)
                 put("label", note.label)
                 put("hasAudio", note.audioPath != null)
             }
@@ -464,6 +465,7 @@ object ImportExportHelper {
                     rawText = json.optString("rawText", ""),
                     summary = if (json.isNull("summary")) null else json.optString("summary"),
                     highlightsInfo = if (json.isNull("highlightsInfo")) null else json.optString("highlightsInfo"),
+                    colorSpans = if (json.isNull("colorSpans")) null else json.optString("colorSpans").ifBlank { null },
                     label = if (json.isNull("label")) null else json.optString("label"),
                     audioPath = finalAudioPath
                 )

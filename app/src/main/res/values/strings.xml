@@ -643,4 +643,5 @@
     <string name="settings_dynamic_bullets">• Long audio → Gemini (no size limit)\n• Short audio → Groq Whisper\n• Long text → Gemini\n• Titles, chat, explanations → Groq\n• Rotates your keys and falls back automatically</string>
     <string name="settings_blur">Frosted blur</string>
     <string name="settings_blur_desc">Live frosted glass effect on bars and menus. Turn off to save battery on older phones.</string>
+    <string name="error_audio_cannot_fit_groq">Even compressed, this audio won\'t fit Groq. Switch to Gemini or Dynamic.</string>
 </resources>

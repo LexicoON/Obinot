@@ -643,4 +643,5 @@
     <string name="settings_dynamic_bullets">• Langes Audio → Gemini (keine Größenbegrenzung)\n• Kurzes Audio → Groq Whisper\n• Langer Text → Gemini\n• Titel, Chat, Erklärungen → Groq\n• Wechselt Schlüssel und Anbieter automatisch</string>
     <string name="settings_blur">Milchglas-Unschärfe</string>
     <string name="settings_blur_desc">Live-Milchglaseffekt auf Leisten und Menüs. Ausschalten spart Akku bei älteren Geräten.</string>
+    <string name="error_audio_cannot_fit_groq">Auch komprimiert passt dieses Audio nicht zu Groq. Wechsle zu Gemini oder Dynamisch.</string>
 </resources>

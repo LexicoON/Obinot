@@ -339,7 +339,7 @@ fun RecordScreen(
                             onImportClick = { showAudioPicker = true }
                         )
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(24.dp + com.obinot.app.ui.components.LocalBottomBarInset.current))
                     }
 
                     // --- Columna derecha: notas recientes ---
@@ -603,6 +603,7 @@ fun RecordScreen(
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
+                                .padding(bottom = com.obinot.app.ui.components.LocalBottomBarInset.current)
                                 .fillMaxWidth()
                                 .height(boxHeight)
                                 .scale(boxScale)
@@ -743,7 +744,7 @@ fun RecordScreen(
                         onImportClick = { showAudioPicker = true }
                     )
 
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(32.dp + com.obinot.app.ui.components.LocalBottomBarInset.current))
                 }
             }
 

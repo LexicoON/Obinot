@@ -101,32 +101,32 @@ object Greetings {
     private val ES = Lang(
         base = mapOf(
             Period.MORNING to listOf("Buenos días, {n}.", "{n}, ¡buen día! Cuando quieras empezamos.", "¡Arriba, {n}! Hoy hay mucho por capturar."),
-            Period.AFTERNOON to listOf("Buenas tardes, {n}.", "¿Qué tienes en mente, {n}?", "{n}, ¿qué vamos a guardar esta tarde?"),
-            Period.NIGHT to listOf("Buenas noches, {n}.", "¿Sigues despierto, {n}? Cuéntamelo.", "{n}, ¿algo antes de que termine el día?")
+            Period.AFTERNOON to listOf("Buenas tardes, {n}.", "¿Qué tenés en mente, {n}?", "{n}, ¿qué vamos a guardar esta tarde?"),
+            Period.NIGHT to listOf("Buenas noches, {n}.", "¿Seguís despierto, {n}? Contamelo.", "{n}, ¿algo antes de que termine el día?")
         ),
         months = listOf(
-            listOf("Año nuevo, página en blanco. ¿Por dónde empezamos, {n}?", "Sigue enero, {n}: no pierdas el ritmo.", "Noche tranquila de enero. Anótalo, {n}."),
-            listOf("Buen día, {n}. Febrero es corto: aprovéchalo.", "{n}, una tarde de febrero para tus ideas.", "Noche de febrero, {n}. ¿Qué te da vueltas en la cabeza?"),
-            listOf("¡Buenos días, {n}! La primavera ya casi llega.", "{n}, las tardes de marzo piden planes nuevos.", "Buenas noches, {n}. Cierra marzo con una buena nota."),
+            listOf("Año nuevo, página en blanco. ¿Por dónde empezamos, {n}?", "Seguí con enero, {n}: no pierdas el ritmo.", "Noche tranquila de enero. Anotalo, {n}."),
+            listOf("Buen día, {n}. Febrero es corto: aprovechalo.", "{n}, una tarde de febrero para tus ideas.", "Noche de febrero, {n}. ¿Qué te da vueltas en la cabeza?"),
+            listOf("¡Buenos días, {n}! La primavera ya casi llega.", "{n}, las tardes de marzo piden planes nuevos.", "Buenas noches, {n}. Cerrá marzo con una buena nota."),
             listOf("Buen día, {n}. Lluvias de abril, ideas brillantes.", "{n}, buena tarde para una idea nueva.", "Que la lluvia de abril te inspire esta noche, {n}."),
-            listOf("¡Buenos días, {n}! Mayo florece, y tus ideas también.", "{n}, tarde soleada de mayo. ¿Qué guardamos?", "Noche cálida de mayo, {n}. Dilo en voz alta."),
-            listOf("Buen día, {n}. El verano ya toca la puerta.", "{n}, luz de junio y pensamientos claros.", "Larga noche de junio, {n}. Sin prisa."),
-            listOf("¡Arriba, {n}! Día de pleno julio.", "{n}, tarde de calor. Grábalo antes de derretirte.", "Noche cálida, {n}. Las ideas de verano son bienvenidas."),
+            listOf("¡Buenos días, {n}! Mayo florece, y tus ideas también.", "{n}, tarde soleada de mayo. ¿Qué guardamos?", "Noche cálida de mayo, {n}. Decilo en voz alta."),
+            listOf("Buen día, {n}. El verano ya toca la puerta.", "{n}, luz de junio y pensamientos claros.", "Larga noche de junio, {n}. Sin apuro."),
+            listOf("¡Arriba, {n}! Día de pleno julio.", "{n}, tarde de calor. Grabalo antes de derretirte.", "Noche cálida, {n}. Las ideas de verano son bienvenidas."),
             listOf("Buen día, {n}. Agosto va lento, pero tus ideas no.", "{n}, tarde perezosa de agosto. ¿Algo que anotar?", "Noche de fin de verano, {n}. ¿Cuál es la historia?"),
             listOf("Buen día, {n}. Septiembre: temporada de nuevos comienzos.", "{n}, de vuelta a la rutina, y a las buenas ideas.", "Buenas noches, {n}. El otoño ya viene en camino."),
-            listOf("Buen día, {n}. Aire fresco de octubre, mente despejada.", "{n}, se acerca la temporada de sustos. ¿Alguna idea?", "Oscura noche de octubre, {n}. Cuéntame una historia."),
-            listOf("Buen día, {n}. Noviembre pide algo calentito.", "{n}, el año va cerrando: sigue capturando.", "Noche fría, {n}. Ponte cómodo y grábalo."),
-            listOf("¡Buenos días, {n}! Ya es diciembre.", "{n}, época de fiestas, ¿la cabeza a mil?", "Noche de invierno, {n}. Cierra el año con una idea.")
+            listOf("Buen día, {n}. Aire fresco de octubre, mente despejada.", "{n}, se acerca la temporada de sustos. ¿Alguna idea?", "Oscura noche de octubre, {n}. Contame una historia."),
+            listOf("Buen día, {n}. Noviembre pide algo calentito.", "{n}, el año va cerrando: seguí capturando.", "Noche fría, {n}. Ponete cómodo y grábalo."),
+            listOf("¡Buenos días, {n}! Ya es diciembre.", "{n}, época de fiestas, ¿la cabeza a mil?", "Noche de invierno, {n}. Cerrá el año con una idea.")
         ),
         specials = mapOf(
             GTA_EVE to listOf("{n}, mañana sale GTA VI. Esta noche se duerme… ¿o no?", "Mañana es el día de GTA VI, {n}. Vice City te espera."),
             GTA_DAY to listOf("¡Hoy sale GTA VI, {n}! Bienvenido de vuelta a Vice City.", "{n}, GTA VI ya está aquí. Las notas pueden esperar… ¿o no?"),
             "xmas_eve" to listOf("Es Nochebuena, {n}. ¿Algún deseo de último momento?"),
             "xmas" to listOf("¡Feliz Navidad, {n}!"),
-            "nye" to listOf("Último día del año, {n}. ¿Qué te llevas y qué dejas atrás?"),
+            "nye" to listOf("Último día del año, {n}. ¿Qué te llevás y qué dejás atrás?"),
             "new_year" to listOf("¡Feliz año nuevo, {n}! Empecemos con la página en blanco."),
-            "halloween" to listOf("Feliz Halloween, {n}. ¿Tienes alguna historia de terror?"),
-            "valentines" to listOf("Feliz San Valentín, {n}. Graba algo bonito.")
+            "halloween" to listOf("Feliz Halloween, {n}. ¿Tenés alguna historia de terror?"),
+            "valentines" to listOf("Feliz San Valentín, {n}. Grabá algo bonito.")
         )
     )
 

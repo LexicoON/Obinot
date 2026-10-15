@@ -233,7 +233,7 @@ fun ObinotFilePickerSheet(
         ActivityResultContracts.OpenDocument()
     ) { uri -> if (uri != null) onFileSelected(uri) }
 
-    ModalBottomSheet(
+    FrostedModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow

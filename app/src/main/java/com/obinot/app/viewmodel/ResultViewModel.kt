@@ -814,42 +814,55 @@ class ResultViewModel(
                 var workingNote = currentNote
                 val compressionMode = settingsRepository.autoCompressionModeFlow.first()
 
+                // 0) CÁLCULO PREVIO (instantáneo): ¿entra en Groq si comprimimos?
+                //    Si no entra ni al mínimo de calidad, avisamos de una vez
+                //    en vez de gastar minutos comprimiendo.
+                val groqLimit = 24L * 1024 * 1024
+                val targetSizeMB = if (compressionMode == 2) 15.0 else 24.0
+                val durationMs = getAudioDurationMs(originalFile)
+                val estimate = AudioCompressor.estimate(durationMs, originalFile.length(), groqLimit, targetSizeMB)
+                val fitsGroqRaw = originalFile.length() <= groqLimit
+
+                if (provider == 1 && !fitsGroqRaw) {
+                    val msg = when {
+                        compressionMode == 0 -> R.string.error_file_exceeds_groq
+                        !estimate.canFitLimit -> R.string.error_audio_cannot_fit_groq
+                        else -> 0
+                    }
+                    if (msg != 0) {
+                        launch(Dispatchers.Main) {
+                            _error.value = appContext.getString(msg)
+                            _isLoading.value = false
+                        }
+                        return@launch
+                    }
+                }
+
                 // 1) COMPRESIÓN. Lo que se comprime es lo que se envía a los
                 //    modelos (cualquier provider) y REEMPLAZA al original en
                 //    la nota y en disco: así queda siempre el respaldo más barato.
-                if (compressionMode > 0) {
-                    val targetSizeMB = if (compressionMode == 1) 24.0 else 15.0
-                    if (originalFile.length() > (targetSizeMB * 1024 * 1024).toLong()) {
-                        val durationMs = getAudioDurationMs(originalFile)
-                        val targetBitrate = AudioCompressor.calculateTargetBitrate(durationMs, targetSizeMB)
-                        if (targetBitrate != null) {
-                            launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_compressing) }
-                            val audioDir = File(appContext.filesDir, "audio_records").apply { mkdirs() }
-                            val outFile = File(audioDir, "RECORD_${System.currentTimeMillis()}.mp4")
-                            val result = AudioCompressor.compress(originalFile, outFile, targetBitrate) { percent ->
-                                launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_compressing_pct, percent) }
-                            }
-                            if (result is AudioCompressor.Result.Success && result.newSize in 1 until result.originalSize) {
-                                fileToUpload = result.outputFile
-                                workingNote = currentNote.copy(audioPath = result.outputFile.absolutePath)
-                                _note.value = workingNote
-                                noteRepository.update(workingNote)
-                                try { originalFile.delete() } catch (_: Exception) {}
-                            } else {
-                                try { outFile.delete() } catch (_: Exception) {}
-                            }
-                        }
+                if (compressionMode > 0 && estimate.worthCompressing && estimate.targetBitrate != null) {
+                    launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_compressing) }
+                    val audioDir = File(appContext.filesDir, "audio_records").apply { mkdirs() }
+                    val outFile = File(audioDir, "RECORD_${System.currentTimeMillis()}.mp4")
+                    val result = AudioCompressor.compress(originalFile, outFile, estimate.targetBitrate) { percent ->
+                        launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_compressing_pct, percent) }
+                    }
+                    if (result is AudioCompressor.Result.Success && result.newSize in 1 until result.originalSize) {
+                        fileToUpload = result.outputFile
+                        workingNote = currentNote.copy(audioPath = result.outputFile.absolutePath)
+                        _note.value = workingNote
+                        noteRepository.update(workingNote)
+                        try { originalFile.delete() } catch (_: Exception) {}
+                    } else {
+                        try { outFile.delete() } catch (_: Exception) {}
                     }
                 }
 
                 // 2) Groq solo: si aun comprimido no entra, error claro.
-                val groqLimit = 24L * 1024 * 1024
                 if (provider == 1 && fileToUpload.length() > groqLimit) {
                     launch(Dispatchers.Main) {
-                        _error.value = appContext.getString(
-                            if (compressionMode == 0) R.string.error_file_exceeds_groq
-                            else R.string.error_audio_too_long_groq
-                        )
+                        _error.value = appContext.getString(R.string.error_audio_cannot_fit_groq)
                         _isLoading.value = false
                     }
                     return@launch
@@ -1053,7 +1066,7 @@ class ResultViewModel(
                 val processedText = router.generateTextWithFallback(
                     capability = ProviderCapability.QUALITY,
                     apiKeys = apiKeys,
-                    systemPrompt = systemPrompt,
+                    systemPrompt = systemPrompt + "\n" + com.obinot.app.utils.ColorSpans.PROMPT_HINT,
                     userPrompt = userContent,
                     preferredProviderId = preferred
                 )
@@ -1061,9 +1074,11 @@ class ResultViewModel(
                 launch(Dispatchers.Main) {
                     if (processedText != null) {
                         val cleanedText = processedText.trim().removeSurrounding("'", "'").removeSurrounding("\"", "\"")
-                        val finalOutput = cleanedText + "\n\n" + metaTag
+                        // Los colores {c:rol}...{/c} se extraen a metadata; el summary queda limpio.
+                        val (colorlessText, colorJson) = com.obinot.app.utils.ColorSpans.extract(cleanedText)
+                        val finalOutput = colorlessText + "\n\n" + metaTag
 
-                        val updatedNote = currentNote.copy(summary = finalOutput, timestamp = System.currentTimeMillis())
+                        val updatedNote = currentNote.copy(summary = finalOutput, colorSpans = colorJson, timestamp = System.currentTimeMillis())
                         _note.value = updatedNote
                         noteRepository.update(updatedNote)
                     } else {

@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import com.obinot.app.ui.components.LocalBlurEnabled
+import com.obinot.app.ui.components.LocalBottomBarInset
+import com.obinot.app.ui.components.LocalFrostedBackdrop
 import com.obinot.app.ui.components.frostedSource
 import com.obinot.app.ui.components.frostedSurface
 import com.obinot.app.ui.components.isLiveBlurSupported
@@ -230,7 +232,10 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
     val useFrostedBar = blurEnabled && isLiveBlurSupported
     val frostedBackdrop = rememberFrostedBackdrop()
 
-    androidx.compose.runtime.CompositionLocalProvider(LocalBlurEnabled provides blurEnabled) {
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalBlurEnabled provides blurEnabled,
+        LocalFrostedBackdrop provides (if (useFrostedBar) frostedBackdrop else null)
+    ) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -289,6 +294,9 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
             }
         }
     ) { innerPadding ->
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalBottomBarInset provides (if (useFrostedBar && currentRoute in listOf("record", "history", "settings")) innerPadding.calculateBottomPadding() else 0.dp)
+        ) {
         SharedTransitionLayout {
             NavHost(
                 navController = navController,
@@ -463,6 +471,7 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
                     }
                 }
             }
+        }
         }
     }
     }

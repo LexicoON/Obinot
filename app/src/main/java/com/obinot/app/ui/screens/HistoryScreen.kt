@@ -781,6 +781,7 @@ fun HistoryScreen(
                             ),
                             interactionSource = fabInteractionSource,
                             modifier = Modifier
+                                .padding(bottom = com.obinot.app.ui.components.LocalBottomBarInset.current)
                                 .renderInSharedTransitionScopeOverlay(zIndexInOverlay = 1f)
                                 .alpha(if (animatedVisibilityScope.transition.targetState == EnterExitState.Visible) 1f else 0f)
                                 .graphicsLayer {
@@ -908,6 +909,7 @@ fun HistoryScreen(
                             LazyVerticalStaggeredGrid(
                                 columns = StaggeredGridCells.Fixed(gridColumnCount),
                                 state = gridState,
+                                contentPadding = PaddingValues(bottom = com.obinot.app.ui.components.LocalBottomBarInset.current + 88.dp),
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .weight(1f)
@@ -1217,7 +1219,7 @@ fun HistoryScreen(
         }
         val updateScrollState = rememberScrollState()
 
-        ModalBottomSheet(
+        FrostedModalBottomSheet(
             onDismissRequest = { viewModel.dismissUpdateNotification() },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ) {
