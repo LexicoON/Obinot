@@ -75,52 +75,12 @@
     <!-- Record screen                                                 -->
     <!-- ============================================================ -->
 
-    <string name="record_greeting_morning_1">Guten Morgen,</string>
-    <string name="record_greeting_morning_2">Frisch ans Werk,</string>
-    <string name="record_greeting_morning_3">Ein neuer Anfang,</string>
-    <string name="record_greeting_morning_4">Morgeninspiration,</string>
-    <string name="record_greeting_morning_5">Starte gut in den Tag,</string>
 
-    <string name="record_greeting_afternoon_1">Guten Nachmittag,</string>
-    <string name="record_greeting_afternoon_2">Mittagsgedanken,</string>
-    <string name="record_greeting_afternoon_3">Weiter so,</string>
-    <string name="record_greeting_afternoon_4">Bleib produktiv,</string>
-    <string name="record_greeting_afternoon_5">Nachmittags-Check-in,</string>
 
-    <string name="record_greeting_evening_1">Guten Abend,</string>
-    <string name="record_greeting_evening_2">Ausklang,</string>
-    <string name="record_greeting_evening_3">Abendreflexion,</string>
-    <string name="record_greeting_evening_4">Zeit zum Entspannen,</string>
-    <string name="record_greeting_evening_5">Sonnenuntergangsgedanken,</string>
 
-    <string name="record_greeting_night_1">Späte Gedanken,</string>
-    <string name="record_greeting_night_2">Mitternachtsnotizen,</string>
-    <string name="record_greeting_night_3">Noch wach?,</string>
-    <string name="record_greeting_night_4">Stille Stunden,</string>
-    <string name="record_greeting_night_5">Schlaf gut,</string>
 
-    <string name="record_greeting_month_jan">Frische Anfänge,</string>
-    <string name="record_greeting_month_feb">Februargedanken,</string>
-    <string name="record_greeting_month_mar">Vorwärts in den März,</string>
-    <string name="record_greeting_month_apr">Aprilwetter,</string>
-    <string name="record_greeting_month_may">Mai-Inspiration,</string>
-    <string name="record_greeting_month_jun">Juni-Gedanken,</string>
-    <string name="record_greeting_month_jul">Sommerreflexionen,</string>
-    <string name="record_greeting_month_aug">Augustmomente,</string>
-    <string name="record_greeting_month_sep">September beginnt,</string>
-    <string name="record_greeting_month_oct">Oktoberstimmung,</string>
-    <string name="record_greeting_month_nov">Novembernotizen,</string>
-    <string name="record_greeting_month_dec">Dezemberreflexionen,</string>
 
-    <string name="record_greeting_holiday_xmas_eve">Heiligabend,</string>
-    <string name="record_greeting_holiday_xmas">Frohe Weihnachten,</string>
-    <string name="record_greeting_holiday_nye">Silvester,</string>
-    <string name="record_greeting_holiday_new_year">Frohes neues Jahr,</string>
-    <string name="record_greeting_holiday_halloween">Gruselige Stimmung,</string>
-    <string name="record_greeting_holiday_valentines">Happy Valentine\'s,</string>
 
-    <string name="record_greeting_gta_vi_eve">Nur noch eine Nacht,</string>
-    <string name="record_greeting_gta_vi_day">Endlich da,</string>
 
     <string name="record_guest">Gast</string>
     <string name="record_listening">Zuhören… (Audio wird für die KI gespeichert)</string>
@@ -175,11 +135,9 @@
     <string name="onboarding_provider_body">Wähle einen KI-Anbieter. Alle haben kostenlose Tarife.</string>
     <string name="onboarding_provider_gemini">Gemini</string>
     <string name="onboarding_provider_groq">Groq</string>
-    <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="onboarding_provider_dynamic">Dynamisch</string>
     <string name="onboarding_provider_groq_hint">Empfohlen wegen der blitzschnellen Geschwindigkeit.</string>
     <string name="onboarding_provider_gemini_hint">Am besten für sehr lange Audioaufnahmen.</string>
-    <string name="onboarding_provider_nvidia_hint">NVIDIA NIM. Schnell und privat, ohne Audio-Transkription.</string>
     <string name="onboarding_provider_dynamic_hint">Mehrere Anbieter arbeiten zusammen. Füge später weitere Schlüssel in den Einstellungen hinzu.</string>
     <string name="onboarding_get_api_key">Kostenlosen API-Schlüssel holen</string>
     <string name="onboarding_api_key_hint">Füge deinen API-Schlüssel hier ein</string>
@@ -275,8 +233,6 @@
     <string name="snackbar_groq_saved">Groq-Konfiguration gespeichert!</string>
     <string name="snackbar_dynamic_enabled">Dynamischer Modus aktiviert!</string>
     <string name="snackbar_dynamic_needs_keys">Dynamisch aktiviert, aber Gemini- und Groq-Schlüssel sind erforderlich.</string>
-    <string name="snackbar_nvidia_saved">NVIDIA-Schlüssel gespeichert!</string>
-    <string name="snackbar_nvidia_only_enabled">NVIDIA-Modus aktiviert!</string>
     <string name="share_chooser_title">.binot-Notiz teilen über</string>
     <string name="share_text_binot">Binot-Notiz: %1$s</string>
 
@@ -485,7 +441,6 @@
     <string name="settings_ai_configuration">KI-Konfiguration</string>
     <string name="settings_provider_gemini">Gemini</string>
     <string name="settings_provider_groq">Groq</string>
-    <string name="settings_provider_nvidia">NVIDIA</string>
     <string name="settings_provider_dynamic">Dynamisch</string>
 
     <string name="settings_gemini_key_label">Gemini API-Schlüssel</string>
@@ -493,26 +448,14 @@
     <string name="settings_get_api_key_hint">Hier tippen, um den API-Schlüssel zu erhalten</string>
     <string name="settings_save_key">Schlüssel speichern</string>
 
-    <string name="settings_dynamic_submode_title">Modus</string>
-    <string name="settings_dynamic_submode_standard">Standard</string>
-    <string name="settings_dynamic_submode_max">Maximal</string>
-    <string name="settings_dynamic_standard_desc">Gemini + Groq arbeiten zusammen.</string>
-    <string name="settings_dynamic_standard_bullets">• Langes Audio → Gemini\n• Kurzes Audio → Groq Whisper\n• Langer Text → Gemini\n• Kurzer Text, Titel und Chat → wechseln</string>
-    <string name="settings_dynamic_max_desc">Gemini + Groq + NVIDIA. Qualität zuerst, mit maximalen Fallbacks.</string>
-    <string name="settings_dynamic_max_bullets">• Langes Audio → Gemini\n• Kurzes Audio → Groq Whisper\n• Langer Text → Gemini (Qualitätspriorität)\n• Titel → Groq\n• Chat und kurze Aufgaben → Groq, NVIDIA oder Gemini für beste Ergebnisse</string>
 
     <string name="settings_dynamic_gemini_status">Gemini API-Schlüssel: %1$s</string>
     <string name="settings_dynamic_groq_status">Groq API-Schlüssel: %1$s</string>
-    <string name="settings_dynamic_nvidia_status">NVIDIA NIM: %1$s</string>
     <string name="settings_status_configured">✓ Konfiguriert</string>
     <string name="settings_status_not_set">✗ Nicht gesetzt</string>
     <string name="settings_status_optional">○ Optional</string>
     <string name="settings_save_selection">Auswahl speichern</string>
 
-    <string name="settings_nvidia_desc">Nur NVIDIA NIM. Schnell und privat, aber ohne Audio-Transkription.</string>
-    <string name="settings_nvidia_warning">⚠ NVIDIA transkribiert kein Audio. Für den genauen Modus konfiguriere auch Gemini oder Groq.</string>
-    <string name="settings_nvidia_get_key_hint">Hier tippen für den NVIDIA-Schlüssel (anmelden, dann Profil → API Keys)</string>
-    <string name="settings_save_nvidia_key">NVIDIA speichern</string>
 
     <string name="settings_advanced">Erweitert</string>
     <string name="settings_advanced_subtitle">Erweiterte Optionen</string>
@@ -568,7 +511,7 @@
     <string name="settings_dialog_groq_title">Groq AI</string>
     <string name="settings_dialog_groq_body">Blitzschnell, ideal für den täglichen Gebrauch. Basiert auf Open-Source-Modellen. Audio-Uploads sind auf 25 MB pro Datei begrenzt.</string>
     <string name="settings_dialog_dynamic_title">Dynamisch</string>
-    <string name="settings_dialog_dynamic_body">Wählt den besten Anbieter für jede Aufgabe. Standard nutzt Gemini + Groq. Maximal fügt NVIDIA für maximale Qualität und Fallbacks hinzu.</string>
+    <string name="settings_dialog_dynamic_body">Wählt mit Gemini + Groq den besten Anbieter für jede Aufgabe. Gemini ist für langes Audio und lange Texte reserviert; alles andere geht zuerst an Groq. Schlüssel wechseln automatisch, wenn einer sein Limit erreicht.</string>
 
     <string name="settings_dialog_tasks">Verarbeitungsaufgaben</string>
     <string name="settings_dialog_tidy_title">Aufräumen</string>
@@ -631,7 +574,6 @@
     <string name="error_note_empty">Notiz ist leer!</string>
     <string name="error_generate_binot_failed">.binot-Datei konnte nicht erstellt werden</string>
     <string name="error_file_ready">Datei bereit!</string>
-    <string name="error_nvidia_cannot_transcribe">NVIDIA transkribiert kein Audio. Konfiguriere Gemini oder Groq oder wechsle in den Schnellmodus.</string>
 
     <string name="http_400">Ungültige Anfrage (400). Dateiformat oder Daten nicht erkannt.</string>
     <string name="http_401">Ungültiger API-Schlüssel (401). Prüfe ihn in den Einstellungen.</string>
@@ -697,4 +639,8 @@
     <string name="crash_copied">Protokoll in die Zwischenablage kopiert</string>
     <string name="crash_no_log">Kein Absturzprotokoll verfügbar.</string>
 
+    <string name="settings_dynamic_desc">Nutzt Gemini und Groq gemeinsam und schont das Kontingent: Groq erledigt das Schnelle, Gemini bleibt für das reserviert, was nur er kann.</string>
+    <string name="settings_dynamic_bullets">• Langes Audio → Gemini (keine Größenbegrenzung)\n• Kurzes Audio → Groq Whisper\n• Langer Text → Gemini\n• Titel, Chat, Erklärungen → Groq\n• Wechselt Schlüssel und Anbieter automatisch</string>
+    <string name="settings_blur">Milchglas-Unschärfe</string>
+    <string name="settings_blur_desc">Live-Milchglaseffekt auf Leisten und Menüs. Ausschalten spart Akku bei älteren Geräten.</string>
 </resources>

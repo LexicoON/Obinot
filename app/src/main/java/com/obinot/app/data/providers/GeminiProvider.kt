@@ -27,7 +27,7 @@ import java.io.IOException
  *  5. Detección de File FAILED y de respuesta vacía como errores transitorios.
  *
  * Si todos los reintentos internos se agotan, la excepción llega al
- * ProviderRouter, que hace fallback automático a Groq (o NVIDIA en modo Full).
+ * ProviderRouter, que hace fallback automático a Groq.
  *
  * Logs: con tag "GeminiProvider". Filtrable con:
  *   adb logcat -s GeminiProvider:D
@@ -283,11 +283,13 @@ class GeminiProvider : AiProvider() {
 
         /**
          * Códigos HTTP reintentables.
-         *   429: rate limit — se resuelve esperando.
          *   500, 502, 503, 504: errores de infra de Google, típicamente transitorios.
+         *   429 NO va: reintentar sobre la misma key solo quema más cuota
+         *   (era la causa de "limit reached" sin procesar el audio). El
+         *   ProviderRouter rota a otra key o hace failover con cooldown.
          *   501 NO va: significa que pedimos algo que el server no implementa.
          */
-        private val RETRYABLE_HTTP_CODES = setOf(429, 500, 502, 503, 504)
+        private val RETRYABLE_HTTP_CODES = setOf(500, 502, 503, 504)
 
         /**
          * Prompt de transcripción verbatim. Reusa el mismo que tenía el

@@ -589,10 +589,9 @@ fun SettingsScreen(
     val autoProcessEnabled by viewModel.autoProcessEnabled.collectAsState()
     val geminiApiKeys by viewModel.geminiApiKeys.collectAsState()
     val groqApiKeys by viewModel.groqApiKeys.collectAsState()
-    val nvidiaApiKeys by viewModel.nvidiaApiKeys.collectAsState()
     val keyRotationEnabled by viewModel.keyRotationEnabled.collectAsState()
     val alphaUnlocked by viewModel.alphaUnlocked.collectAsState()
-    val dynamicMode by viewModel.dynamicMode.collectAsState()
+    val blurEnabled by viewModel.blurEnabled.collectAsState()
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -606,7 +605,6 @@ fun SettingsScreen(
     var tempAiTask by remember(aiTask) { mutableStateOf(aiTask) }
     var tempAiFormat by remember(aiFormat) { mutableStateOf(aiFormat) }
     var tempAiProvider by remember(aiProvider) { mutableStateOf(aiProvider) }
-    var tempDynamicMode by remember(dynamicMode) { mutableStateOf(dynamicMode) }
 
     val updateState by viewModel.updateState.collectAsState()
     val downloadProgress by viewModel.downloadProgress.collectAsState()
@@ -621,9 +619,6 @@ fun SettingsScreen(
     }
     var groqKeyInputs by remember(groqApiKeys) {
         mutableStateOf(groqApiKeys.ifEmpty { listOf("") })
-    }
-    var nvidiaKeyInputs by remember(nvidiaApiKeys) {
-        mutableStateOf(nvidiaApiKeys.ifEmpty { listOf("") })
     }
 
     var isNameDirty by remember { mutableStateOf(false) }
@@ -1018,13 +1013,11 @@ fun SettingsScreen(
                     labels = listOf(
                         stringResource(R.string.settings_provider_gemini),
                         stringResource(R.string.settings_provider_groq),
-                        stringResource(R.string.settings_provider_nvidia),
                         stringResource(R.string.settings_provider_dynamic)
                     ),
                     icons = listOf(
                         Icons.Default.AutoAwesome,
                         Icons.Default.Bolt,
-                        Icons.Default.Memory,
                         Icons.Default.Shuffle
                     ),
                     modifier = Modifier.fillMaxWidth()
@@ -1107,103 +1100,16 @@ fun SettingsScreen(
                             }
                         }
                         2 -> {
-                            // ============ NVIDIA SOLO ============
-                            Column {
-                                Text(
-                                    stringResource(R.string.settings_nvidia_desc),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = stringResource(R.string.settings_nvidia_warning),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                KeyListEditor(
-                                    keys = nvidiaKeyInputs,
-                                    onKeysChange = { nvidiaKeyInputs = it },
-                                    labelPrimaryRes = R.string.settings_rotation_key_primary,
-                                    labelBackupRes = R.string.settings_rotation_key_backup,
-                                    rotationEnabled = keyRotationEnabled,
-                                    maxKeys = maxKeys,
-                                    onDirty = { /* nvidia no tiene flag dirty propio */ }
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    stringResource(R.string.settings_nvidia_get_key_hint),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.clickable {
-                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://build.nvidia.com")))
-                                    }
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    BouncyOutlinedButton(
-                                        onClick = {
-                                            viewModel.saveNvidiaApiKeys(nvidiaKeyInputs.filter { it.isNotBlank() })
-                                            coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_nvidia_saved)) }
-                                        },
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text(stringResource(R.string.settings_save_nvidia_key))
-                                    }
-                                    BouncyButton(
-                                        onClick = {
-                                            viewModel.saveAiProvider(tempAiProvider)
-                                            coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_nvidia_only_enabled)) }
-                                        },
-                                        enabled = tempAiProvider != aiProvider,
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text(stringResource(R.string.settings_save_selection))
-                                    }
-                                }
-                            }
-                        }
-                        3 -> {
                             // ============ DYNAMIC ============
                             Column {
-                                // Sub-modo: Standard / Max.
                                 Text(
-                                    stringResource(R.string.settings_dynamic_submode_title),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(bottom = 8.dp)
-                                )
-                                TextToggleGroup(
-                                    selectedIndex = tempDynamicMode,
-                                    onSelect = { tempDynamicMode = it },
-                                    labels = listOf(
-                                        stringResource(R.string.settings_dynamic_submode_standard),
-                                        stringResource(R.string.settings_dynamic_submode_max)
-                                    ),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                val isMax = tempDynamicMode == 1
-                                Text(
-                                    stringResource(
-                                        if (isMax) R.string.settings_dynamic_max_desc
-                                        else R.string.settings_dynamic_standard_desc
-                                    ),
+                                    stringResource(R.string.settings_dynamic_desc),
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = stringResource(
-                                        if (isMax) R.string.settings_dynamic_max_bullets
-                                        else R.string.settings_dynamic_standard_bullets
-                                    ),
+                                    text = stringResource(R.string.settings_dynamic_bullets),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1211,15 +1117,12 @@ fun SettingsScreen(
 
                                 val geminiKey = geminiKeyInputs.firstOrNull().orEmpty()
                                 val groqKey = groqKeyInputs.firstOrNull().orEmpty()
-                                val nvidiaKey = nvidiaKeyInputs.firstOrNull().orEmpty()
                                 val geminiConfigured = geminiKey.isNotBlank()
                                 val groqConfigured = groqKey.isNotBlank()
-                                val nvidiaConfigured = nvidiaKey.isNotBlank()
                                 val requiredOk = geminiConfigured && groqConfigured
 
                                 val geminiStatus = if (geminiConfigured) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
                                 val groqStatus = if (groqConfigured) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
-                                val nvidiaStatus = if (nvidiaConfigured) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_optional)
 
                                 Text(
                                     text = stringResource(R.string.settings_dynamic_gemini_status, geminiStatus),
@@ -1231,18 +1134,10 @@ fun SettingsScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (groqConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                                 )
-                                if (isMax) {
-                                    Text(
-                                        text = stringResource(R.string.settings_dynamic_nvidia_status, nvidiaStatus),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = if (nvidiaConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
                                 Spacer(modifier = Modifier.height(12.dp))
 
                                 BouncyButton(
                                     onClick = {
-                                        viewModel.saveDynamicMode(tempDynamicMode)
                                         viewModel.saveAiProvider(tempAiProvider)
                                         coroutineScope.launch {
                                             snackbarHostState.showSnackbar(
@@ -1253,7 +1148,7 @@ fun SettingsScreen(
                                             )
                                         }
                                     },
-                                    enabled = tempAiProvider != aiProvider || tempDynamicMode != dynamicMode,
+                                    enabled = tempAiProvider != aiProvider,
                                     modifier = Modifier.align(Alignment.End)
                                 ) {
                                     Text(stringResource(R.string.settings_save_selection))
@@ -1697,6 +1592,15 @@ fun SettingsScreen(
                     checked = liveTranscriptEnabled,
                     onCheckedChange = { viewModel.saveLiveTranscript(it) },
                     badge = FeatureBadge.ALPHA
+                )
+
+                SectionRowDivider()
+
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_blur),
+                    description = stringResource(R.string.settings_blur_desc),
+                    checked = blurEnabled,
+                    onCheckedChange = { viewModel.saveBlurEnabled(it) }
                 )
 
                 SectionRowDivider()

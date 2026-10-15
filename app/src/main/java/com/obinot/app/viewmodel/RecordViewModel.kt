@@ -219,10 +219,9 @@ class RecordViewModel(
     /**
      * Genera un título corto (3-5 palabras) usando el router.
      *
-     * En modo Standard, el router decide el preferido en base a un contador
-     * (alterna entre Gemini y Groq para estirar cuotas). En modos explícitos
-     * (0 o 1), solo hay un provider con key configurada, así que el router
-     * usa ese.
+     * En modo Dynamic los títulos van primero a Groq (Gemini se reserva
+     * para audio grande y texto largo). En modos explícitos (0 o 1) solo
+     * hay un provider con key configurada.
      *
      * Si el router no encuentra candidatos (ninguna key configurada), no
      * hace nada y la nota se queda con título vacío — la UI ya maneja ese
@@ -241,7 +240,9 @@ class RecordViewModel(
                     capability = ProviderCapability.TITLE,
                     apiKeys = apiKeys,
                     systemPrompt = systemPrompt,
-                    userPrompt = userPrompt
+                    userPrompt = userPrompt,
+                    // Dynamic: los títulos van a Groq para no gastar cuota de Gemini.
+                    preferredProviderId = if (provider == 2 && apiKeys.containsKey("groq")) "groq" else null
                 )
 
                 if (!aiTitle.isNullOrBlank()) {
@@ -257,45 +258,22 @@ class RecordViewModel(
     }
 
     /**
-     * Construye el map de listas de API keys disponibles según el modo
-     * configurado.
-     *
-     * NOTA: RecordViewModel recibe las keys por constructor (una sola por
-     * provider, inyectadas desde MainActivity). Para rotación completa,
-     * ResultViewModel lee las listas desde SettingsRepository. Acá, como
-     * el único uso es generar títulos (tarea poco crítica), envolvemos la
-     * key única en una lista de 1. Si en el futuro queremos rotación acá
-     * también, MainActivity tiene que pasar List<String> en vez de String.
-     */
-    /**
-     * Construye el map de API keys disponibles según el modo configurado.
-     *
-     * Modos:
-     *   0 = Gemini solo
-     *   1 = Groq solo
-     *   2 = NVIDIA solo (rara vez útil para títulos: NVIDIA no es el más
-     *       rápido para tareas triviales, pero respetamos la elección)
-     *   3 = Dynamic. El sub-modo decide si es Standard (Gemini+Groq) o
-     *       Max (Gemini+Groq+NVIDIA).
-     *
-     * NVIDIA keys se leen desde settingsRepository porque el constructor
-     * de este ViewModel solo recibe gemini y groq (los pasa MainActivity
-     * desde el composition). En el futuro, si queremos consistencia,
-     * podemos cambiar el constructor para recibir todas.
+     * Map de API keys según el modo (0 = Gemini, 1 = Groq, 2 = Dynamic).
+     * Lee las listas completas desde settings para que la rotación de keys
+     * funcione también al generar títulos.
      */
     private suspend fun buildApiKeysMap(provider: Int): Map<String, List<String>> {
         val map = mutableMapOf<String, List<String>>()
-        val nvidiaKeys = settingsRepository.nvidiaApiKeysFlow.first().filter { it.isNotBlank() }
-        val dynamicMode = settingsRepository.dynamicModeFlow.first()
-
+        val gemini = settingsRepository.geminiApiKeysFlow.first().filter { it.isNotBlank() }
+            .ifEmpty { listOf(geminiApiKey).filter { it.isNotBlank() } }
+        val groq = settingsRepository.groqApiKeysFlow.first().filter { it.isNotBlank() }
+            .ifEmpty { listOf(groqApiKey).filter { it.isNotBlank() } }
         when (provider) {
-            0 -> if (geminiApiKey.isNotBlank()) map["gemini"] = listOf(geminiApiKey)
-            1 -> if (groqApiKey.isNotBlank()) map["groq"] = listOf(groqApiKey)
-            2 -> if (nvidiaKeys.isNotEmpty()) map["nvidia"] = nvidiaKeys
-            3 -> {
-                if (geminiApiKey.isNotBlank()) map["gemini"] = listOf(geminiApiKey)
-                if (groqApiKey.isNotBlank()) map["groq"] = listOf(groqApiKey)
-                if (dynamicMode == 1 && nvidiaKeys.isNotEmpty()) map["nvidia"] = nvidiaKeys
+            0 -> if (gemini.isNotEmpty()) map["gemini"] = gemini
+            1 -> if (groq.isNotEmpty()) map["groq"] = groq
+            else -> {
+                if (gemini.isNotEmpty()) map["gemini"] = gemini
+                if (groq.isNotEmpty()) map["groq"] = groq
             }
         }
         return map

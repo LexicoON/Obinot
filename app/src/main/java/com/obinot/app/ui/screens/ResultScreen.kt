@@ -102,6 +102,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
@@ -1113,32 +1114,27 @@ fun ResultScreen(
                             // El spring tiene dampingRatio < 1 para un
                             // pequeñísimo rebote al llegar al final — es
                             // sutil pero le da vida al fade.
-                            val collapsedFraction = scrollBehavior.state.collapsedFraction
-                            val headerAlpha by androidx.compose.animation.core.animateFloatAsState(
-                                targetValue = (1f - collapsedFraction).coerceIn(0f, 1f),
-                                animationSpec = spring(
-                                    dampingRatio = 0.85f,
-                                    stiffness = Spring.StiffnessMediumLow
-                                ),
-                                label = "headerAlpha"
-                            )
-                            val headerOffsetPx by androidx.compose.animation.core.animateFloatAsState(
-                                targetValue = -collapsedFraction * 28f,
-                                animationSpec = spring(
-                                    dampingRatio = 0.85f,
-                                    stiffness = Spring.StiffnessMediumLow
-                                ),
-                                label = "headerOffset"
-                            )
+                            // El header vive "dentro de la página": su altura se
+                            // reduce 1:1 con el scroll del contenido, así que no
+                            // deja hueco y solo se ve al estar arriba del todo.
+                            // Título, flecha y menú quedan en la barra superior.
+                            val headerScrollState =
+                                if (!note!!.summary.isNullOrEmpty() && !forceTranscript && !isLoading) markdownScrollState
+                                else rawTextScrollState
 
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .graphicsLayer {
-                                        alpha = headerAlpha
-                                        translationY = headerOffsetPx
+                                    .clipToBounds()
+                                    .layout { measurable, constraints ->
+                                        val placeable = measurable.measure(
+                                            constraints.copy(maxHeight = androidx.compose.ui.unit.Constraints.Infinity)
+                                        )
+                                        val scrolled = headerScrollState.value.coerceIn(0, placeable.height)
+                                        layout(placeable.width, placeable.height - scrolled) {
+                                            placeable.placeRelative(0, -scrolled)
+                                        }
                                     }
-                                    .clipToBounds()   // ← esto evita que el contenido se salga del área
                             ) {
                                 Column {
                                         if (!isEditMode) {

@@ -584,7 +584,7 @@ class ResultViewModel(
     }
 
     // ============================================================
-    // MIX ROUTING (Standard mode)
+    // DYNAMIC ROUTING (Gemini + Groq)
     // ============================================================
 
     private enum class MixTask {
@@ -592,101 +592,29 @@ class ResultViewModel(
     }
 
     /**
-     * Devuelve el ID del provider preferido para una tarea, según la
-     * política de Standard mode:
-     *
-     *   - LONG_AUDIO → Gemini (no tiene límite de tamaño).
-     *   - SHORT_AUDIO → Groq (más rápido, Whisper Turbo).
-     *   - LONG_TEXT → Gemini (mejor calidad, contexto grande).
-     *   - SHORT_TEXT / TITLE / EXPLAIN / CHAT → alterna (contador par → Gemini,
-     *     impar → Groq) para repartir cuota.
-     */
-    /**
-     * Routing del modo Standard (Gemini + Groq).
-     *
-     *   - Audio largo → Gemini (sin límite de tamaño).
-     *   - Audio corto → Groq (Whisper Turbo, el más rápido).
-     *   - Texto largo → Gemini (contexto grande, mejor calidad).
-     *   - Texto corto / título / explicación / chat → alterna 50/50
-     *     para estirar las cuotas.
-     */
-    private suspend fun pickPreferredProviderForMix(task: MixTask): String {
-        return when (task) {
-            MixTask.LONG_AUDIO -> "gemini"
-            MixTask.SHORT_AUDIO -> "groq"
-            MixTask.LONG_TEXT -> "gemini"
-            MixTask.SHORT_TEXT, MixTask.TITLE, MixTask.EXPLAIN, MixTask.CHAT -> {
-                val counter = settingsRepository.incrementMixCounter()
-                if (counter % 2 == 0) "gemini" else "groq"
-            }
-        }
-    }
-
-    /**
-     * Routing del modo Full (Gemini + Groq + NVIDIA).
-     *
-     * Acá sí optimizamos por tarea usando el mejor provider disponible:
-     *
-     *   - Audio largo → Gemini (ningún otro acepta archivos grandes).
-     *   - Audio corto → Groq (Whisper Turbo, latencia mínima).
-     *   - Texto largo → Gemini (70B-class con contexto grande).
-     *   - Título → Groq (tarea trivial, Groq es el más rápido).
-     *   - Explicación → alterna los 3 (Gemini por calidad, NVIDIA por
-     *     privacidad, Groq por velocidad).
-     *   - Chat → alterna Groq/NVIDIA (los 2 más rápidos; Gemini queda
-     *     como fallback silencioso si los otros fallan).
-     *   - Texto corto → alterna los 3.
-     *
-     * El router hace el fallback automático si el preferido falla, así
-     * que el "en equipo" lo garantiza el router sin que tengamos que
-     * orquestar requests paralelas.
-     */
-    private suspend fun pickPreferredProviderForFull(task: MixTask): String {
-        return when (task) {
-            MixTask.LONG_AUDIO -> "gemini"
-            MixTask.SHORT_AUDIO -> "groq"
-            MixTask.LONG_TEXT -> "gemini"
-            MixTask.TITLE -> "groq"
-            MixTask.EXPLAIN -> {
-                when (settingsRepository.incrementMixCounter() % 3) {
-                    0 -> "gemini"
-                    1 -> "nvidia"
-                    else -> "groq"
-                }
-            }
-            MixTask.CHAT -> {
-                if (settingsRepository.incrementMixCounter() % 2 == 0) "groq" else "nvidia"
-            }
-            MixTask.SHORT_TEXT -> {
-                when (settingsRepository.incrementMixCounter() % 3) {
-                    0 -> "gemini"
-                    1 -> "nvidia"
-                    else -> "groq"
-                }
-            }
-        }
-    }
-
-    /**
-     * Devuelve el provider preferido según el modo activo.
-     *
-     * Modos individuales (0, 1, 2): devuelve null. El router elige el
-     * único provider que esté en el map. Para NVIDIA (modo 2), si la
-     * tarea es TRANSCRIPTION y NVIDIA no lo soporta, el router devuelve
-     * null y el caller muestra un error claro.
-     *
-     * Modo Dynamic (3): el sub-modo decide.
-     *   - Standard: pickPreferredProviderForMix (solo Gemini + Groq).
-     *   - Max: pickPreferredProviderForFull (los 3, priorizando calidad).
+     * Modo Dynamic (único): Gemini es el recurso escaso y más sensible a
+     * ráfagas, así que se reserva para lo que solo él hace bien:
+     *   - Audio que no entra en Groq (> límite de Whisper) → Gemini.
+     *   - Texto largo (contexto grande) → Gemini.
+     * Todo lo demás (audio corto, títulos, explicaciones, chat, texto corto)
+     * va primero a Groq, que es más rápido y no compite con la cuota de
+     * audio de Gemini. Si el provider elegido tiene todas sus keys en
+     * cooldown y el otro no, se elige el otro sin gastar un intento.
+     * Si el elegido falla igual, el router hace failover.
      */
     private suspend fun pickPreferredProvider(provider: Int, task: MixTask): String? {
-        return when (provider) {
-            3 -> {
-                val dynamicMode = settingsRepository.dynamicModeFlow.first()
-                if (dynamicMode == 1) pickPreferredProviderForFull(task)
-                else pickPreferredProviderForMix(task)
-            }
-            else -> null
+        if (provider != 2) return null   // modos individuales: un solo provider
+        val keys = buildApiKeysMap(provider)
+        val wanted = when (task) {
+            MixTask.LONG_AUDIO, MixTask.LONG_TEXT -> "gemini"
+            else -> "groq"
+        }
+        val other = if (wanted == "gemini") "groq" else "gemini"
+        fun usable(id: String) = keys[id].orEmpty().any { !ProviderRouter.isOnCooldown(id, it) }
+        return when {
+            usable(wanted) -> wanted
+            usable(other) -> other
+            else -> wanted
         }
     }
 
@@ -695,45 +623,21 @@ class ResultViewModel(
     // ============================================================
 
     /**
-     * Construye el map de listas de API keys disponibles según el modo
-     * configurado.
-     *
-     * Modo 0 (Gemini):  solo las keys de Gemini.
-     * Modo 1 (Groq):    solo las keys de Groq.
-     * Modo 2 (Standard): ambas listas (las que estén configuradas).
-     *
-     * El router se encarga de rotar entre las keys de cada lista si alguna
-     * tira 429. Si una lista tiene 1 solo elemento (el caso de usuarios que
-     * nunca activaron la rotación), el comportamiento es idéntico al de
-     * Release 1.x / 2.0 / 2.1.
-     */
-    /**
-     * Construye el map de listas de API keys según el modo configurado.
-     *
-     * Modos:
+     * Map de listas de API keys según el modo:
      *   0 = Gemini solo → {gemini}
      *   1 = Groq solo   → {groq}
-     *   2 = NVIDIA solo → {nvidia}
-     *   3 = Dynamic:
-     *       sub-modo 0 (Standard) → {gemini, groq}
-     *       sub-modo 1 (Max)      → {gemini, groq, nvidia}
+     *   2 = Dynamic     → {gemini, groq} (las que estén configuradas)
      */
     private suspend fun buildApiKeysMap(provider: Int): Map<String, List<String>> {
         val map = mutableMapOf<String, List<String>>()
-
         val geminiKeys = settingsRepository.geminiApiKeysFlow.first().filter { it.isNotBlank() }
         val groqKeys = settingsRepository.groqApiKeysFlow.first().filter { it.isNotBlank() }
-        val nvidiaKeys = settingsRepository.nvidiaApiKeysFlow.first().filter { it.isNotBlank() }
-
         when (provider) {
             0 -> if (geminiKeys.isNotEmpty()) map["gemini"] = geminiKeys
             1 -> if (groqKeys.isNotEmpty()) map["groq"] = groqKeys
-            2 -> if (nvidiaKeys.isNotEmpty()) map["nvidia"] = nvidiaKeys
-            3 -> {
-                val dynamicMode = settingsRepository.dynamicModeFlow.first()
+            else -> {
                 if (geminiKeys.isNotEmpty()) map["gemini"] = geminiKeys
                 if (groqKeys.isNotEmpty()) map["groq"] = groqKeys
-                if (dynamicMode == 1 && nvidiaKeys.isNotEmpty()) map["nvidia"] = nvidiaKeys
             }
         }
         return map
@@ -901,120 +805,62 @@ class ResultViewModel(
                 return@launch
             }
 
-            // Check: ¿alguno de los providers en el map soporta transcripción?
-            // Esto cubre el caso de usuario en modo NVIDIA-solo: NVIDIA no
-            // transcribe audio, así que hay que darle un error claro en vez
-            // de un "no candidates" genérico.
-            val hasTranscriber = apiKeys.keys.any { id ->
-                when (id) {
-                    "gemini", "groq" -> true
-                    else -> false
-                }
-            }
-            if (!hasTranscriber) {
-                launch(Dispatchers.Main) {
-                    _error.value = appContext.getString(R.string.error_nvidia_cannot_transcribe)
-                    _isLoading.value = false
-                }
-                return@launch
-            }
-
-            var compressedFile: File? = null
             try {
                 val originalFile = File(audioPath)
                 if (!originalFile.exists()) throw Exception(appContext.getString(R.string.error_audio_not_found_pending))
 
                 var transcript: String? = null
                 var fileToUpload = originalFile
+                var workingNote = currentNote
+                val compressionMode = settingsRepository.autoCompressionModeFlow.first()
 
-                val compressionModeForRouting = settingsRepository.autoCompressionModeFlow.first()
-
-                // Preferencia de provider para Standard mode:
-                //   - Si el audio entra en el límite de Groq (< 20 MB) → Groq
-                //   - Si es comprimible por debajo del límite → Groq (con compresión)
-                //   - Si no → Gemini (no tiene límite de tamaño)
-                // El preferred se pasa al router. Si el preferido falla con
-                // un error reintentable, el router cae al otro automáticamente.
-                // El preferido para transcripción depende del modo:
-                //   - Modo individual (0/1/2): null, el router elige por
-                //     orden del map (solo hay uno).
-                //   - Dynamic (3): si entra en Groq → Groq. Si no → Gemini.
-                //     NVIDIA no participa porque no soporta TRANSCRIPTION.
-                val preferred: String? = if (provider == 3) {
-                    val fits = originalFile.length() <= 20 * 1024 * 1024
-                    val compressible = compressionModeForRouting > 0 &&
-                        AudioCompressor.calculateTargetBitrate(
-                            getAudioDurationMs(originalFile),
-                            if (compressionModeForRouting == 1) 24.0 else 15.0
-                        ) != null
-                    if (fits || compressible) "groq" else "gemini"
-                } else {
-                    null
-                }
-
-                // Compresión previa: solo intentamos comprimir si el provider
-                // preferido es Groq y el archivo excede su límite. Si el
-                // preferido es Gemini, no comprimimos.
-                val shouldTryCompress = (preferred == "groq" || provider == 1) &&
-                    originalFile.length() > 24 * 1024 * 1024 &&
-                    compressionModeForRouting > 0
-
-                if (shouldTryCompress) {
-                    val targetSizeMB = if (compressionModeForRouting == 1) 24.0 else 15.0
-                    val durationMs = getAudioDurationMs(originalFile)
-                    val targetBitrate = AudioCompressor.calculateTargetBitrate(durationMs, targetSizeMB)
-                    if (targetBitrate != null) {
-                        launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_compressing) }
-                        val tempFile = File(appContext.cacheDir, "compressed_${System.currentTimeMillis()}.mp4")
-                        when (val result = AudioCompressor.compress(originalFile, tempFile, targetBitrate) { percent ->
-                            launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_compressing_pct, percent) }
-                        }) {
-                            is AudioCompressor.Result.Success -> {
+                // 1) COMPRESIÓN. Lo que se comprime es lo que se envía a los
+                //    modelos (cualquier provider) y REEMPLAZA al original en
+                //    la nota y en disco: así queda siempre el respaldo más barato.
+                if (compressionMode > 0) {
+                    val targetSizeMB = if (compressionMode == 1) 24.0 else 15.0
+                    if (originalFile.length() > (targetSizeMB * 1024 * 1024).toLong()) {
+                        val durationMs = getAudioDurationMs(originalFile)
+                        val targetBitrate = AudioCompressor.calculateTargetBitrate(durationMs, targetSizeMB)
+                        if (targetBitrate != null) {
+                            launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_compressing) }
+                            val audioDir = File(appContext.filesDir, "audio_records").apply { mkdirs() }
+                            val outFile = File(audioDir, "RECORD_${System.currentTimeMillis()}.mp4")
+                            val result = AudioCompressor.compress(originalFile, outFile, targetBitrate) { percent ->
+                                launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_compressing_pct, percent) }
+                            }
+                            if (result is AudioCompressor.Result.Success && result.newSize in 1 until result.originalSize) {
                                 fileToUpload = result.outputFile
-                                compressedFile = result.outputFile
+                                workingNote = currentNote.copy(audioPath = result.outputFile.absolutePath)
+                                _note.value = workingNote
+                                noteRepository.update(workingNote)
+                                try { originalFile.delete() } catch (_: Exception) {}
+                            } else {
+                                try { outFile.delete() } catch (_: Exception) {}
                             }
-                            is AudioCompressor.Result.QualityTooLow -> {
-                                // No se pudo comprimir bien. Si el user está en
-                                // modo Groq explícito, error claro. Si está en
-                                // Standard, dejamos que el router caiga a Gemini.
-                                if (provider == 1) {
-                                    launch(Dispatchers.Main) {
-                                        _error.value = appContext.getString(R.string.error_audio_too_long_groq)
-                                        _isLoading.value = false
-                                    }
-                                    return@launch
-                                }
-                            }
-                            is AudioCompressor.Result.Failure -> {
-                                if (provider == 1) {
-                                    launch(Dispatchers.Main) {
-                                        _error.value = appContext.getString(R.string.error_compression_failed)
-                                        _isLoading.value = false
-                                    }
-                                    return@launch
-                                }
-                            }
-                        }
-                    } else {
-                        if (provider == 1) {
-                            launch(Dispatchers.Main) {
-                                _error.value = appContext.getString(R.string.error_audio_too_long_groq)
-                                _isLoading.value = false
-                            }
-                            return@launch
                         }
                     }
-                } else if (provider == 1 && originalFile.length() > 24 * 1024 * 1024 && compressionModeForRouting == 0) {
-                    // Modo Groq explícito sin compresión y archivo grande:
-                    // error claro en vez de dejar que falle la API.
+                }
+
+                // 2) Groq solo: si aun comprimido no entra, error claro.
+                val groqLimit = 24L * 1024 * 1024
+                if (provider == 1 && fileToUpload.length() > groqLimit) {
                     launch(Dispatchers.Main) {
-                        _error.value = appContext.getString(R.string.error_file_exceeds_groq)
+                        _error.value = appContext.getString(
+                            if (compressionMode == 0) R.string.error_file_exceeds_groq
+                            else R.string.error_audio_too_long_groq
+                        )
                         _isLoading.value = false
                     }
                     return@launch
                 }
 
-                // Loading message según el provider preferido.
+                // 3) Provider preferido (ya con el tamaño final): lo que entra
+                //    en Groq va a Groq; lo demás a Gemini (que queda reservado
+                //    para audio grande y no gasta cuota en lo corto).
+                val audioTask = if (fileToUpload.length() <= groqLimit) MixTask.SHORT_AUDIO else MixTask.LONG_AUDIO
+                val preferred: String? = pickPreferredProvider(provider, audioTask)
+
                 val loadingMsgRes = if (preferred == "groq" || provider == 1) {
                     R.string.loading_transcribing_groq
                 } else {
@@ -1022,8 +868,6 @@ class ResultViewModel(
                 }
                 launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(loadingMsgRes) }
 
-                // Delegamos al router. Él intenta el preferido primero y
-                // cae al otro si el preferido falla con 413/429/5xx.
                 transcript = router.transcribeWithFallback(
                     apiKeys = apiKeys,
                     audioFile = fileToUpload,
@@ -1032,7 +876,7 @@ class ResultViewModel(
 
                 launch(Dispatchers.Main) {
                     if (transcript != null && !transcript.contains("[No speech detected]")) {
-                        val updatedNote = currentNote.copy(rawText = transcript, timestamp = System.currentTimeMillis())
+                        val updatedNote = workingNote.copy(rawText = transcript, timestamp = System.currentTimeMillis())
                         _note.value = updatedNote
                         noteRepository.update(updatedNote)
 
@@ -1066,12 +910,6 @@ class ResultViewModel(
                 launch(Dispatchers.Main) {
                     _error.value = handleExceptionError(e)
                     _isLoading.value = false
-                }
-            } finally {
-                // El archivo remoto de Gemini lo limpia GeminiProvider.transcribe
-                // internamente. Acá solo limpiamos el archivo temporal comprimido.
-                compressedFile?.let {
-                    try { it.delete() } catch (_: Exception) {}
                 }
             }
         }

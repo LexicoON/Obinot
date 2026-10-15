@@ -105,12 +105,6 @@ class SettingsViewModel(
         initialValue = emptyList()
     )
 
-    val nvidiaApiKeys: StateFlow<List<String>> = settingsRepository.nvidiaApiKeysFlow.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
-
     val keyRotationEnabled: StateFlow<Boolean> = settingsRepository.keyRotationEnabledFlow.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -123,10 +117,10 @@ class SettingsViewModel(
         initialValue = false
     )
 
-    val dynamicMode: StateFlow<Int> = settingsRepository.dynamicModeFlow.stateIn(
+    val blurEnabled: StateFlow<Boolean> = settingsRepository.blurEnabledFlow.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 0
+        initialValue = true
     )
 
     val themeMode: StateFlow<Int> = settingsRepository.themeModeFlow.stateIn(
@@ -243,10 +237,6 @@ class SettingsViewModel(
         viewModelScope.launch { settingsRepository.saveGroqApiKeys(keys) }
     }
 
-    fun saveNvidiaApiKeys(keys: List<String>) {
-        viewModelScope.launch { settingsRepository.saveNvidiaApiKeys(keys) }
-    }
-
     fun saveKeyRotationEnabled(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.saveKeyRotationEnabled(enabled) }
     }
@@ -255,8 +245,8 @@ class SettingsViewModel(
         viewModelScope.launch { settingsRepository.saveAlphaUnlocked(enabled) }
     }
 
-    fun saveDynamicMode(mode: Int) {
-        viewModelScope.launch { settingsRepository.saveDynamicMode(mode) }
+    fun saveBlurEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.saveBlurEnabled(enabled) }
     }
 
     fun saveThemeMode(mode: Int) {

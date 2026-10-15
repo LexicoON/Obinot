@@ -20,7 +20,6 @@ class SettingsRepository(private val context: Context) {
         // como strings con separator \n (las API keys no contienen \n).
         val GEMINI_API_KEYS = stringPreferencesKey("gemini_api_keys")
         val GROQ_API_KEYS = stringPreferencesKey("groq_api_keys")
-        val NVIDIA_API_KEYS = stringPreferencesKey("nvidia_api_keys")
 
         // --- API KEYS (singular, retrocompat con <=2.1.1) ---
         // Se leen si las listas nuevas no existen. Se limpian cuando el user
@@ -33,11 +32,6 @@ class SettingsRepository(private val context: Context) {
         // Alpha unlock: permite más de 3 keys por provider (hasta 6).
         val ALPHA_UNLOCKED = booleanPreferencesKey("alpha_unlocked")
 
-        // --- DYNAMIC SUB-MODE (Release 2) ---
-        // Solo aplica cuando AI_PROVIDER == 3 (Dynamic).
-        // 0 = Standard (Gemini + Groq).
-        // 1 = Max (Gemini + Groq + NVIDIA), prioriza calidad sobre velocidad.
-        val DYNAMIC_MODE_KEY = intPreferencesKey("dynamic_mode")
 
         // --- GLOBAL AI PREFERENCES ---
         val THEME_MODE_KEY = intPreferencesKey("theme_mode")
@@ -54,6 +48,8 @@ class SettingsRepository(private val context: Context) {
         val AUTO_COMPRESSION_MODE_KEY = intPreferencesKey("auto_compression_mode")
 
         val MIX_COUNTER_KEY = intPreferencesKey("mix_counter")
+
+        val BLUR_ENABLED_KEY = booleanPreferencesKey("frosted_blur_enabled")
 
         val NATIVE_PICKER_KEY = booleanPreferencesKey("native_audio_picker_enabled")
         val NATIVE_PICKER_MIGRATED_KEY = booleanPreferencesKey("native_picker_migrated")
@@ -106,15 +102,10 @@ class SettingsRepository(private val context: Context) {
         else prefs[GROQ_API_KEY]?.takeIf { it.isNotBlank() }?.let { listOf(it) } ?: emptyList()
     }
 
-    val nvidiaApiKeysFlow: Flow<List<String>> = context.dataStore.data.map { prefs ->
-        splitKeys(prefs[NVIDIA_API_KEYS])
-    }
-
     // --- Retrocompat: singular flows. Devuelven la primera key, o "". ---
 
     val geminiApiKeyFlow: Flow<String> = geminiApiKeysFlow.map { it.firstOrNull() ?: "" }
     val groqApiKeyFlow: Flow<String> = groqApiKeysFlow.map { it.firstOrNull() ?: "" }
-    val nvidiaApiKeyFlow: Flow<String> = nvidiaApiKeysFlow.map { it.firstOrNull() ?: "" }
 
     // ============================================================
     // Otros flows
@@ -123,7 +114,11 @@ class SettingsRepository(private val context: Context) {
     val userNameFlow: Flow<String> = context.dataStore.data.map { it[USER_NAME_KEY] ?: "" }
     val themeModeFlow: Flow<Int> = context.dataStore.data.map { it[THEME_MODE_KEY] ?: 0 }
     val recordModeFlow: Flow<Int> = context.dataStore.data.map { it[RECORD_MODE_KEY] ?: 0 }
-    val aiProviderFlow: Flow<Int> = context.dataStore.data.map { it[AI_PROVIDER_KEY] ?: 0 }
+    // 0 = Gemini, 1 = Groq, 2 = Dynamic. Migración: el viejo 2 (NVIDIA) y el
+    // viejo 3 (Dynamic) pasan a 2.
+    val aiProviderFlow: Flow<Int> = context.dataStore.data.map {
+        when (val p = it[AI_PROVIDER_KEY] ?: 0) { 2, 3 -> 2; else -> p.coerceIn(0, 2) }
+    }
     val backgroundRecordingFlow: Flow<Boolean> = context.dataStore.data.map { it[BACKGROUND_RECORDING_KEY] ?: false }
     val liveTranscriptFlow: Flow<Boolean> = context.dataStore.data.map { it[LIVE_TRANSCRIPT_KEY] ?: false }
 
@@ -142,8 +137,6 @@ class SettingsRepository(private val context: Context) {
     val keyRotationEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[KEY_ROTATION_ENABLED] ?: false }
     val alphaUnlockedFlow: Flow<Boolean> = context.dataStore.data.map { it[ALPHA_UNLOCKED] ?: false }
 
-    // --- Dynamic sub-mode ---
-    val dynamicModeFlow: Flow<Int> = context.dataStore.data.map { it[DYNAMIC_MODE_KEY] ?: 0 }
 
     /**
      * Native picker: default ON desde 2.2. Para usuarios que actualizan desde
@@ -184,12 +177,6 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
-    suspend fun saveNvidiaApiKeys(keys: List<String>) {
-        context.dataStore.edit { prefs ->
-            prefs[NVIDIA_API_KEYS] = joinKeys(keys)
-        }
-    }
-
     // --- Retrocompat: los setters viejos guardan lista de 1. ---
 
     suspend fun saveGeminiApiKey(key: String) = saveGeminiApiKeys(listOf(key))
@@ -205,10 +192,6 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun saveAlphaUnlocked(enabled: Boolean) {
         context.dataStore.edit { it[ALPHA_UNLOCKED] = enabled }
-    }
-
-    suspend fun saveDynamicMode(mode: Int) {
-        context.dataStore.edit { it[DYNAMIC_MODE_KEY] = mode.coerceIn(0, 1) }
     }
 
     // ============================================================
@@ -228,7 +211,7 @@ class SettingsRepository(private val context: Context) {
     }
 
     suspend fun saveAiProvider(provider: Int) {
-        context.dataStore.edit { it[AI_PROVIDER_KEY] = provider }
+        context.dataStore.edit { it[AI_PROVIDER_KEY] = provider.coerceIn(0, 2) }
     }
 
     suspend fun saveAiLanguage(language: String) {
@@ -294,6 +277,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun resetMixCounter() {
         context.dataStore.edit { it[MIX_COUNTER_KEY] = 0 }
+    }
+
+    val blurEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[BLUR_ENABLED_KEY] ?: true }
+
+    suspend fun saveBlurEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[BLUR_ENABLED_KEY] = enabled }
     }
 
     suspend fun saveAppLanguage(lang: String) {

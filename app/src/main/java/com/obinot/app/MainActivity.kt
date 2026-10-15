@@ -23,6 +23,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import com.obinot.app.ui.components.LocalBlurEnabled
+import com.obinot.app.ui.components.frostedSource
+import com.obinot.app.ui.components.frostedSurface
+import com.obinot.app.ui.components.isLiveBlurSupported
+import com.obinot.app.ui.components.rememberFrostedBackdrop
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Icon
@@ -221,13 +226,26 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
 
     val tabFadeSpec = spring<Float>(dampingRatio = 1.0f, stiffness = 1600f)
 
+    val blurEnabled by settingsViewModel.blurEnabled.collectAsState()
+    val useFrostedBar = blurEnabled && isLiveBlurSupported
+    val frostedBackdrop = rememberFrostedBackdrop()
+
+    androidx.compose.runtime.CompositionLocalProvider(LocalBlurEnabled provides blurEnabled) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
             if (currentRoute in listOf("record", "history", "settings")) {
-                ShortNavigationBar {
+                ShortNavigationBar(
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                    modifier = Modifier.frostedSurface(
+                        backdrop = frostedBackdrop,
+                        shape = androidx.compose.ui.graphics.RectangleShape,
+                        tint = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.62f),
+                        fallbackColor = MaterialTheme.colorScheme.surfaceContainer
+                    )
+                ) {
                     ShortNavigationBarItem(
                         selected = currentRoute == "record",
                         onClick = {
@@ -275,7 +293,10 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
             NavHost(
                 navController = navController,
                 startDestination = startDestination,
-                modifier = Modifier.padding(innerPadding),
+                // Con blur activo el contenido llega hasta abajo y se ve borroso
+                // detrás de la barra; sin blur se conserva el layout anterior.
+                modifier = if (useFrostedBar) Modifier.frostedSource(frostedBackdrop)
+                           else Modifier.padding(innerPadding),
                 enterTransition = {
                     if (targetState.destination.route?.startsWith("result") == true || initialState.destination.route?.startsWith("result") == true)
                         fadeIn(tween(0))
@@ -443,5 +464,6 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
                 }
             }
         }
+    }
     }
 }

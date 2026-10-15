@@ -14,14 +14,14 @@ import java.io.File
  * y decide si reintentar con otro provider.
  *
  * IMPORTANTE: el método transcribe() devuelve null cuando el provider
- * "legítimamente" no puede transcribir (ej: NVIDIA no tiene modelo de
+ * "legítimamente" no puede transcribir (ej: un provider sin modelo de
  * transcripción). Distinto es tirar excepción, que significa "fallé al
  * intentar". El router usa esta distinción para decidir si vale la pena
  * probar otro provider con la misma capability.
  */
 abstract class AiProvider {
 
-    /** Identificador único, estable. Ej: "gemini", "groq", "nvidia". */
+    /** Identificador único, estable. Ej: "gemini", "groq". */
     abstract val id: String
 
     /** Nombre legible para la UI. Ej: "Google Gemini". */
@@ -33,7 +33,7 @@ abstract class AiProvider {
     /**
      * true si el provider soporta múltiples API keys con failover.
      * La rotación en sí la implementa el router en Release 2; este flag
-     * solo declara la intención. Los tres providers actuales la soportan.
+     * solo declara la intención. Los dos providers actuales la soportan.
      */
     abstract val supportsKeyRotation: Boolean
 
