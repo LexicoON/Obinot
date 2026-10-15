@@ -125,6 +125,7 @@ fun FrostedModalBottomSheet(
     onDismissRequest: () -> Unit,
     sheetState: androidx.compose.material3.SheetState,
     containerColor: Color = androidx.compose.material3.BottomSheetDefaults.ContainerColor,
+    sheetGesturesEnabled: Boolean = true,
     content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
 ) {
     val backdrop = LocalFrostedBackdrop.current
@@ -133,6 +134,7 @@ fun FrostedModalBottomSheet(
         androidx.compose.material3.ModalBottomSheet(
             onDismissRequest = onDismissRequest,
             sheetState = sheetState,
+            sheetGesturesEnabled = sheetGesturesEnabled,
             containerColor = containerColor,
             content = content
         )
@@ -142,6 +144,7 @@ fun FrostedModalBottomSheet(
     androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
+        sheetGesturesEnabled = sheetGesturesEnabled,
         containerColor = Color.Transparent,
         shape = shape,
         dragHandle = null,
