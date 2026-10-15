@@ -2,6 +2,7 @@
 
 package com.obinot.app.ui.screens
 
+import com.obinot.app.ui.components.FrostedModalBottomSheet
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
