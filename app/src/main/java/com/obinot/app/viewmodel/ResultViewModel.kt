@@ -200,7 +200,7 @@ class ResultViewModel(
 
     private fun checkAndTriggerAutoProcess(noteToProcess: NoteEntity) {
         viewModelScope.launch {
-            val lang = settingsRepository.resolveAiLanguage(settingsRepository.aiLanguageFlow.first())
+            val lang = com.obinot.app.data.SettingsRepository.resolveAiLanguage(settingsRepository.aiLanguageFlow.first())
             val task = settingsRepository.aiTaskFlow.first()
             val format = settingsRepository.aiFormatFlow.first()
             val currentMeta = "<!--BINOT_META:${lang}_${task}_${format}-->"
@@ -234,7 +234,7 @@ class ResultViewModel(
         if (_isLoading.value) return
 
         viewModelScope.launch {
-            val lang = settingsRepository.resolveAiLanguage(settingsRepository.aiLanguageFlow.first())
+            val lang = com.obinot.app.data.SettingsRepository.resolveAiLanguage(settingsRepository.aiLanguageFlow.first())
             val task = settingsRepository.aiTaskFlow.first()
             val format = settingsRepository.aiFormatFlow.first()
             val currentMeta = "<!--BINOT_META:${lang}_${task}_${format}-->"
@@ -664,7 +664,7 @@ class ResultViewModel(
                     return@launch
                 }
 
-                val targetLanguage = settingsRepository.resolveAiLanguage(settingsRepository.aiLanguageFlow.first())
+                val targetLanguage = com.obinot.app.data.SettingsRepository.resolveAiLanguage(settingsRepository.aiLanguageFlow.first())
 
                 // Prompt unificado: sirve tanto para Gemini como para Groq.
                 // Los overrides de Groq (math isolation, mermaid explícito) se
@@ -1198,7 +1198,7 @@ class ResultViewModel(
                     return@launch
                 }
 
-                val targetLanguage = settingsRepository.resolveAiLanguage(settingsRepository.aiLanguageFlow.first())
+                val targetLanguage = com.obinot.app.data.SettingsRepository.resolveAiLanguage(settingsRepository.aiLanguageFlow.first())
 
                 val cleanSummary = currentNote.summary
                     ?.replace(Regex("<!--BINOT_META:.*?-->"), "")
