@@ -49,6 +49,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
@@ -538,7 +540,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     // graphicsLayer al padre, el GLFunctor del WebView queda
                     // apuntando a un SkSurface inválido y crashea en
                     // SkSurface::getCanvas()+16.
-                    compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+                    compositingStrategy = CompositingStrategy.Offscreen
                 }
                 .alpha(webViewAlpha),
             factory = { ctx ->
