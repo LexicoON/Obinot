@@ -135,9 +135,22 @@ fun FrostedModalBottomSheet(
             onDismissRequest = onDismissRequest,
             sheetState = sheetState,
             sheetGesturesEnabled = sheetGesturesEnabled,
-            containerColor = containerColor,
-            content = content
-        )
+            containerColor = containerColor
+        ) {
+            androidx.compose.foundation.layout.Column {
+                androidx.compose.foundation.layout.Box(
+                    modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
+                    contentAlignment = androidx.compose.ui.Alignment.Center
+                ) { androidx.compose.material3.BottomSheetDefaults.DragHandle() }
+                content()
+                androidx.compose.foundation.layout.Spacer(
+                    Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars)
+                )
+                androidx.compose.foundation.layout.Spacer(
+                    androidx.compose.foundation.layout.height(LocalBottomBarInset.current)
+                )
+            }
+        }
         return
     }
     val shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
@@ -169,6 +182,9 @@ fun FrostedModalBottomSheet(
             content()
             androidx.compose.foundation.layout.Spacer(
                 Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars)
+            )
+            androidx.compose.foundation.layout.Spacer(
+                androidx.compose.foundation.layout.height(LocalBottomBarInset.current)
             )
         }
     }

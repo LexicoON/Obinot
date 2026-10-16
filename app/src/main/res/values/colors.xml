@@ -8,8 +8,11 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
-    <!-- Splash screen. El color de fondo del splash. Se cambia por el que
-         prefieras — actualmente un gris neutro que combina con el theme
-         light/dark de la app. -->
+    <!-- Splash screen. El color de fondo del splash. -->
     <color name="splash_background">#FFF7F7F9</color>
+
+    <!-- Círculo de color detrás del ícono del splash. Resuelve el problema
+         del ícono blanco invisible sobre fondo claro. El púrpura primario
+         de Obinot contrasta tanto en light como en dark. -->
+    <color name="splash_icon_background">#FF7A5CFF</color>
 </resources>

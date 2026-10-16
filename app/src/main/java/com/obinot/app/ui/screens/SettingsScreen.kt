@@ -1808,7 +1808,12 @@ fun SettingsScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        snackbarHost = {
+    SnackbarHost(
+        hostState = snackbarHostState,
+        modifier = Modifier.padding(bottom = com.obinot.app.ui.components.LocalBottomBarInset.current)
+    )
+}
     ) { innerPadding ->
 
         val topInsets = WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()

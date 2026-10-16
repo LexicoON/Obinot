@@ -1313,12 +1313,12 @@ private fun RecordScreenActionButtons(
 @Composable
 private fun M3ExpressiveBackground() {
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    // Secondary y tertiary, no primary. Ver comentario de la función.
     val secondaryColor = MaterialTheme.colorScheme.secondary
     val tertiaryColor = MaterialTheme.colorScheme.tertiary
+    val sparkleColor = MaterialTheme.colorScheme.primary
 
-    // Alphas sutiles. En dark mode un poco más altos porque el surface
-    // oscuro absorbe más el tinte.
+    val blurEnabled = com.obinot.app.ui.components.LocalBlurEnabled.current
+
     val secondaryAlpha = if (isDark) 0.18f else 0.10f
     val tertiaryAlpha = if (isDark) 0.14f else 0.08f
 
@@ -1345,12 +1345,8 @@ private fun M3ExpressiveBackground() {
     Canvas(modifier = Modifier.fillMaxSize()) {
         val w = size.width
         val h = size.height
-        // Radio basado en la dimensión menor. Garantiza que las burbujas
-        // no toquen el borde en ninguna orientación.
         val baseRadius = 0.5f * minOf(w, h)
 
-        // Burbuja A: orbita alrededor del centro-derecha superior.
-        // Amplitud horizontal grande (25% del ancho), vertical chica.
         val ampAx = w * 0.25f
         val ampAy = h * 0.15f
         val baseCxA = w * 0.55f
@@ -1373,8 +1369,6 @@ private fun M3ExpressiveBackground() {
             radius = radiusA
         )
 
-        // Burbuja B: orbita alrededor del centro-izquierda inferior.
-        // Amplitudes distintas para que el movimiento no sea espejado.
         val ampBx = w * 0.20f
         val ampBy = h * 0.18f
         val baseCxB = w * 0.35f
@@ -1395,6 +1389,50 @@ private fun M3ExpressiveBackground() {
             ),
             center = Offset(cxB, cyB),
             radius = radiusB
+        )
+
+        // Sparkles sutiles. Solo se activan con blur on, así apagar el blur
+        // para performance también apaga el costo de las partículas.
+        if (blurEnabled) {
+            drawRecordSparkles(
+                color = sparkleColor,
+                count = 30,
+                timePhase = phaseA / (2 * Math.PI).toFloat()
+            )
+        }
+    }
+}
+
+/**
+ * Partículas tipo sparkle para RecordScreen. Menos intensas que las del
+ * final del onboarding (30 vs 60, alpha pico 0.32 vs 0.7, drift más lento)
+ * para que se sientan "vivas" sin distraer del gesto de grabar.
+ */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawRecordSparkles(
+    color: Color,
+    count: Int,
+    timePhase: Float
+) {
+    val w = size.width
+    val h = size.height
+    val rng = kotlin.random.Random(7)
+    val baseRadius = size.minDimension * 0.0018f
+    repeat(count) { i ->
+        val bx = rng.nextFloat()
+        val by = rng.nextFloat()
+        val drift = rng.nextFloat() * 0.03f + 0.01f
+        val twinkleSpeed = 0.4f + rng.nextFloat() * 0.8f
+        val phase = rng.nextFloat()
+
+        val x = ((bx + timePhase * drift) % 1f) * w
+        val y = ((by + timePhase * drift * 0.6f) % 1f) * h
+        val twinkle = (kotlin.math.sin((timePhase * twinkleSpeed + phase) * 2f * Math.PI.toFloat()) + 1f) * 0.5f
+        val alpha = (0.08f + 0.24f * twinkle).coerceIn(0f, 0.32f)
+
+        drawCircle(
+            color = color.copy(alpha = alpha),
+            radius = baseRadius * (0.55f + rng.nextFloat() * 0.9f),
+            center = Offset(x, y)
         )
     }
 }

@@ -89,7 +89,23 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // installSplashScreen() DEBE ir antes de super.onCreate().
-        installSplashScreen()
+        val splash = installSplashScreen()
+
+        // Exit animation: el splash no desaparece de golpe cuando la app está
+        // lista, se disuelve en 500ms con un decelerate para que se sienta
+        // como un fade del sistema en vez de un "pop".
+        splash.setOnExitAnimationListener { splashScreenView ->
+            val fadeOut = android.animation.ObjectAnimator.ofFloat(
+                splashScreenView.view,
+                android.view.View.ALPHA,
+                1f,
+                0f
+            )
+            fadeOut.duration = 500L
+            fadeOut.interpolator = android.view.animation.DecelerateInterpolator()
+            fadeOut.doOnEnd { splashScreenView.remove() }
+            fadeOut.start()
+        }
 
         super.onCreate(savedInstanceState)
 
@@ -306,16 +322,26 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
                 modifier = if (useFrostedBar) Modifier.frostedSource(frostedBackdrop)
                            else Modifier.padding(innerPadding),
                 enterTransition = {
-                    if (targetState.destination.route?.startsWith("result") == true || initialState.destination.route?.startsWith("result") == true)
+                    val fromOnboarding = initialState.destination.route == "onboarding"
+                    val toRecord = targetState.destination.route == "record"
+                    if (fromOnboarding && toRecord) {
+                        fadeIn(tween(700, easing = androidx.compose.animation.core.LinearEasing))
+                    } else if (targetState.destination.route?.startsWith("result") == true || initialState.destination.route?.startsWith("result") == true) {
                         fadeIn(tween(0))
-                    else
+                    } else {
                         fadeIn(tabFadeSpec)
+                    }
                 },
                 exitTransition = {
-                    if (targetState.destination.route?.startsWith("result") == true || initialState.destination.route?.startsWith("result") == true)
+                    val fromOnboarding = initialState.destination.route == "onboarding"
+                    val toRecord = targetState.destination.route == "record"
+                    if (fromOnboarding && toRecord) {
+                        fadeOut(tween(700, easing = androidx.compose.animation.core.LinearEasing))
+                    } else if (targetState.destination.route?.startsWith("result") == true || initialState.destination.route?.startsWith("result") == true) {
                         fadeOut(tween(0))
-                    else
+                    } else {
                         fadeOut(tabFadeSpec)
+                    }
                 },
                 popEnterTransition = {
                     if (targetState.destination.route?.startsWith("result") == true || initialState.destination.route?.startsWith("result") == true)
