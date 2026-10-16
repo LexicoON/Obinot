@@ -3,6 +3,7 @@ package com.obinot.app.ui.components
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
@@ -147,7 +148,7 @@ fun FrostedModalBottomSheet(
                     Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars)
                 )
                 androidx.compose.foundation.layout.Spacer(
-                    androidx.compose.foundation.layout.height(LocalBottomBarInset.current)
+                    Modifier.height(LocalBottomBarInset.current)
                 )
             }
         }
@@ -184,7 +185,7 @@ fun FrostedModalBottomSheet(
                 Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars)
             )
             androidx.compose.foundation.layout.Spacer(
-                androidx.compose.foundation.layout.height(LocalBottomBarInset.current)
+                Modifier.height(LocalBottomBarInset.current)
             )
         }
     }

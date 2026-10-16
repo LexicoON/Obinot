@@ -103,7 +103,11 @@ class MainActivity : AppCompatActivity() {
             )
             fadeOut.duration = 500L
             fadeOut.interpolator = android.view.animation.DecelerateInterpolator()
-            fadeOut.doOnEnd { splashScreenView.remove() }
+            fadeOut.addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    splashScreenView.remove()
+                }
+            })
             fadeOut.start()
         }
 
