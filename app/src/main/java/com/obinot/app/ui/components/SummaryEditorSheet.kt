@@ -63,7 +63,7 @@ fun SummaryEditorSheet(
     var isPreview by remember { mutableStateOf(false) }
     val previewScrollState = rememberScrollState()
 
-    ModalBottomSheet(
+    FrostedModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow

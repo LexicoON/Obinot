@@ -39,5 +39,8 @@ data class NoteEntity(
     // Se persiste con la nota. NO se incluye en el .binot (exportNoteToBinot tiene
     // su propio data.json explícito sin este campo). SÍ se incluye en el backup
     // .obinotbak, porque el backup serializa NoteEntity completa con Moshi.
-    val chatHistory: String? = null
+    val chatHistory: String? = null,
+    // Colores de texto por rol Material: JSON [{"text":"...","role":"primary"}]. Ver utils/ColorSpans.
+    // El summary se guarda limpio (sin etiquetas); va en .binot y en el backup.
+    val colorSpans: String? = null
 )

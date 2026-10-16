@@ -2,16 +2,16 @@ package com.obinot.app.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MotionScheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.material3.Shapes
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import com.materialkolor.DynamicMaterialExpressiveTheme
 import com.materialkolor.PaletteStyle
@@ -95,7 +95,67 @@ fun BinotTheme(
         isAmoled = isAmoled,
         style = paletteStyle,
         shapes = ExpressiveShapes,
-        typography = Typography,
-        content = content
+        typography = Typography
+    ) {
+        // Dark mode rework: MaterialKolor (y Material 3 en general) producen
+        // tokens de superficie "gris puro" en modo oscuro. Es técnicamente
+        // correcto según la spec, pero para una app con tanta personalidad
+        // visual se siente plana y muerta.
+        //
+        // Acá mezclamos un porcentaje bajo del SEED color en cada token de
+        // superficie. El resultado es un canvas con un tinte sutil de la
+        // paleta elegida — no Vibrant, no Expressive, simplemente "vivo".
+        // Los porcentajes son intencionalmente bajos (10-16%): suficiente
+        // para verse claramente, no tanto como para pelear con el contenido.
+        //
+        // Se desactiva en AMOLED: el punto de ese modo es negro puro, así
+        // que tintar lo arruinaría.
+        val baseScheme = MaterialTheme.colorScheme
+        val tintedScheme = if (isDark && !isAmoled) {
+            baseScheme.tintedForDarkMode(seed)
+        } else {
+            baseScheme
+        }
+
+        MaterialTheme(
+            colorScheme = tintedScheme,
+            shapes = ExpressiveShapes,
+            typography = Typography,
+            content = content
+        )
+    }
+}
+
+/**
+ * Devuelve un ColorScheme con los tokens de superficie tintados con el
+ * seed color. Se aplica SOLO en modo oscuro y SOLO fuera de AMOLED.
+ *
+ * Los porcentajes suben levemente a medida que el token es "más alto" en
+ * la jerarquía de superficies de M3 (Lowest → Highest), así los sheets y
+ * cards flotantes quedan sutilmente más saturados que el fondo. Eso crea
+ * profundidad sin recurrir a sombras pesadas.
+ *
+ * Por qué funciona: los colores M3 oscuros por defecto tienen chroma
+ * cercano a 0 (son grises neutros). Mezclar el seed color — que tiene
+ * chroma alto — eleva el chroma del resultado sin cambiar demasiado la
+ * luminosidad, así que el contraste con onSurface se mantiene intacto.
+ */
+private fun ColorScheme.tintedForDarkMode(seed: Color): ColorScheme {
+    fun mix(surface: Color, amount: Float): Color = Color(
+        red = surface.red + (seed.red - surface.red) * amount,
+        green = surface.green + (seed.green - surface.green) * amount,
+        blue = surface.blue + (seed.blue - surface.blue) * amount,
+        alpha = surface.alpha
+    )
+
+    return copy(
+        background = mix(background, 0.10f),
+        surface = mix(surface, 0.12f),
+        surfaceVariant = mix(surfaceVariant, 0.13f),
+        surfaceContainerLowest = mix(surfaceContainerLowest, 0.10f),
+        surfaceContainerLow = mix(surfaceContainerLow, 0.12f),
+        surfaceContainer = mix(surfaceContainer, 0.14f),
+        surfaceContainerHigh = mix(surfaceContainerHigh, 0.15f),
+        surfaceContainerHighest = mix(surfaceContainerHighest, 0.16f)
     )
 }

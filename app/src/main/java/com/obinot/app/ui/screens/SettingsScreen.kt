@@ -2,6 +2,7 @@
 
 package com.obinot.app.ui.screens
 
+import com.obinot.app.ui.components.FrostedModalBottomSheet
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Bolt
@@ -45,13 +47,21 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.RemoveCircleOutline
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Summarize
+import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -72,6 +82,7 @@ import androidx.compose.ui.unit.dp
 import com.obinot.app.R
 import com.obinot.app.ui.components.AppLanguage
 import com.obinot.app.ui.components.BouncyButton
+import com.obinot.app.ui.components.bouncyClickable
 import com.obinot.app.ui.components.BouncyIconButton
 import com.obinot.app.ui.components.displayLabel
 import com.obinot.app.ui.components.BouncyOutlinedButton
@@ -85,7 +96,7 @@ import java.util.Date
 import java.util.Locale
 
 // ============================================================
-// Toggle groups locales
+// Reusable pieces
 // ============================================================
 
 @Composable
@@ -132,8 +143,45 @@ private fun ExpressiveToggleGroup(
 }
 
 @Composable
+private fun TextToggleGroup(
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    labels: List<String>,
+    modifier: Modifier = Modifier
+) {
+    val haptics = LocalHapticFeedback.current
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
+    ) {
+        labels.forEachIndexed { index, label ->
+            BouncyToggleButton(
+                checked = selectedIndex == index,
+                onCheckedChange = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onSelect(index)
+                },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (selectedIndex == index) FontWeight.Bold else FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Fila clickeable que muestra un valor actual y abre un selector.
+ * Usada dentro de Apariencia (App Language, Color Palette) y IA (Output Language).
+ */
+@Composable
 private fun SettingsSelectorRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     label: String,
     value: String,
     onClick: () -> Unit
@@ -144,19 +192,39 @@ private fun SettingsSelectorRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-            .clickable(onClick = onClick)
-            .padding(16.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+            .bouncyClickable(pressedScale = 0.97f) { onClick() }
+            .padding(14.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+        ) {
             Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -171,7 +239,7 @@ private fun SettingsSelectionSheet(
     onSelect: (String) -> Unit
 ) {
     var query by remember { mutableStateOf("") }
-    ModalBottomSheet(
+    FrostedModalBottomSheet(
         onDismissRequest = { onDismiss(); query = "" },
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
@@ -258,53 +326,114 @@ private fun AlphaBadge() {
     )
 }
 
+/**
+ * Editor de lista de API keys para un provider.
+ *
+ * Comportamiento según [rotationEnabled]:
+ *   - OFF: muestra solo el primer campo (comportamiento previo a 2.2).
+ *          La lista completa se preserva internamente para no perder las
+ *          keys extra al guardar.
+ *   - ON:  muestra todos los campos, con botón [x] por campo (excepto
+ *          cuando queda 1 solo) y botón [+ Add key] mientras no se alcance
+ *          [maxKeys].
+ *
+ * El primer campo es siempre la "primary key": el router la intenta
+ * primero y solo pasa a las siguientes si tira 429.
+ */
 @Composable
-private fun TextToggleGroup(
-    selectedIndex: Int,
-    onSelect: (Int) -> Unit,
-    labels: List<String>,
-    modifier: Modifier = Modifier
+private fun KeyListEditor(
+    keys: List<String>,
+    onKeysChange: (List<String>) -> Unit,
+    labelPrimaryRes: Int,
+    labelBackupRes: Int,
+    rotationEnabled: Boolean,
+    maxKeys: Int,
+    onDirty: () -> Unit
 ) {
-    val haptics = LocalHapticFeedback.current
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
-    ) {
-        labels.forEachIndexed { index, label ->
-            BouncyToggleButton(
-                checked = selectedIndex == index,
-                onCheckedChange = {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onSelect(index)
-                },
-                modifier = Modifier.weight(1f)
+    val visibleKeys = if (rotationEnabled) keys else listOf(keys.firstOrNull().orEmpty())
+
+    Column {
+        visibleKeys.forEachIndexed { visibleIdx, keyValue ->
+            val actualIndex = if (rotationEnabled) visibleIdx else 0
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = if (selectedIndex == index) FontWeight.Bold else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                OutlinedTextField(
+                    value = keyValue,
+                    onValueChange = { newValue ->
+                        val newList = keys.toMutableList()
+                        while (newList.size <= actualIndex) newList.add("")
+                        newList[actualIndex] = newValue
+                        onKeysChange(newList)
+                        onDirty()
+                    },
+                    label = {
+                        Text(
+                            if (actualIndex == 0) stringResource(labelPrimaryRes)
+                            else stringResource(labelBackupRes, actualIndex + 1)
+                        )
+                    },
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.weight(1f)
                 )
+                if (rotationEnabled && keys.size > 1) {
+                    Spacer(Modifier.width(4.dp))
+                    BouncyIconButton(
+                        onClick = {
+                            val newList = keys.toMutableList().also { it.removeAt(actualIndex) }
+                            onKeysChange(newList.ifEmpty { listOf("") })
+                            onDirty()
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.RemoveCircleOutline,
+                            contentDescription = stringResource(R.string.settings_rotation_key_remove_cd),
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
             }
+            if (visibleIdx < visibleKeys.lastIndex) Spacer(Modifier.height(8.dp))
+        }
+
+        if (rotationEnabled && keys.size < maxKeys) {
+            Spacer(Modifier.height(10.dp))
+            BouncyOutlinedButton(
+                onClick = {
+                    onKeysChange(keys + "")
+                    onDirty()
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.settings_rotation_key_add))
+            }
+        }
+
+        if (rotationEnabled && keys.size >= maxKeys) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                stringResource(R.string.settings_rotation_key_limit, maxKeys),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
 
 /**
- * Tipo de badge que puede llevar una fila de Advanced.
- *  - NONE: sin badge.
- *  - BETA: funcional pero en evolución. Badge terciario.
- *  - ALPHA: experimental, puede cambiar o romperse. Badge secundario.
+ * Tipo de badge que puede llevar una fila.
  */
 private enum class FeatureBadge { NONE, BETA, ALPHA }
 
 /**
- * Fila usada dentro de la card "Advanced". Switch + título + descripción,
- * con badge opcional (BETA/ALPHA).
+ * Fila de switch para dentro de las secciones (Grabación, IA, Advanced).
+ * Sin `maxLines = 1` en el título: dejamos 2 líneas para que no se corte.
  */
 @Composable
-private fun AdvancedSwitchRow(
+private fun SettingsSwitchRow(
     title: String,
     description: String,
     checked: Boolean,
@@ -318,7 +447,7 @@ private fun AdvancedSwitchRow(
                     title,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )
@@ -344,15 +473,95 @@ private fun AdvancedSwitchRow(
 }
 
 /**
- * Divider con spacing consistente para separar sub-secciones dentro de
- * la card Advanced.
+ * Divider consistente entre filas dentro de una misma sección.
  */
 @Composable
-private fun AdvancedDivider() {
+private fun SectionRowDivider() {
     Spacer(modifier = Modifier.height(16.dp))
     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
     Spacer(modifier = Modifier.height(16.dp))
 }
+
+/**
+ * Sección colapsable de Settings.
+ *
+ * Header con icono + título + subtítulo + chevron rotativo. El contenido
+ * se muestra con AnimatedVisibility cuando está expandida.
+ */
+@Composable
+private fun CollapsableSettingsSection(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    initiallyExpanded: Boolean = false,
+    content: @Composable () -> Unit
+) {
+    var expanded by remember { mutableStateOf(initiallyExpanded) }
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "sectionArrow"
+    )
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { expanded = !expanded }
+                    .padding(vertical = 4.dp)
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .graphicsLayer { rotationZ = arrowRotation }
+                )
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column {
+                    Spacer(modifier = Modifier.height(20.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                    Spacer(modifier = Modifier.height(20.dp))
+                    content()
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
+// Main composable
+// ============================================================
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -379,6 +588,11 @@ fun SettingsScreen(
     val colorStyle by viewModel.colorStyle.collectAsState()
     val appLanguage by viewModel.appLanguage.collectAsState()
     val autoProcessEnabled by viewModel.autoProcessEnabled.collectAsState()
+    val geminiApiKeys by viewModel.geminiApiKeys.collectAsState()
+    val groqApiKeys by viewModel.groqApiKeys.collectAsState()
+    val keyRotationEnabled by viewModel.keyRotationEnabled.collectAsState()
+    val alphaUnlocked by viewModel.alphaUnlocked.collectAsState()
+    val blurEnabled by viewModel.blurEnabled.collectAsState()
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -398,8 +612,15 @@ fun SettingsScreen(
     val latestVersionStr by viewModel.latestVersionStr.collectAsState()
 
     var nameInput by remember(userName) { mutableStateOf(userName) }
-    var geminiKeyInput by remember(geminiApiKey) { mutableStateOf(geminiApiKey) }
-    var groqKeyInput by remember(groqApiKey) { mutableStateOf(groqApiKey) }
+    // Inputs de las API keys. Cada uno es una lista: cuando rotation está
+    // OFF, solo se renderiza el primero, pero la lista completa se preserva
+    // acá para no perder las keys extra al guardar.
+    var geminiKeyInputs by remember(geminiApiKeys) {
+        mutableStateOf(geminiApiKeys.ifEmpty { listOf("") })
+    }
+    var groqKeyInputs by remember(groqApiKeys) {
+        mutableStateOf(groqApiKeys.ifEmpty { listOf("") })
+    }
 
     var isNameDirty by remember { mutableStateOf(false) }
     var isGeminiKeyDirty by remember { mutableStateOf(false) }
@@ -420,7 +641,7 @@ fun SettingsScreen(
     var showAppLanguageSheet by remember { mutableStateOf(false) }
 
     val supportedLanguages = remember {
-        listOf(
+        listOf(com.obinot.app.data.SettingsRepository.AI_LANGUAGE_SYSTEM) + listOf(
             "English", "Indonesia", "Spanish", "French", "German", "Chinese (Simplified)",
             "Chinese (Traditional)", "Japanese", "Korean", "Arabic", "Russian", "Portuguese",
             "Italian", "Hindi", "Bengali", "Urdu", "Turkish", "Vietnamese", "Thai",
@@ -428,8 +649,6 @@ fun SettingsScreen(
         ).sorted()
     }
 
-    // Idiomas soportados. El label se computa con displayLabel() en el
-    // momento de la composición, así respeta cambios de locale.
     val supportedAppLanguages = remember { AppLanguage.entries.toList() }
     val currentAppLanguage = remember(appLanguage) { AppLanguage.fromCode(appLanguage) }
 
@@ -450,7 +669,23 @@ fun SettingsScreen(
     }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let { viewModel.importBackup(context, it) { msg -> coroutineScope.launch { snackbarHostState.showSnackbar(msg) } } }
+        uri?.let {
+            viewModel.importBackup(context, it) { result ->
+                coroutineScope.launch { snackbarHostState.showSnackbar(result.message) }
+
+                // Pedir permisos que el backup activó. En este momento hay
+                // un solo launcher (notificaciones) porque todas las features
+                // que requieren permiso apuntan a POST_NOTIFICATIONS. Si en
+                // el futuro hay más, hay que agregar un launcher por permiso
+                // y encadenarlos con un delay (el sistema solo procesa uno
+                // por vez).
+                result.permissionsToRequest.forEach { permission ->
+                    if (permission == android.Manifest.permission.POST_NOTIFICATIONS) {
+                        notificationPermissionLauncher.launch(permission)
+                    }
+                }
+            }
+        }
     }
 
     // ============================================================
@@ -691,9 +926,10 @@ fun SettingsScreen(
     }
 
     // ============================================================
-    // Card lambdas
+    // Cards & sections
     // ============================================================
 
+    // ---------- Always visible: Personalization ----------
     val personalizationCard: @Composable () -> Unit = {
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -701,8 +937,21 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
-                Text(stringResource(R.string.settings_personalization), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        stringResource(R.string.settings_personalization),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
                     value = nameInput,
                     onValueChange = {
@@ -728,123 +977,7 @@ fun SettingsScreen(
         }
     }
 
-    val appLanguageCard: @Composable () -> Unit = {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(stringResource(R.string.settings_app_language), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                Text(
-                    stringResource(R.string.settings_app_language_desc),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
-                )
-                SettingsSelectorRow(
-                    icon = Icons.Default.Language,
-                    label = stringResource(R.string.settings_app_language),
-                    value = currentAppLanguage.displayLabel(),
-                    onClick = { showAppLanguageSheet = true }
-                )
-            }
-        }
-    }
-
-    val globalAiPrefsCard: @Composable () -> Unit = {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(stringResource(R.string.settings_global_ai_prefs), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                Text(stringResource(R.string.settings_global_ai_prefs_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
-
-                SettingsSelectorRow(
-                    icon = Icons.Default.Language,
-                    label = stringResource(R.string.settings_output_language),
-                    value = tempAiLanguage,
-                    onClick = { showLanguageSheet = true }
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                ) {
-                    Text(stringResource(R.string.settings_processing_task), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    BouncyIconButton(
-                        onClick = { showTaskInfoDialog = true },
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                    }
-                }
-                ExpressiveToggleGroup(
-                    selectedIndex = tempAiTask,
-                    onSelect = { tempAiTask = it },
-                    labels = listOf(
-                        stringResource(R.string.onboarding_task_tidy),
-                        stringResource(R.string.onboarding_task_summary),
-                        stringResource(R.string.onboarding_task_analyze)
-                    ),
-                    icons = listOf(
-                        Icons.Default.AutoFixHigh,
-                        Icons.Default.Summarize,
-                        Icons.Default.Insights
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                ) {
-                    Text(stringResource(R.string.settings_output_format), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    BouncyIconButton(
-                        onClick = { showFormatInfoDialog = true },
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                    }
-                }
-                ExpressiveToggleGroup(
-                    selectedIndex = tempAiFormat,
-                    onSelect = { tempAiFormat = it },
-                    labels = listOf(
-                        stringResource(R.string.onboarding_format_paragraphs),
-                        stringResource(R.string.onboarding_format_bullets)
-                    ),
-                    icons = listOf(
-                        Icons.AutoMirrored.Filled.Notes,
-                        Icons.AutoMirrored.Filled.FormatListBulleted
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-                val isChanged = tempAiLanguage != aiLanguage || tempAiTask != aiTask || tempAiFormat != aiFormat
-
-                BouncyButton(
-                    onClick = { showApplyAllDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = isChanged
-                ) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.settings_save_apply_all))
-                }
-            }
-        }
-    }
-
+    // ---------- Always visible: AI Configuration (provider + API keys) ----------
     val aiConfigurationCard: @Composable () -> Unit = {
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -856,8 +989,19 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(stringResource(R.string.settings_ai_configuration), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.weight(1f))
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        stringResource(R.string.settings_ai_configuration),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f)
+                    )
                     BouncyIconButton(onClick = { showAiInfoDialog = true }) {
                         Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     }
@@ -883,25 +1027,33 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 AnimatedContent(targetState = tempAiProvider, label = "ApiKeyInput") { provider ->
+                    val maxKeys = if (alphaUnlocked) 6 else 3
+
                     when (provider) {
                         0 -> {
                             Column {
-                                OutlinedTextField(
-                                    value = geminiKeyInput,
-                                    onValueChange = {
-                                        geminiKeyInput = it
-                                        isGeminiKeyDirty = true
-                                    },
-                                    label = { Text(stringResource(R.string.settings_gemini_key_label)) },
-                                    visualTransformation = PasswordVisualTransformation(),
-                                    modifier = Modifier.fillMaxWidth()
+                                KeyListEditor(
+                                    keys = geminiKeyInputs,
+                                    onKeysChange = { geminiKeyInputs = it },
+                                    labelPrimaryRes = R.string.settings_rotation_key_primary,
+                                    labelBackupRes = R.string.settings_rotation_key_backup,
+                                    rotationEnabled = keyRotationEnabled,
+                                    maxKeys = maxKeys,
+                                    onDirty = { isGeminiKeyDirty = true }
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text(stringResource(R.string.settings_get_api_key_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey"))) })
+                                Text(
+                                    stringResource(R.string.settings_get_api_key_hint),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.clickable {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey")))
+                                    }
+                                )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 BouncyButton(
                                     onClick = {
-                                        viewModel.saveApiKey(geminiKeyInput)
+                                        viewModel.saveGeminiApiKeys(geminiKeyInputs.filter { it.isNotBlank() })
                                         viewModel.saveAiProvider(tempAiProvider)
                                         isGeminiKeyDirty = false
                                         coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_gemini_saved)) }
@@ -915,22 +1067,28 @@ fun SettingsScreen(
                         }
                         1 -> {
                             Column {
-                                OutlinedTextField(
-                                    value = groqKeyInput,
-                                    onValueChange = {
-                                        groqKeyInput = it
-                                        isGroqKeyDirty = true
-                                    },
-                                    label = { Text(stringResource(R.string.settings_groq_key_label)) },
-                                    visualTransformation = PasswordVisualTransformation(),
-                                    modifier = Modifier.fillMaxWidth()
+                                KeyListEditor(
+                                    keys = groqKeyInputs,
+                                    onKeysChange = { groqKeyInputs = it },
+                                    labelPrimaryRes = R.string.settings_rotation_key_primary,
+                                    labelBackupRes = R.string.settings_rotation_key_backup,
+                                    rotationEnabled = keyRotationEnabled,
+                                    maxKeys = maxKeys,
+                                    onDirty = { isGroqKeyDirty = true }
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text(stringResource(R.string.settings_get_api_key_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://console.groq.com/keys"))) })
+                                Text(
+                                    stringResource(R.string.settings_get_api_key_hint),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.clickable {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://console.groq.com/keys")))
+                                    }
+                                )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 BouncyButton(
                                     onClick = {
-                                        viewModel.saveGroqApiKey(groqKeyInput)
+                                        viewModel.saveGroqApiKeys(groqKeyInputs.filter { it.isNotBlank() })
                                         viewModel.saveAiProvider(tempAiProvider)
                                         isGroqKeyDirty = false
                                         coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snackbar_groq_saved)) }
@@ -942,27 +1100,11 @@ fun SettingsScreen(
                                 }
                             }
                         }
-                        else -> {
+                        2 -> {
+                            // ============ DYNAMIC ============
                             Column {
-                                val geminiKey = geminiKeyInput
-                                val groqKey = groqKeyInput
-                                val bothConfigured = geminiKey.isNotBlank() && groqKey.isNotBlank()
-
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        stringResource(R.string.settings_provider_dynamic),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f, fill = false)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(8.dp))
-
                                 Text(
-                                    text = stringResource(R.string.settings_dynamic_desc),
+                                    stringResource(R.string.settings_dynamic_desc),
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -974,17 +1116,24 @@ fun SettingsScreen(
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
 
-                                val geminiStatus = if (geminiKey.isNotBlank()) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
-                                val groqStatus = if (groqKey.isNotBlank()) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
+                                val geminiKey = geminiKeyInputs.firstOrNull().orEmpty()
+                                val groqKey = groqKeyInputs.firstOrNull().orEmpty()
+                                val geminiConfigured = geminiKey.isNotBlank()
+                                val groqConfigured = groqKey.isNotBlank()
+                                val requiredOk = geminiConfigured && groqConfigured
+
+                                val geminiStatus = if (geminiConfigured) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
+                                val groqStatus = if (groqConfigured) stringResource(R.string.settings_status_configured) else stringResource(R.string.settings_status_not_set)
+
                                 Text(
                                     text = stringResource(R.string.settings_dynamic_gemini_status, geminiStatus),
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = if (geminiKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                    color = if (geminiConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                                 )
                                 Text(
                                     text = stringResource(R.string.settings_dynamic_groq_status, groqStatus),
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = if (groqKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                    color = if (groqConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -994,7 +1143,7 @@ fun SettingsScreen(
                                         coroutineScope.launch {
                                             snackbarHostState.showSnackbar(
                                                 context.getString(
-                                                    if (bothConfigured) R.string.snackbar_dynamic_enabled
+                                                    if (requiredOk) R.string.snackbar_dynamic_enabled
                                                     else R.string.snackbar_dynamic_needs_keys
                                                 )
                                             )
@@ -1013,8 +1162,8 @@ fun SettingsScreen(
         }
     }
 
-    // NOTA: sin Live Transcript (se movió a Advanced).
-    val recordingModeCard: @Composable () -> Unit = {
+    // ---------- Always visible: Backup ----------
+    val backupCard: @Composable () -> Unit = {
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             shape = RoundedCornerShape(20.dp),
@@ -1025,254 +1174,19 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(stringResource(R.string.recording_mode_title), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.weight(1f))
-                    BouncyIconButton(onClick = { showInfoDialog = true }) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                ExpressiveToggleGroup(
-                    selectedIndex = recordMode,
-                    onSelect = { newIndex ->
-                        if (recordMode != newIndex) {
-                            if (isRecording) {
-                                pendingModeSelection = newIndex
-                                showWarningDialog = true
-                            } else {
-                                viewModel.saveRecordMode(newIndex)
-                            }
-                        }
-                    },
-                    labels = listOf(
-                        stringResource(R.string.settings_fast),
-                        stringResource(R.string.settings_accurate)
-                    ),
-                    icons = listOf(
-                        Icons.Default.FlashOn,
-                        Icons.Default.GraphicEq
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-    }
-
-    val appearanceCard: @Composable () -> Unit = {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(stringResource(R.string.settings_appearance), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.height(16.dp))
-                ExpressiveToggleGroup(
-                    selectedIndex = themeMode,
-                    onSelect = { viewModel.saveThemeMode(it) },
-                    labels = listOf(
-                        stringResource(R.string.settings_theme_auto),
-                        stringResource(R.string.settings_theme_light),
-                        stringResource(R.string.settings_theme_dark),
-                        stringResource(R.string.settings_theme_amoled)
-                    ),
-                    icons = listOf(
-                        Icons.Default.PhoneAndroid,
-                        Icons.Default.LightMode,
-                        Icons.Default.DarkMode,
-                        Icons.Default.Contrast
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-    }
-
-    val colorPaletteCard: @Composable () -> Unit = {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(stringResource(R.string.settings_color_palette), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.weight(1f))
-                    BouncyIconButton(onClick = { showColorInfoDialog = true }) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
-                Text(
-                    stringResource(R.string.settings_color_palette_desc),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
-                )
-                SettingsSelectorRow(
-                    icon = Icons.Default.Palette,
-                    label = stringResource(R.string.settings_color_style),
-                    value = com.obinot.app.ui.theme.ColorStyle.entries.getOrElse(colorStyle) { com.obinot.app.ui.theme.ColorStyle.TONAL_SPOT }.label,
-                    onClick = { showColorPaletteSheet = true }
-                )
-            }
-        }
-    }
-
-    // ============================================================
-    // Advanced card — colapsable
-    // ============================================================
-    val advancedCard: @Composable () -> Unit = {
-        var expanded by remember { mutableStateOf(false) }
-        val arrowRotation by animateFloatAsState(
-            targetValue = if (expanded) 180f else 0f,
-            animationSpec = spring(stiffness = Spring.StiffnessMedium),
-            label = "advancedArrow"
-        )
-
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { expanded = !expanded }
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_advanced),
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            stringResource(R.string.settings_advanced_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                     Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
+                        imageVector = Icons.Default.Upload,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .size(28.dp)
-                            .graphicsLayer { rotationZ = arrowRotation }
+                        modifier = Modifier.size(24.dp)
                     )
-                }
-
-                AnimatedVisibility(visible = expanded) {
-                    Column {
-                        Spacer(modifier = Modifier.height(20.dp))
-                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        AdvancedSwitchRow(
-                            title = stringResource(R.string.settings_record_background),
-                            description = stringResource(R.string.settings_record_background_desc),
-                            checked = backgroundRecordingEnabled,
-                            onCheckedChange = { enabled ->
-                                viewModel.saveBackgroundRecording(enabled)
-                                if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                                }
-                            }
-                        )
-
-                        AdvancedDivider()
-
-                        AdvancedSwitchRow(
-                            title = stringResource(R.string.settings_auto_process),
-                            description = stringResource(R.string.settings_auto_process_desc),
-                            checked = autoProcessEnabled,
-                            onCheckedChange = { viewModel.saveAutoProcess(it) }
-                        )
-
-                        AdvancedDivider()
-
-                        AdvancedSwitchRow(
-                            title = stringResource(R.string.settings_live_transcript),
-                            description = stringResource(R.string.settings_live_transcript_desc),
-                            checked = liveTranscriptEnabled,
-                            onCheckedChange = { viewModel.saveLiveTranscript(it) },
-                            badge = FeatureBadge.ALPHA
-                        )
-
-                        AdvancedDivider()
-
-                        AdvancedSwitchRow(
-                            title = stringResource(R.string.settings_native_picker),
-                            description = stringResource(R.string.settings_native_picker_desc),
-                            checked = nativePickerEnabled,
-                            onCheckedChange = { viewModel.saveNativePicker(it) }
-                        )
-
-                        AdvancedDivider()
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                stringResource(R.string.settings_auto_compression),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.weight(1f, fill = false),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            BetaBadge()
-                            Spacer(modifier = Modifier.weight(1f))
-                            BouncyIconButton(
-                                onClick = { showCompressionInfoDialog = true },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            stringResource(R.string.settings_auto_compression_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        TextToggleGroup(
-                            selectedIndex = autoCompressionMode,
-                            onSelect = { viewModel.saveAutoCompressionMode(it) },
-                            labels = listOf(
-                                stringResource(R.string.settings_compression_off),
-                                stringResource(R.string.settings_compression_balanced),
-                                stringResource(R.string.settings_compression_max)
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    val dataSystemCard: @Composable () -> Unit = {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(stringResource(R.string.settings_data_system), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        stringResource(R.string.settings_backup_card_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f)
+                    )
                     BouncyIconButton(onClick = { showBackupInfoDialog = true }) {
                         Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     }
@@ -1327,83 +1241,563 @@ fun SettingsScreen(
                     onClick = { exportLegacyLauncher.launch("Obinot_Legacy_${formatter.format(Date())}.binotbak") },
                     modifier = Modifier.fillMaxWidth()
                 ) { Text(stringResource(R.string.settings_backup_legacy_button)) }
-
-                Spacer(modifier = Modifier.height(20.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                Spacer(modifier = Modifier.height(20.dp))
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                        Text(stringResource(R.string.settings_app_version), style = MaterialTheme.typography.bodyLarge)
-                        Text("v$currentVersion", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-
-                        if (updateState == UpdateState.Downloading) {
-                            val animatedProgress by animateFloatAsState(targetValue = downloadProgress / 100f, label = "progress")
-                            Spacer(Modifier.height(8.dp))
-                            LinearWavyProgressIndicator(progress = { animatedProgress }, modifier = Modifier.fillMaxWidth().height(6.dp), color = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.height(4.dp))
-                            Text(stringResource(R.string.settings_downloading_progress, downloadProgress), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                        } else if (updateState == UpdateState.Available) {
-                            Text(stringResource(R.string.settings_new_version_ready, latestVersionStr), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                        } else if (updateState == UpdateState.Error) {
-                            Text(stringResource(R.string.settings_update_failed, latestVersionStr), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                        } else if (updateState == UpdateState.Idle && latestVersionStr.isNotBlank()) {
-                            Text(stringResource(R.string.settings_up_to_date), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    when (updateState) {
-                        UpdateState.Idle -> BouncyButton(onClick = { viewModel.checkForUpdate(context, currentVersion) }) { Text(stringResource(R.string.settings_check_update)) }
-                        UpdateState.Checking -> Button(onClick = {}, enabled = false) { LoadingIndicator(modifier = Modifier.size(20.dp)) }
-                        UpdateState.Available -> BouncyButton(onClick = { viewModel.startDownload(context) }) { Text(stringResource(R.string.settings_update_app)) }
-                        UpdateState.Downloading -> OutlinedButton(onClick = {}) { Text(stringResource(R.string.settings_downloading)) }
-                        UpdateState.Downloaded -> BouncyButton(onClick = { viewModel.promptInstall(context) }) { Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(6.dp)); Text(stringResource(R.string.settings_install)) }
-                        UpdateState.Error -> BouncyOutlinedButton(onClick = { viewModel.checkForUpdate(context, currentVersion) }) { Icon(Icons.Default.Error, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(6.dp)); Text(stringResource(R.string.settings_retry)) }
-                    }
-                }
             }
         }
     }
 
-    val supportCard: @Composable () -> Unit = {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .bouncyClickable {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LexicoON/Obinot"))
-                    context.startActivity(intent)
-                }
-        ) {
-            Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(stringResource(R.string.settings_github_repo), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                    Text(stringResource(R.string.settings_github_repo_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-    }
-
-    val aboutCard: @Composable () -> Unit = {
+    // ---------- Always visible: Updates ----------
+    val updatesCard: @Composable () -> Unit = {
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             shape = RoundedCornerShape(20.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SystemUpdate,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        stringResource(R.string.settings_updates_card_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Text(
-                    stringResource(R.string.settings_about),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.primary
+                    stringResource(R.string.settings_app_version),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "v$currentVersion",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+
+                if (updateState == UpdateState.Downloading) {
+                    val animatedProgress by animateFloatAsState(targetValue = downloadProgress / 100f, label = "progress")
+                    Spacer(Modifier.height(8.dp))
+                    LinearWavyProgressIndicator(
+                        progress = { animatedProgress },
+                        modifier = Modifier.fillMaxWidth().height(6.dp),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        stringResource(R.string.settings_downloading_progress, downloadProgress),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else if (updateState == UpdateState.Available) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        stringResource(R.string.settings_new_version_ready, latestVersionStr),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else if (updateState == UpdateState.Error) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        stringResource(R.string.settings_update_failed, latestVersionStr),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                } else if (updateState == UpdateState.Idle && latestVersionStr.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        stringResource(R.string.settings_up_to_date),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                when (updateState) {
+                    UpdateState.Idle -> BouncyButton(
+                        onClick = { viewModel.checkForUpdate(context, currentVersion) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(stringResource(R.string.settings_check_update)) }
+                    UpdateState.Checking -> Button(
+                        onClick = {},
+                        enabled = false,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { LoadingIndicator(modifier = Modifier.size(20.dp)) }
+                    UpdateState.Available -> BouncyButton(
+                        onClick = { viewModel.startDownload(context) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(stringResource(R.string.settings_update_app)) }
+                    UpdateState.Downloading -> OutlinedButton(
+                        onClick = {},
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(stringResource(R.string.settings_downloading)) }
+                    UpdateState.Downloaded -> BouncyButton(
+                        onClick = { viewModel.promptInstall(context) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(stringResource(R.string.settings_install))
+                    }
+                    UpdateState.Error -> BouncyOutlinedButton(
+                        onClick = { viewModel.checkForUpdate(context, currentVersion) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Error, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(stringResource(R.string.settings_retry))
+                    }
+                }
+            }
+        }
+    }
+
+    // ---------- Section: Apariencia ----------
+    val appearanceSection: @Composable () -> Unit = {
+        CollapsableSettingsSection(
+            icon = Icons.Default.Palette,
+            title = stringResource(R.string.settings_appearance),
+            subtitle = stringResource(R.string.settings_appearance_subtitle)
+        ) {
+            Column {
+                Text(
+                    stringResource(R.string.settings_theme_title),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                ExpressiveToggleGroup(
+                    selectedIndex = themeMode,
+                    onSelect = { viewModel.saveThemeMode(it) },
+                    labels = listOf(
+                        stringResource(R.string.settings_theme_auto),
+                        stringResource(R.string.settings_theme_light),
+                        stringResource(R.string.settings_theme_dark),
+                        stringResource(R.string.settings_theme_amoled)
+                    ),
+                    icons = listOf(
+                        Icons.Default.PhoneAndroid,
+                        Icons.Default.LightMode,
+                        Icons.Default.DarkMode,
+                        Icons.Default.Contrast
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                SectionRowDivider()
+
+                SettingsSelectorRow(
+                    icon = Icons.Default.Palette,
+                    label = stringResource(R.string.settings_color_style),
+                    value = com.obinot.app.ui.theme.ColorStyle.entries
+                        .getOrElse(colorStyle) { com.obinot.app.ui.theme.ColorStyle.TONAL_SPOT }.label,
+                    onClick = { showColorPaletteSheet = true }
+                )
+
+                SectionRowDivider()
+
+                SettingsSelectorRow(
+                    icon = Icons.Default.Language,
+                    label = stringResource(R.string.settings_app_language),
+                    value = currentAppLanguage.displayLabel(),
+                    onClick = { showAppLanguageSheet = true }
+                )
+
+                SectionRowDivider()
+
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_blur),
+                    description = stringResource(R.string.settings_blur_desc),
+                    checked = blurEnabled,
+                    onCheckedChange = { viewModel.saveBlurEnabled(it) }
+                )
+            }
+        }
+    }
+
+    // ---------- Section: IA ----------
+    val iaSection: @Composable () -> Unit = {
+        CollapsableSettingsSection(
+            icon = Icons.Default.AutoAwesome,
+            title = stringResource(R.string.settings_section_ia),
+            subtitle = stringResource(R.string.settings_ia_subtitle)
+        ) {
+            Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Text(
+                        stringResource(R.string.settings_processing_task),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    BouncyIconButton(
+                        onClick = { showTaskInfoDialog = true },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    }
+                }
+                ExpressiveToggleGroup(
+                    selectedIndex = tempAiTask,
+                    onSelect = { tempAiTask = it },
+                    labels = listOf(
+                        stringResource(R.string.onboarding_task_tidy),
+                        stringResource(R.string.onboarding_task_summary),
+                        stringResource(R.string.onboarding_task_analyze)
+                    ),
+                    icons = listOf(
+                        Icons.Default.AutoFixHigh,
+                        Icons.Default.Summarize,
+                        Icons.Default.Insights
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                SectionRowDivider()
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Text(
+                        stringResource(R.string.settings_output_format),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    BouncyIconButton(
+                        onClick = { showFormatInfoDialog = true },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    }
+                }
+                ExpressiveToggleGroup(
+                    selectedIndex = tempAiFormat,
+                    onSelect = { tempAiFormat = it },
+                    labels = listOf(
+                        stringResource(R.string.onboarding_format_paragraphs),
+                        stringResource(R.string.onboarding_format_bullets)
+                    ),
+                    icons = listOf(
+                        Icons.AutoMirrored.Filled.Notes,
+                        Icons.AutoMirrored.Filled.FormatListBulleted
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                SectionRowDivider()
+
+                SettingsSelectorRow(
+                    icon = Icons.Default.Language,
+                    label = stringResource(R.string.settings_output_language),
+                    value = tempAiLanguage,
+                    onClick = { showLanguageSheet = true }
+                )
+
+                SectionRowDivider()
+
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_auto_process),
+                    description = stringResource(R.string.settings_auto_process_desc),
+                    checked = autoProcessEnabled,
+                    onCheckedChange = { viewModel.saveAutoProcess(it) }
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                val isChanged = tempAiLanguage != aiLanguage || tempAiTask != aiTask || tempAiFormat != aiFormat
+                BouncyButton(
+                    onClick = { showApplyAllDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = isChanged
+                ) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.settings_save_apply_all))
+                }
+            }
+        }
+    }
+
+    // ---------- Section: Grabación ----------
+    val recordingSection: @Composable () -> Unit = {
+        CollapsableSettingsSection(
+            icon = Icons.Default.Mic,
+            title = stringResource(R.string.settings_section_recording),
+            subtitle = stringResource(R.string.settings_recording_subtitle)
+        ) {
+            Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Text(
+                        stringResource(R.string.recording_mode_title),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    BouncyIconButton(
+                        onClick = { showInfoDialog = true },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    }
+                }
+                ExpressiveToggleGroup(
+                    selectedIndex = recordMode,
+                    onSelect = { newIndex ->
+                        if (recordMode != newIndex) {
+                            if (isRecording) {
+                                pendingModeSelection = newIndex
+                                showWarningDialog = true
+                            } else {
+                                viewModel.saveRecordMode(newIndex)
+                            }
+                        }
+                    },
+                    labels = listOf(
+                        stringResource(R.string.settings_fast),
+                        stringResource(R.string.settings_accurate)
+                    ),
+                    icons = listOf(
+                        Icons.Default.FlashOn,
+                        Icons.Default.GraphicEq
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                SectionRowDivider()
+
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_record_background),
+                    description = stringResource(R.string.settings_record_background_desc),
+                    checked = backgroundRecordingEnabled,
+                    onCheckedChange = { enabled ->
+                        viewModel.saveBackgroundRecording(enabled)
+                        if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                )
+
+                SectionRowDivider()
+
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_live_transcript),
+                    description = stringResource(R.string.settings_live_transcript_desc),
+                    checked = liveTranscriptEnabled,
+                    onCheckedChange = { viewModel.saveLiveTranscript(it) },
+                    badge = FeatureBadge.ALPHA
+                )
+
+                SectionRowDivider()
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        stringResource(R.string.settings_auto_compression),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f, fill = false),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    BetaBadge()
+                    Spacer(modifier = Modifier.weight(1f))
+                    BouncyIconButton(
+                        onClick = { showCompressionInfoDialog = true },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    stringResource(R.string.settings_auto_compression_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(12.dp))
+                TextToggleGroup(
+                    selectedIndex = autoCompressionMode,
+                    onSelect = { viewModel.saveAutoCompressionMode(it) },
+                    labels = listOf(
+                        stringResource(R.string.settings_compression_off),
+                        stringResource(R.string.settings_compression_balanced),
+                        stringResource(R.string.settings_compression_max)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                SectionRowDivider()
+
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_native_picker),
+                    description = stringResource(R.string.settings_native_picker_desc),
+                    checked = nativePickerEnabled,
+                    onCheckedChange = { viewModel.saveNativePicker(it) }
+                )
+            }
+        }
+    }
+
+    // ---------- Section: Advanced ----------
+    val advancedSection: @Composable () -> Unit = {
+        CollapsableSettingsSection(
+            icon = Icons.Default.Tune,
+            title = stringResource(R.string.settings_advanced),
+            subtitle = stringResource(R.string.settings_advanced_subtitle)
+        ) {
+            Column {
+                // Toggle de rotación de API keys.
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                stringResource(R.string.settings_advanced_rotation_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            BetaBadge()
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.settings_advanced_rotation_desc),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Switch(
+                        checked = keyRotationEnabled,
+                        onCheckedChange = { viewModel.saveKeyRotationEnabled(it) }
+                    )
+                }
+
+                // ALPHA unlock: solo visible cuando la rotación está activa.
+                // Permite extender el límite de keys por provider de 3 a 6.
+                if (keyRotationEnabled) {
+                    SectionRowDivider()
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    stringResource(R.string.settings_rotation_alpha_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                AlphaBadge()
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                if (alphaUnlocked) stringResource(R.string.settings_rotation_alpha_unlocked_desc)
+                                else stringResource(R.string.settings_rotation_alpha_desc),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        if (alphaUnlocked) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        } else {
+                            BouncyButton(onClick = { viewModel.saveAlphaUnlocked(true) }) {
+                                Text(stringResource(R.string.settings_rotation_alpha_button))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ---------- Section: About ----------
+    val aboutSection: @Composable () -> Unit = {
+        CollapsableSettingsSection(
+            icon = Icons.Default.Info,
+            title = stringResource(R.string.settings_about),
+            subtitle = stringResource(R.string.settings_about_subtitle)
+        ) {
+            Column {
                 Text(
                     stringResource(R.string.settings_about_fork_notice),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                SectionRowDivider()
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                        .bouncyClickable {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/LexicoON/Obinot"))
+                            )
+                        }
+                        .padding(14.dp)
+                ) {
+                    Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.settings_github_repo),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            stringResource(R.string.settings_github_repo_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
@@ -1414,7 +1808,12 @@ fun SettingsScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        snackbarHost = {
+    SnackbarHost(
+        hostState = snackbarHostState,
+        modifier = Modifier.padding(bottom = com.obinot.app.ui.components.LocalBottomBarInset.current)
+    )
+}
     ) { innerPadding ->
 
         val topInsets = WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
@@ -1427,7 +1826,14 @@ fun SettingsScreen(
                     .padding(bottom = innerPadding.calculateBottomPadding())
                     .padding(horizontal = 16.dp)
                     .verticalScroll(rememberScrollState())
-                    .animateEnterExit(enter = slideInVertically(initialOffsetY = { 100 }, animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow)) + fadeIn()),
+                    .padding(bottom = com.obinot.app.ui.components.LocalBottomBarInset.current + 8.dp)
+                    .animateEnterExit(
+                        enter = slideInVertically(
+                            initialOffsetY = { 100 },
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow)
+                        ) + fadeIn(),
+                        exit = fadeOut() + androidx.compose.animation.slideOutVertically(targetOffsetY = { 100 })
+                    ),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Spacer(modifier = Modifier.height(safeTopMargin + 4.dp))
@@ -1444,28 +1850,24 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Columna izquierda: personalización + IA.
                         Column(
                             modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             personalizationCard()
-                            appLanguageCard()
-                            globalAiPrefsCard()
                             aiConfigurationCard()
-                            recordingModeCard()
+                            backupCard()
+                            updatesCard()
                         }
-                        // Columna derecha: apariencia + Advanced + sistema + soporte + about.
                         Column(
                             modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            appearanceCard()
-                            colorPaletteCard()
-                            advancedCard()
-                            dataSystemCard()
-                            supportCard()
-                            aboutCard()
+                            appearanceSection()
+                            iaSection()
+                            recordingSection()
+                            advancedSection()
+                            aboutSection()
                         }
                     }
                 } else {
@@ -1474,16 +1876,14 @@ fun SettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         personalizationCard()
-                        appLanguageCard()
-                        globalAiPrefsCard()
                         aiConfigurationCard()
-                        recordingModeCard()
-                        appearanceCard()
-                        colorPaletteCard()
-                        advancedCard()
-                        dataSystemCard()
-                        supportCard()
-                        aboutCard()
+                        backupCard()
+                        updatesCard()
+                        appearanceSection()
+                        iaSection()
+                        recordingSection()
+                        advancedSection()
+                        aboutSection()
                     }
                 }
 

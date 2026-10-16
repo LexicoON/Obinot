@@ -49,6 +49,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
@@ -532,6 +534,14 @@ document.addEventListener("DOMContentLoaded", function() {
         AndroidView(
             modifier = Modifier
                 .fillMaxSize()
+                .graphicsLayer {
+                    // Aísla el WebView en su propio buffer. Sin esto, cuando el
+                    // sharedBounds / predictiveBack de ResultScreen aplica un
+                    // graphicsLayer al padre, el GLFunctor del WebView queda
+                    // apuntando a un SkSurface inválido y crashea en
+                    // SkSurface::getCanvas()+16.
+                    compositingStrategy = CompositingStrategy.Offscreen
+                }
                 .alpha(webViewAlpha),
             factory = { ctx ->
                 android.webkit.WebView(ctx).apply {
@@ -539,6 +549,10 @@ document.addEventListener("DOMContentLoaded", function() {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
+                    // Red de seguridad: si algún OEM (Samsung One UI 6/7) sigue
+                    // crasheando con el GLFunctor acelerado, forzamos software.
+                    // Los diagramas Mermaid son estáticos, no se nota el costo.
+                    setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
                     setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     isVerticalScrollBarEnabled = false
                     isHorizontalScrollBarEnabled = false
@@ -742,6 +756,9 @@ private fun parseMarkdownItems(lines: List<String>): List<MarkdownItem> {
 // Main component
 // ============================================================
 
+/** Frases coloreadas por rol (ver utils/ColorSpans); las provee la pantalla de la nota. */
+val LocalColorSpans = androidx.compose.runtime.compositionLocalOf<List<com.obinot.app.utils.ColorSpans.Span>> { emptyList() }
+
 @Composable
 fun MarkdownText(
     text: String,
@@ -756,6 +773,7 @@ fun MarkdownText(
     linePositions: SnapshotStateMap<Int, Int>? = null,
     enableScroll: Boolean = true,
     compact: Boolean = false,
+    topPadding: androidx.compose.ui.unit.Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -834,7 +852,7 @@ fun MarkdownText(
 
     Column(modifier = columnModifier) {
         if (!compact) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp + topPadding))
         }
 
         markdownItems.forEach { item ->
@@ -1292,7 +1310,19 @@ fun BasicMarkdownLine(
         return
     }
 
-    val annotatedString = remember(text, lineHighlights, legacyHighlights, highlightQuery, highlightBgColor, highlightTextColor) {
+    val colorSpanList = LocalColorSpans.current
+    val scheme = MaterialTheme.colorScheme
+    val resolvedSpanColors = remember(colorSpanList, scheme) {
+        colorSpanList.map { sp ->
+            sp.text to when (sp.role) {
+                "primary" -> scheme.primary
+                "secondary" -> scheme.secondary
+                "tertiary" -> scheme.tertiary
+                else -> scheme.error
+            }
+        }
+    }
+    val annotatedString = remember(text, lineHighlights, legacyHighlights, highlightQuery, highlightBgColor, highlightTextColor, resolvedSpanColors) {
         buildAnnotatedString {
             val pattern = Regex("\\[([^\\]]+)\\]\\(([^)]+)\\)|\\*\\*(.*?)\\*\\*|\\*(.*?)\\*|_(.*?)_")
             var currentIndex = 0
@@ -1342,6 +1372,14 @@ fun BasicMarkdownLine(
             append(text.substring(currentIndex))
 
             val plainString = this.toAnnotatedString().text
+            // Colores por rol del tema (metadata de la nota, no viven en el texto).
+            resolvedSpanColors.forEach { (needle, color) ->
+                var at = plainString.indexOf(needle)
+                while (at >= 0) {
+                    addStyle(SpanStyle(color = color), at, at + needle.length)
+                    at = plainString.indexOf(needle, at + needle.length)
+                }
+            }
             val plainLength = plainString.length
 
             lineHighlights.forEach { item ->

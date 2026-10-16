@@ -11,6 +11,7 @@ import com.obinot.app.data.LabelRepository
 import com.obinot.app.data.NoteEntity
 import com.obinot.app.data.NoteRepository
 import com.obinot.app.data.RetrofitClient
+import com.obinot.app.data.TextChunker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,7 +46,6 @@ class HistoryViewModel(
     private val _latestRelease = MutableStateFlow<GithubRelease?>(null)
     val latestRelease: StateFlow<GithubRelease?> = _latestRelease.asStateFlow()
 
-    /** Map label name → hex color. Vacío si aún no se cargó. */
     val labelColors: StateFlow<Map<String, String>> = labelRepository.allLabels
         .map { labels -> labels.associate { it.name to it.colorHex } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
@@ -53,9 +53,6 @@ class HistoryViewModel(
     val trashedNotes: StateFlow<List<NoteEntity>> = repository.trashedNotes
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    /**
-     * Catálogo de labels únicos del sistema (custom + los que aparecen en notas).
-     */
     val uniqueLabels: StateFlow<List<String>> = combine(
         repository.getAllLabelStrings(),
         repository.getSystemNote()
@@ -74,13 +71,13 @@ class HistoryViewModel(
     /**
      * Lista filtrada de notas.
      *
-     * Usa FTS4 cuando hay query, y `allNotes` cuando está vacía. El `flatMapLatest`
-     * cancela la suscripción anterior cada vez que cambia la query, así no se acumulan
-     * flows activos.
+     * Cuando hay query, FTS4 filtra candidatos (MATCH rápido sobre índice
+     * invertido) y BM25 en Kotlin los re-rankea por relevancia real. Sin
+     * query, se muestran todas y se aplica el sort del usuario.
      *
-     * El filtro por labels y el sort se aplican en Kotlin (in-memory) porque la
-     * lista ya viene acotada por la DB. Mantener la API del ViewModel estable: los
-     * consumers siguen viendo `filteredNotes: StateFlow<List<NoteEntity>>`.
+     * El sort manual NO se aplica cuando hay query: el ranking BM25 sería
+     * destruido por un sort distinto. En su lugar, las notas fijadas van
+     * primero y el resto preserva el orden de BM25.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val filteredNotes: StateFlow<List<NoteEntity>> = combine(
@@ -90,7 +87,8 @@ class HistoryViewModel(
     ) { query, labels, sort -> Triple(query, labels, sort) }
         .flatMapLatest { (query, labels, sort) ->
             val ftsQuery = sanitizeFtsQuery(query)
-            val sourceFlow = if (ftsQuery.isEmpty()) {
+            val hasQuery = ftsQuery.isNotEmpty()
+            val sourceFlow = if (!hasQuery) {
                 repository.allNotes
             } else {
                 repository.searchNotes(ftsQuery)
@@ -103,10 +101,33 @@ class HistoryViewModel(
                     labels.all { it in noteLabels }
                 }
 
-                when (sort) {
-                    1 -> labelFiltered.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenBy { it.timestamp })
-                    2 -> labelFiltered.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenBy { it.title.lowercase() })
-                    else -> labelFiltered.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenByDescending { it.timestamp })
+                if (!hasQuery) {
+                    when (sort) {
+                        1 -> labelFiltered.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenBy { it.timestamp })
+                        2 -> labelFiltered.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenBy { it.title.lowercase() })
+                        else -> labelFiltered.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenByDescending { it.timestamp })
+                    }
+                } else {
+                    // Re-ranking BM25 en Kotlin. El documento indexado por BM25
+                    // es la concatenación de los campos que FTS4 matchea:
+                    // title + summary + rawText. El título pesa más en la
+                    // práctica porque es más corto (mayor densidad de término).
+                    val ranked = TextChunker.rankByBm25(
+                        items = labelFiltered,
+                        query = query
+                    ) { note ->
+                        buildString {
+                            append(note.title)
+                            append('\n')
+                            note.summary?.let { append(it) }
+                            append('\n')
+                            append(note.rawText)
+                        }
+                    }
+                    // Pinned primero, preservando el orden BM25 dentro de
+                    // cada grupo. `partition` es estable.
+                    val (pinned, unpinned) = ranked.partition { it.isPinned }
+                    pinned + unpinned
                 }
             }
         }
@@ -117,8 +138,6 @@ class HistoryViewModel(
         )
 
     init {
-        // Sincroniza el catálogo de labels con los labels existentes en notas.
-        // INSERT OR IGNORE, así que es idempotente.
         viewModelScope.launch(Dispatchers.IO) {
             uniqueLabels.collect { labels ->
                 if (labels.isNotEmpty()) {
@@ -225,9 +244,6 @@ class HistoryViewModel(
         if (cleanOld.isBlank() || cleanNew.isBlank() || cleanOld == cleanNew) return
 
         viewModelScope.launch(Dispatchers.IO) {
-            // Query dirigida: solo las notas que pueden contener el label
-            // (LIKE laxo). Filtramos por token completo en Kotlin para
-            // descartar falsos positivos (ej. "foo" matchea "foobar").
             val candidateNotes = repository.getNotesWithLabelSync(cleanOld)
 
             candidateNotes.forEach { note ->
@@ -241,8 +257,6 @@ class HistoryViewModel(
                 }
             }
 
-            // La system note no tiene campo `label` (guarda el catálogo en
-            // `rawText`), así que la leemos aparte.
             val sysNote = repository.getSystemNoteSync()
             if (sysNote != null) {
                 val existingLabels = sysNote.rawText.split("|").map { it.trim() }.filter { it.isNotBlank() }.toMutableSet()
@@ -274,8 +288,6 @@ class HistoryViewModel(
         if (cleanLabel.isBlank()) return
 
         viewModelScope.launch(Dispatchers.IO) {
-            // Mismo approach que renameLabel: query dirigida + filtro por
-            // token completo en Kotlin.
             val candidateNotes = repository.getNotesWithLabelSync(cleanLabel)
 
             candidateNotes.forEach { note ->
@@ -456,19 +468,15 @@ class HistoryViewModel(
 /**
  * Sanitiza el input del usuario para que sea un query válido de FTS4.
  *
- * Reglas:
- *  - Split por cualquier cosa que no sea letra/número/underscore.
- *  - Cada token se convierte en `token*` para prefix matching (así "meet" matchea "meeting").
- *  - Se descartan tokens vacíos.
+ * FTS4 acepta prefix matching con `token*` directamente, sin comillas.
+ * Los caracteres especiales (`-`, `:`, `(`, `)`, `"`) se filtran con el
+ * split. Los tokens resultantes son solo letras/números/underscore.
  *
  * Ejemplos:
- *  - "hello world"  → "hello* world*"
+ *  - "hello world"     → "hello* world*"
  *  - "reunión, lunes!" → "reunión* lunes*"
- *  - "a-b"          → "a* b*"
- *  - "!!!"          → "" (el caller lo trata como query vacío → allNotes)
- *
- * Si el resultado es vacío, el ViewModel cae al flow `allNotes` (mismo comportamiento
- * que con query en blanco).
+ *  - "a-b"             → "a* b*"
+ *  - "!!!"             → "" (el caller lo trata como query vacío → allNotes)
  */
 private fun sanitizeFtsQuery(input: String): String {
     val trimmed = input.trim()

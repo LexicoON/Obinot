@@ -9,19 +9,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.obinot.app.R
-import com.obinot.app.data.Content
-import com.obinot.app.data.FileData
-import com.obinot.app.data.GenerateContentRequest
-import com.obinot.app.data.GeminiModels
-import com.obinot.app.data.GroqChatRequest
-import com.obinot.app.data.GroqMessage
-import com.obinot.app.data.GroqModels
 import com.obinot.app.data.LabelRepository
 import com.obinot.app.data.NoteEntity
 import com.obinot.app.data.NoteRepository
-import com.obinot.app.data.Part
-import com.obinot.app.data.RetrofitClient
 import com.obinot.app.data.SettingsRepository
+import com.obinot.app.data.providers.ProviderCapability
+import com.obinot.app.data.providers.ProviderRouter
+import com.obinot.app.data.TextChunker
 import com.obinot.app.utils.AudioCompressor
 import com.obinot.app.utils.AudioRecorderManager
 import com.obinot.app.utils.ImportExportHelper
@@ -37,10 +31,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.asRequestBody
-import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
 import java.io.File
 import org.json.JSONArray
@@ -49,8 +39,8 @@ import org.json.JSONObject
 /**
  * Un mensaje dentro de la conversación del chat sobre la nota.
  *
- * No se persiste a disco: el historial vive mientras el ModalBottomSheet
- * esté abierto. Al cerrar el sheet, el historial se descarta.
+ * Se persiste en la nota (campo chatHistory). Sobrevive al cierre del sheet
+ * y de la app.
  */
 data class ChatMessage(
     val role: String,   // "user" o "assistant"
@@ -64,6 +54,13 @@ class ResultViewModel(
     private val labelRepository: LabelRepository,
     private val appContext: Context
 ) : ViewModel() {
+
+    /**
+     * Router de providers. Ver ProviderRouter para la lógica de fallback
+     * y preferencia. Los providers son stateless, así que instanciar uno
+     * por ViewModel no tiene costo real.
+     */
+    private val router: ProviderRouter = ProviderRouter.default()
 
     private val _note = MutableStateFlow<NoteEntity?>(null)
     val note: StateFlow<NoteEntity?> = _note.asStateFlow()
@@ -85,6 +82,8 @@ class ResultViewModel(
 
     private val _playbackProgress = MutableStateFlow(0f)
     val playbackProgress: StateFlow<Float> = _playbackProgress.asStateFlow()
+    
+
 
     val labelColors: StateFlow<Map<String, String>> = labelRepository.allLabels
         .map { labels -> labels.associate { it.name to it.colorHex } }
@@ -134,7 +133,7 @@ class ResultViewModel(
             && (!autoEnabled || failed)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-        /**
+    /**
      * Preferencia global de fuente de lectura. 0 = Sans, 1 = Serif, 2 = Mono.
      * Persistida en DataStore, sobrevive rotaciones y cierres de nota.
      */
@@ -176,6 +175,7 @@ class ResultViewModel(
             _note.value = fetchedNote
             _processingFailed.value = false
 
+
             // Restaurar el historial del chat desde la nota persistida.
             if (fetchedNote != null) {
                 _chatMessages.value = parseChatHistory(fetchedNote.chatHistory)
@@ -200,7 +200,7 @@ class ResultViewModel(
 
     private fun checkAndTriggerAutoProcess(noteToProcess: NoteEntity) {
         viewModelScope.launch {
-            val lang = settingsRepository.aiLanguageFlow.first()
+            val lang = com.obinot.app.data.SettingsRepository.resolveAiLanguage(settingsRepository.aiLanguageFlow.first())
             val task = settingsRepository.aiTaskFlow.first()
             val format = settingsRepository.aiFormatFlow.first()
             val currentMeta = "<!--BINOT_META:${lang}_${task}_${format}-->"
@@ -234,7 +234,7 @@ class ResultViewModel(
         if (_isLoading.value) return
 
         viewModelScope.launch {
-            val lang = settingsRepository.aiLanguageFlow.first()
+            val lang = com.obinot.app.data.SettingsRepository.resolveAiLanguage(settingsRepository.aiLanguageFlow.first())
             val task = settingsRepository.aiTaskFlow.first()
             val format = settingsRepository.aiFormatFlow.first()
             val currentMeta = "<!--BINOT_META:${lang}_${task}_${format}-->"
@@ -398,6 +398,8 @@ class ResultViewModel(
                 _processingFailed.value = false
                 noteRepository.update(updated)
 
+
+
                 launch(Dispatchers.Main) {
                     onResult(true)
                     transcribeAudio()
@@ -451,13 +453,6 @@ class ResultViewModel(
     }
 
     /**
-     * Invierte el estado de un checkbox en el summary.
-     *
-     * El `lineIndex` corresponde a la línea dentro del **summary limpio** (sin
-     * el meta tag BINOT_META), que es lo que `MarkdownText` ve. Reconstruimos
-     * el summary completo con el meta tag preservado al final.
-     */
-    /**
      * Actualiza el summary con el texto editado por el usuario desde el
      * SummaryEditorSheet. Preserva el meta tag BINOT_META (que guarda las
      * preferencias con las que se generó), re-adjuntándolo al final del
@@ -507,7 +502,7 @@ class ResultViewModel(
         _note.value = updated
         viewModelScope.launch { noteRepository.update(updated) }
     }
-    
+
     fun toggleAudio() {
         val path = _note.value?.audioPath ?: return
         val file = File(path)
@@ -589,23 +584,63 @@ class ResultViewModel(
     }
 
     // ============================================================
-    // MIX ROUTING
+    // DYNAMIC ROUTING (Gemini + Groq)
     // ============================================================
 
     private enum class MixTask {
         SHORT_AUDIO, LONG_AUDIO, SHORT_TEXT, LONG_TEXT, TITLE, EXPLAIN, CHAT
     }
 
-    private suspend fun pickProviderForMix(task: MixTask): Int {
-        return when (task) {
-            MixTask.LONG_AUDIO -> 0
-            MixTask.SHORT_AUDIO -> 1
-            MixTask.LONG_TEXT -> 0
-            MixTask.SHORT_TEXT, MixTask.TITLE, MixTask.EXPLAIN, MixTask.CHAT -> {
-                val counter = settingsRepository.incrementMixCounter()
-                if (counter % 2 == 0) 0 else 1
+    /**
+     * Modo Dynamic (único): Gemini es el recurso escaso y más sensible a
+     * ráfagas, así que se reserva para lo que solo él hace bien:
+     *   - Audio que no entra en Groq (> límite de Whisper) → Gemini.
+     *   - Texto largo (contexto grande) → Gemini.
+     * Todo lo demás (audio corto, títulos, explicaciones, chat, texto corto)
+     * va primero a Groq, que es más rápido y no compite con la cuota de
+     * audio de Gemini. Si el provider elegido tiene todas sus keys en
+     * cooldown y el otro no, se elige el otro sin gastar un intento.
+     * Si el elegido falla igual, el router hace failover.
+     */
+    private suspend fun pickPreferredProvider(provider: Int, task: MixTask): String? {
+        if (provider != 2) return null   // modos individuales: un solo provider
+        val keys = buildApiKeysMap(provider)
+        val wanted = when (task) {
+            MixTask.LONG_AUDIO, MixTask.LONG_TEXT -> "gemini"
+            else -> "groq"
+        }
+        val other = if (wanted == "gemini") "groq" else "gemini"
+        fun usable(id: String) = keys[id].orEmpty().any { !ProviderRouter.isOnCooldown(id, it) }
+        return when {
+            usable(wanted) -> wanted
+            usable(other) -> other
+            else -> wanted
+        }
+    }
+
+    // ============================================================
+    // BUILD API KEYS MAP
+    // ============================================================
+
+    /**
+     * Map de listas de API keys según el modo:
+     *   0 = Gemini solo → {gemini}
+     *   1 = Groq solo   → {groq}
+     *   2 = Dynamic     → {gemini, groq} (las que estén configuradas)
+     */
+    private suspend fun buildApiKeysMap(provider: Int): Map<String, List<String>> {
+        val map = mutableMapOf<String, List<String>>()
+        val geminiKeys = settingsRepository.geminiApiKeysFlow.first().filter { it.isNotBlank() }
+        val groqKeys = settingsRepository.groqApiKeysFlow.first().filter { it.isNotBlank() }
+        when (provider) {
+            0 -> if (geminiKeys.isNotEmpty()) map["gemini"] = geminiKeys
+            1 -> if (groqKeys.isNotEmpty()) map["groq"] = groqKeys
+            else -> {
+                if (geminiKeys.isNotEmpty()) map["gemini"] = geminiKeys
+                if (groqKeys.isNotEmpty()) map["groq"] = groqKeys
             }
         }
+        return map
     }
 
     // ============================================================
@@ -619,17 +654,9 @@ class ResultViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val provider = settingsRepository.aiProviderFlow.first()
-                val geminiKey = settingsRepository.geminiApiKeyFlow.first()
-                val groqKey = settingsRepository.groqApiKeyFlow.first()
+                val apiKeys = buildApiKeysMap(provider)
 
-                val effectiveProvider = if (provider == 2) {
-                    pickProviderForMix(MixTask.EXPLAIN)
-                } else provider
-
-                val apiKey = if (effectiveProvider == 1) groqKey else geminiKey
-                val targetLanguage = settingsRepository.aiLanguageFlow.first()
-
-                if (apiKey.isBlank()) {
+                if (apiKeys.isEmpty()) {
                     launch(Dispatchers.Main) {
                         _explainResult.value = appContext.getString(R.string.error_api_key_missing)
                         _isExplaining.value = false
@@ -637,51 +664,42 @@ class ResultViewModel(
                     return@launch
                 }
 
-                var systemPrompt = """
-                    You are an expert encyclopedia. Explain the given term/sentence purely, briefly, and with high relevance. 
+                val targetLanguage = com.obinot.app.data.SettingsRepository.resolveAiLanguage(settingsRepository.aiLanguageFlow.first())
+
+                // Prompt unificado: sirve tanto para Gemini como para Groq.
+                // Los overrides de Groq (math isolation, mermaid explícito) se
+                // incorporan en el mismo prompt, así no importa qué provider
+                // termine ganando en el router.
+                val systemPrompt = """
+                    You are an expert encyclopedia. Explain the given term/sentence purely, briefly, and with high relevance.
                     STRICT RULES YOU MUST OBEY:
                     1. Output language MUST follow: $targetLanguage.
                     2. NO conversational filler, pleasantries, or introductions.
                     3. Format nicely using Markdown. ABSOLUTELY NO BACKTICKS (`), EXCEPT if you need to generate a ```mermaid diagram.
                     4. CRITICAL: DO NOT generate tables under any circumstances.
                     5. STRICT MATH FORMATTING: Convert all mathematical formulas into valid LaTeX syntax using `${'$'}${'$'}` or `${'$'}`. NEVER translate math/chemistry formulas into spoken words.
-                    6. NO MATH MARKDOWN & NO QUOTES: NEVER use Markdown asterisks (`**`, `*`) or underscores (`_`) INSIDE or immediately touching LaTeX blocks. 
+                    6. NO MATH MARKDOWN & NO QUOTES: NEVER use Markdown asterisks (`**`, `*`) or underscores (`_`) INSIDE or immediately touching LaTeX blocks.
                        - FATAL WRONG: `**${'$'}x=1${'$'}**` or `${'$'}**x=1**${'$'}`
                        - CORRECT: `${'$'}x=1${'$'}`
                        If you desperately need to bold a mathematical variable, YOU MUST use pure LaTeX: `${'$'}\mathbf{x}=1${'$'}`. NEVER wrap LaTeX blocks in quotes.
+                    7. STRICT MATH ISOLATION: Keep math symbols inside `${'$'}${'$'}` strictly in Latin/Greek/Numbers. DO NOT put Arabic, Chinese, Korean, or any non-Latin translations INSIDE the math block. Put translated text OUTSIDE.
+                    8. MERMAID ALLOWED: You are ALLOWED and ENCOURAGED to use ` ```mermaid ` blocks for diagrams. Do not avoid backticks for diagrams.
                 """.trimIndent()
-
-                if (effectiveProvider == 1) {
-                    systemPrompt += """
-
-                        [GROQ/LLAMA OVERRIDES]
-                        7. STRICT MATH ISOLATION: Keep math symbols inside `${'$'}${'$'}` strictly in Latin/Greek/Numbers. DO NOT put Arabic, Chinese, Korean, or any non-Latin translations INSIDE the math block. Put translated text OUTSIDE.
-                        8. MERMAID ALLOWED: You are ALLOWED and ENCOURAGED to use ` ```mermaid ` blocks for diagrams. Do not avoid backticks for diagrams.
-                    """.trimIndent()
-                }
 
                 val userPrompt = "Term to explain: \"$selectedText\""
 
-                val resultText = if (effectiveProvider == 1) {
-                    val request = GroqChatRequest(
-                        model = GroqModels.GPT_OSS_120B,
-                        messages = listOf(
-                            GroqMessage(role = "system", content = systemPrompt),
-                            GroqMessage(role = "user", content = userPrompt)
-                        )
-                    )
-                    RetrofitClient.groqService.generateContent("Bearer $apiKey", request).choices?.firstOrNull()?.message?.content
-                } else {
-                    val request = GenerateContentRequest(
-                        systemInstruction = Content(parts = listOf(Part(text = systemPrompt))),
-                        contents = listOf(Content(parts = listOf(Part(text = userPrompt))))
-                    )
-                    RetrofitClient.service.generateContent(
-                        model = GeminiModels.FLASH_LITE,
-                        apiKey = apiKey,
-                        request = request
-                    ).candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-                }
+                // En Standard mode, el preferido se decide por el contador
+                // (alterna). En modos explícitos el preferred es irrelevante
+                // porque solo hay un provider en el map.
+                val preferred = pickPreferredProvider(provider, MixTask.EXPLAIN)
+
+                val resultText = router.generateTextWithFallback(
+                    capability = ProviderCapability.FAST,
+                    apiKeys = apiKeys,
+                    systemPrompt = systemPrompt,
+                    userPrompt = userPrompt,
+                    preferredProviderId = preferred
+                )
 
                 launch(Dispatchers.Main) {
                     _explainResult.value = resultText?.trim() ?: appContext.getString(R.string.error_explain_failed)
@@ -777,10 +795,9 @@ class ResultViewModel(
 
         viewModelScope.launch(Dispatchers.IO) {
             val provider = settingsRepository.aiProviderFlow.first()
-            val geminiKey = settingsRepository.geminiApiKeyFlow.first()
-            val groqKey = settingsRepository.groqApiKeyFlow.first()
+            val apiKeys = buildApiKeysMap(provider)
 
-            if ((provider == 1 && groqKey.isBlank()) || (provider == 0 && geminiKey.isBlank()) || (provider == 2 && geminiKey.isBlank() && groqKey.isBlank())) {
+            if (apiKeys.isEmpty()) {
                 launch(Dispatchers.Main) {
                     _error.value = appContext.getString(R.string.error_api_key_required_transcribe)
                     _isLoading.value = false
@@ -788,163 +805,98 @@ class ResultViewModel(
                 return@launch
             }
 
-            var remoteFileName: String? = null
-            var compressedFile: File? = null
             try {
                 val originalFile = File(audioPath)
                 if (!originalFile.exists()) throw Exception(appContext.getString(R.string.error_audio_not_found_pending))
 
                 var transcript: String? = null
                 var fileToUpload = originalFile
+                var workingNote = currentNote
+                val compressionMode = settingsRepository.autoCompressionModeFlow.first()
 
-                val compressionModeForRouting = settingsRepository.autoCompressionModeFlow.first()
-                var effectiveProvider: Int = if (provider == 2) {
-                    val fits = originalFile.length() <= 20 * 1024 * 1024
-                    val compressible = compressionModeForRouting > 0 &&
-                        AudioCompressor.calculateTargetBitrate(
-                            getAudioDurationMs(originalFile),
-                            if (compressionModeForRouting == 1) 24.0 else 15.0
-                        ) != null
-                    if (fits || compressible) 1 else 0
-                } else provider
+                // 0) CÁLCULO PREVIO (instantáneo): ¿entra en Groq si comprimimos?
+                //    Si no entra ni al mínimo de calidad, avisamos de una vez
+                //    en vez de gastar minutos comprimiendo.
+                val groqLimit = 24L * 1024 * 1024
+                val targetSizeMB = if (compressionMode == 2) 15.0 else 24.0
+                val durationMs = getAudioDurationMs(originalFile)
+                val estimate = AudioCompressor.estimate(durationMs, originalFile.length(), groqLimit, targetSizeMB)
+                val fitsGroqRaw = originalFile.length() <= groqLimit
 
-                if (effectiveProvider == 1 && originalFile.length() > 24 * 1024 * 1024) {
-                    val compressionMode = settingsRepository.autoCompressionModeFlow.first()
-                    if (compressionMode > 0) {
-                        val targetSizeMB = if (compressionMode == 1) 24.0 else 15.0
-                        val durationMs = getAudioDurationMs(originalFile)
-                        val targetBitrate = AudioCompressor.calculateTargetBitrate(durationMs, targetSizeMB)
-                        if (targetBitrate != null) {
-                            launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_compressing) }
-                            val tempFile = File(appContext.cacheDir, "compressed_${System.currentTimeMillis()}.mp4")
-                            when (val result = AudioCompressor.compress(originalFile, tempFile, targetBitrate) { percent ->
-                                launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_compressing_pct, percent) }
-                            }) {
-                                is AudioCompressor.Result.Success -> {
-                                    fileToUpload = result.outputFile
-                                    compressedFile = result.outputFile
-                                }
-                                is AudioCompressor.Result.QualityTooLow -> {
-                                    if (provider == 2) {
-                                        effectiveProvider = 0
-                                    } else {
-                                        launch(Dispatchers.Main) {
-                                            _error.value = appContext.getString(R.string.error_audio_too_long_groq)
-                                            _isLoading.value = false
-                                        }
-                                        return@launch
-                                    }
-                                }
-                                is AudioCompressor.Result.Failure -> {
-                                    if (provider == 2) {
-                                        effectiveProvider = 0
-                                    } else {
-                                        launch(Dispatchers.Main) {
-                                            _error.value = appContext.getString(R.string.error_compression_failed)
-                                            _isLoading.value = false
-                                        }
-                                        return@launch
-                                    }
-                                }
-                            }
-                        } else {
-                            if (provider == 2) {
-                                effectiveProvider = 0
-                            } else {
-                                launch(Dispatchers.Main) {
-                                    _error.value = appContext.getString(R.string.error_audio_too_long_groq)
-                                    _isLoading.value = false
-                                }
-                                return@launch
-                            }
+                if (provider == 1 && !fitsGroqRaw) {
+                    val msg = when {
+                        compressionMode == 0 -> R.string.error_file_exceeds_groq
+                        !estimate.canFitLimit -> R.string.error_audio_cannot_fit_groq
+                        else -> 0
+                    }
+                    if (msg != 0) {
+                        launch(Dispatchers.Main) {
+                            _error.value = appContext.getString(msg)
+                            _isLoading.value = false
                         }
+                        return@launch
+                    }
+                }
+
+                // 1) COMPRESIÓN. Lo que se comprime es lo que se envía a los
+                //    modelos (cualquier provider) y REEMPLAZA al original en
+                //    la nota y en disco: así queda siempre el respaldo más barato.
+                if (compressionMode > 0 && estimate.worthCompressing && estimate.targetBitrate != null) {
+                    launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_compressing) }
+                    val audioDir = File(appContext.filesDir, "audio_records").apply { mkdirs() }
+                    val outFile = File(audioDir, "RECORD_${System.currentTimeMillis()}.mp4")
+                    val result = AudioCompressor.compress(originalFile, outFile, estimate.targetBitrate) { percent ->
+                        launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_compressing_pct, percent) }
+                    }
+                    if (result is AudioCompressor.Result.Success && result.newSize in 1 until result.originalSize) {
+                        fileToUpload = result.outputFile
+                        workingNote = currentNote.copy(audioPath = result.outputFile.absolutePath)
+                        _note.value = workingNote
+                        noteRepository.update(workingNote)
+                        try { originalFile.delete() } catch (_: Exception) {}
                     } else {
-                        if (provider == 2) {
-                            effectiveProvider = 0
-                        } else {
-                            launch(Dispatchers.Main) {
-                                _error.value = appContext.getString(R.string.error_file_exceeds_groq)
-                                _isLoading.value = false
-                            }
-                            return@launch
-                        }
+                        try { outFile.delete() } catch (_: Exception) {}
                     }
                 }
 
-                val apiKey = if (effectiveProvider == 1) groqKey else geminiKey
+                // 2) Groq solo: si aun comprimido no entra, error claro.
+                if (provider == 1 && fileToUpload.length() > groqLimit) {
+                    launch(Dispatchers.Main) {
+                        _error.value = appContext.getString(R.string.error_audio_cannot_fit_groq)
+                        _isLoading.value = false
+                    }
+                    return@launch
+                }
 
-                if (effectiveProvider == 1) {
-                    launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_transcribing_groq) }
+                // 3) Provider preferido (ya con el tamaño final): lo que entra
+                //    en Groq va a Groq; lo demás a Gemini (que queda reservado
+                //    para audio grande y no gasta cuota en lo corto).
+                val audioTask = if (fileToUpload.length() <= groqLimit) MixTask.SHORT_AUDIO else MixTask.LONG_AUDIO
+                val preferred: String? = pickPreferredProvider(provider, audioTask)
 
-                    val requestFile = fileToUpload.asRequestBody("audio/mp4".toMediaTypeOrNull())
-                    val body = MultipartBody.Part.createFormData("file", fileToUpload.name, requestFile)
-                    val model = GroqModels.WHISPER.toRequestBody("text/plain".toMediaTypeOrNull())
-                    val format = "json".toRequestBody("text/plain".toMediaTypeOrNull())
-
-                    val response = RetrofitClient.groqService.transcribeAudio("Bearer $apiKey", body, model, format)
-                    transcript = response.text?.trim()
+                val loadingMsgRes = if (preferred == "groq" || provider == 1) {
+                    R.string.loading_transcribing_groq
                 } else {
-                    launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_uploading_google) }
-                    val mimeType = "audio/mp4"
-                    val requestBody = fileToUpload.asRequestBody(mimeType.toMediaTypeOrNull())
-                    val uploadResponse = RetrofitClient.service.uploadFile(
-                        apiKey = apiKey,
-                        contentLength = fileToUpload.length(),
-                        contentType = mimeType,
-                        mimeType = mimeType,
-                        fileBytes = requestBody
-                    )
-                    if (uploadResponse.file == null) throw Exception("Failed to upload file to Gemini server.")
-
-                    val uploadedFileUri = uploadResponse.file.uri
-                    remoteFileName = uploadResponse.file.name
-
-                    launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(R.string.loading_gemini_processing) }
-
-                    val systemPrompt = """
-                        You are a highly accurate audio transcription AI. Your ONLY task is to transcribe the audio exactly word-for-word.
-                        
-                        CRITICAL STRICT RULES:
-                        1. NO HALLUCINATION: If the audio is silent, output exactly "[No speech detected]".
-                        2. VERBATIM TRANSCRIBE: Transcribe exactly what is spoken word-by-word, including informal words, repeated words, and natural speech flow.
-                        3. KEEP PUNCTUATION & CAPITALIZATION: You MUST add accurate punctuation (periods, commas, question marks) and use proper capitalization to make it readable.
-                        4. NO GRAMMAR CORRECTION: Absolutely DO NOT fix the speaker's grammatical errors or restructure their sentences.
-                        5. NO MARKDOWN & NO MATH FORMATTING: DO NOT add Markdown styling. DO NOT convert spoken math, numbers, or symbols into LaTeX format. Write them as plain text.
-                        6. Automatically detect and transcribe in the spoken language.
-                    """.trimIndent()
-
-                    val request = GenerateContentRequest(
-                        systemInstruction = Content(parts = listOf(Part(text = systemPrompt))),
-                        contents = listOf(Content(parts = listOf(Part(fileData = FileData(mimeType = mimeType, fileUri = uploadedFileUri)))))
-                    )
-
-                    var fileState = uploadResponse.file.state
-                    var attempts = 0
-                    while (fileState == "PROCESSING" && attempts < 60) {
-                        delay(3000)
-                        fileState = RetrofitClient.service.getFile(remoteFileName, apiKey).state
-                        attempts++
-                    }
-                    if (fileState != "ACTIVE") throw Exception("File processing timeout or failed at Google server.")
-
-                    val response = RetrofitClient.service.generateContent(
-                        model = GeminiModels.FLASH,
-                        apiKey = apiKey,
-                        request = request
-                    )
-                    transcript = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
+                    R.string.loading_uploading_google
                 }
+                launch(Dispatchers.Main) { _loadingMessage.value = appContext.getString(loadingMsgRes) }
+
+                transcript = router.transcribeWithFallback(
+                    apiKeys = apiKeys,
+                    audioFile = fileToUpload,
+                    preferredProviderId = preferred
+                )
 
                 launch(Dispatchers.Main) {
                     if (transcript != null && !transcript.contains("[No speech detected]")) {
-                        val updatedNote = currentNote.copy(rawText = transcript, timestamp = System.currentTimeMillis())
+                        val updatedNote = workingNote.copy(rawText = transcript, timestamp = System.currentTimeMillis())
                         _note.value = updatedNote
                         noteRepository.update(updatedNote)
 
                         launch(Dispatchers.IO) {
                             var noteWithTitle = updatedNote
                             try {
-                                noteWithTitle = generateTitleFromTranscript(updatedNote, transcript, provider, geminiKey, groqKey) ?: updatedNote
+                                noteWithTitle = generateTitleFromTranscript(updatedNote, transcript, provider) ?: updatedNote
                             } catch (e: Exception) {
                                 e.printStackTrace()
                                 if (noteWithTitle.title.isBlank()) {
@@ -972,13 +924,6 @@ class ResultViewModel(
                     _error.value = handleExceptionError(e)
                     _isLoading.value = false
                 }
-            } finally {
-                if (provider == 0 && remoteFileName != null) {
-                    try { RetrofitClient.service.deleteFile(remoteFileName, geminiKey) } catch (e: Exception) { e.printStackTrace() }
-                }
-                compressedFile?.let {
-                    try { it.delete() } catch (_: Exception) {}
-                }
             }
         }
     }
@@ -995,38 +940,29 @@ class ResultViewModel(
         }
     }
 
-    private suspend fun generateTitleFromTranscript(note: NoteEntity, transcript: String, provider: Int, geminiKey: String, groqKey: String): NoteEntity? {
+    private suspend fun generateTitleFromTranscript(
+        note: NoteEntity,
+        transcript: String,
+        provider: Int
+    ): NoteEntity? {
+        val apiKeys = buildApiKeysMap(provider)
+        if (apiKeys.isEmpty()) return null
+
         val systemPrompt = """
             Buat judul singkat 3-5 kata dalam bahasa yang sama dengan teks yang diberikan pengguna.
             RULES: Hanya output judulnya saja. Tanpa tanda kutip, tanpa titik di akhir, dan tanpa penjelasan apapun.
         """.trimIndent()
         val userPrompt = "Teks:\n${transcript.take(500)}"
 
-        val effectiveProvider = if (provider == 2) {
-            pickProviderForMix(MixTask.TITLE)
-        } else provider
-        val apiKey = if (effectiveProvider == 1) groqKey else geminiKey
+        val preferred = pickPreferredProvider(provider, MixTask.TITLE)
 
-        val aiTitle = if (effectiveProvider == 1) {
-            val request = GroqChatRequest(
-                model = GroqModels.GPT_OSS_20B,
-                messages = listOf(
-                    GroqMessage(role = "system", content = systemPrompt),
-                    GroqMessage(role = "user", content = userPrompt)
-                )
-            )
-            RetrofitClient.groqService.generateContent("Bearer $apiKey", request).choices?.firstOrNull()?.message?.content?.trim()
-        } else {
-            val request = GenerateContentRequest(
-                systemInstruction = Content(parts = listOf(Part(text = systemPrompt))),
-                contents = listOf(Content(parts = listOf(Part(text = userPrompt))))
-            )
-            RetrofitClient.service.generateContent(
-                model = GeminiModels.FLASH_LITE,
-                apiKey = apiKey,
-                request = request
-            ).candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
-        }
+        val aiTitle = router.generateTextWithFallback(
+            capability = ProviderCapability.TITLE,
+            apiKeys = apiKeys,
+            systemPrompt = systemPrompt,
+            userPrompt = userPrompt,
+            preferredProviderId = preferred
+        )
 
         if (!aiTitle.isNullOrBlank()) {
             val finalNote = note.copy(title = aiTitle)
@@ -1041,7 +977,14 @@ class ResultViewModel(
     // TEXT PROCESSING
     // ============================================================
 
-    private fun processTextAuto(currentNote: NoteEntity, language: String, task: Int, format: Int, metaTag: String, provider: Int) {
+    private fun processTextAuto(
+        currentNote: NoteEntity,
+        language: String,
+        task: Int,
+        format: Int,
+        metaTag: String,
+        provider: Int
+    ) {
         _isLoading.value = true
         _error.value = null
         _processingFailed.value = false
@@ -1049,16 +992,9 @@ class ResultViewModel(
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val provider = settingsRepository.aiProviderFlow.first()
+                val apiKeys = buildApiKeysMap(provider)
 
-                val effectiveProvider = if (provider == 2) {
-                    val taskType = if (currentNote.rawText.length > 600) MixTask.LONG_TEXT else MixTask.SHORT_TEXT
-                    pickProviderForMix(taskType)
-                } else provider
-
-                val apiKey = if (effectiveProvider == 1) settingsRepository.groqApiKeyFlow.first() else settingsRepository.geminiApiKeyFlow.first()
-
-                if (apiKey.isBlank()) {
+                if (apiKeys.isEmpty()) {
                     launch(Dispatchers.Main) {
                         _error.value = appContext.getString(R.string.error_api_key_required_engine)
                         _processingFailed.value = true
@@ -1068,7 +1004,7 @@ class ResultViewModel(
                 }
 
                 val taskInstruction = when (task) {
-                    0 -> "Task: TIDY UP. Fix typos, grammar, and remove filler words/false starts. Be precise. But do NOT flatten the speaker's voice into generic corporate or robotic prose — keep their natural tone, word choices, and register exactly as it was (casual stays casual, formal stays formal, funny stays funny). You're cleaning up how it was said, not rewriting who said it. DO NOT add outside facts. If it's a multi-sentence text, divide it logically into sections."
+                    0 -> "Task: TIDY UP. Fix typos, grammar, and remove filler words/false starts. Be precise. TRANSCRIPTION ERROR CORRECTION (CRITICAL): This text comes from speech-to-text, so it may contain words that the transcriber misheard — especially proper nouns, technical terms, and names. When a word looks phonetically close to a plausible real word or name, INFER the intended word from context and replace it. Only apply when the word is clearly not a real word in the target language OR when the context strongly indicates a proper noun. Example: the misheard 'clatney' should become 'Chladny' or 'Chladney'; 'open AI' should become 'OpenAI'. Do NOT flatten the speaker's voice into generic corporate or robotic prose — keep their natural tone, word choices, and register exactly as it was (casual stays casual, formal stays formal, funny stays funny). You're cleaning up how it was said, not rewriting who said it. DO NOT add outside facts. If it's a multi-sentence text, divide it logically into sections."
                     1 -> "Task: SUMMARIZE. Extract the core information and make a concise summary. Ignore filler words. Keep it under 30% of the original length."
                     2 -> "Task: ANALYZE. Extract the main points, underlying sentiments, and any action items or decisions."
                     else -> "Task: TIDY UP."
@@ -1087,40 +1023,14 @@ class ResultViewModel(
                     else -> ""
                 }
 
-                val geminiSystemPrompt = """
+                // Prompt unificado. Incorpora los overrides específicos de
+                // Groq (math isolation, mermaid enforcement) al prompt general
+                // para que sirva con cualquier provider que gane el router.
+                val systemPrompt = """
                     [SYSTEM: TEXT PROCESSOR MODE]
                     You process text for a note-taking app, not a chatbot: never chat, greet, or comment — just return the processed text. Within that, write like a careful human editor, not a corporate style guide: match the register of the source instead of defaulting to stiff, formal phrasing.
                     TARGET LANGUAGE: $language. You MUST translate the output to $language if the input is different.
-                    
-                    $taskInstruction
-                    $formatInstruction
-                    $taskFormatHint
 
-                    CRITICAL STRICT RULES YOU MUST OBEY:
-                    1. ZERO YAPPING: Output EXACTLY the final processed text. NO greetings, NO introductions, NO explanations of what you did.
-                    2. NO GLOBAL WRAPPING: DO NOT wrap your entire output in quotes or a global markdown code block.
-                    3. MANDATORY LATEX & CHEMISTRY: Convert ALL mathematical concepts, formulas, and equations into valid LaTeX syntax. Use `${'$'}${'$'}` for block equations and `${'$'}` for inline math. For CHEMICAL formulas and reactions, you MUST use the `\ce{}` macro inside LaTeX.
-                    4. NO MATH MARKDOWN & NO QUOTES: KaTeX WILL CRASH if you use Markdown inside it. NEVER use asterisks (`**`, `*`) or underscores (`_`) INSIDE or immediately touching LaTeX blocks.
-                       - FATAL WRONG: `**${'$'}E=mc^2${'$'}**` or `${'$'}**E=mc^2**${'$'}`
-                       - CORRECT: `${'$'}E=mc^2${'$'}`
-                       If you desperately need to bold a mathematical element, YOU MUST use pure LaTeX: `${'$'}\mathbf{E}=mc^2${'$'}`. NEVER wrap equations in single or double quotes.
-                    5. CRITICAL: DO NOT generate tables under any circumstances.
-                    6. VISUAL DIAGRAMS (MANDATORY ANALYSIS):
-                       - Silently check: Does the text contain a process, schedule, logic, IF/THEN, or sequence?
-                       - IF YES: You MUST generate a Mermaid diagram in a ```mermaid ... ``` block.
-                       - STRICT MERMAID RULES:
-                         a) ONLY use `flowchart TD` or `flowchart LR`. DO NOT use sequenceDiagram, timeline, or anything else.
-                         b) ALWAYS wrap node labels in double quotes. Example: `A["Start"] --> B["Check Data"]`.
-                         c) For IF/THEN conditions, use standard edge text. Example: `B -->|Yes| C["Success"]` or `B -->|No| D["Fail"]`. NEVER use `|>`.
-                         d) DO NOT use nested double quotes inside labels; use single quotes instead (e.g., `D["Kelas '07.00'"]`). Keep labels short (max 6 words).
-                       - IF NO (purely descriptive): Skip diagram completely.
-                """.trimIndent()
-
-                val groqSystemPrompt = """
-                    [SYSTEM: TEXT PROCESSOR MODE]
-                    You process text for a note-taking app, not a chatbot: never chat, greet, or comment — just return the processed text. Within that, write like a careful human editor, not a corporate style guide: match the register of the source instead of defaulting to stiff, formal phrasing.
-                    TARGET LANGUAGE: $language. You MUST translate the output to $language if the input is different.
-                    
                     $taskInstruction
                     $formatInstruction
                     $taskFormatHint
@@ -1150,33 +1060,25 @@ class ResultViewModel(
 
                 val userContent = "Process this text strictly into $language:\n\n${currentNote.rawText}"
 
-                val processedText = if (effectiveProvider == 1) {
-                    val request = GroqChatRequest(
-                        model = GroqModels.GPT_OSS_120B,
-                        messages = listOf(
-                            GroqMessage(role = "system", content = groqSystemPrompt),
-                            GroqMessage(role = "user", content = userContent)
-                        )
-                    )
-                    RetrofitClient.groqService.generateContent("Bearer $apiKey", request).choices?.firstOrNull()?.message?.content
-                } else {
-                    val request = GenerateContentRequest(
-                        systemInstruction = Content(parts = listOf(Part(text = geminiSystemPrompt))),
-                        contents = listOf(Content(parts = listOf(Part(text = userContent))))
-                    )
-                    RetrofitClient.service.generateContent(
-                        model = GeminiModels.FLASH,
-                        apiKey = apiKey,
-                        request = request
-                    ).candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-                }
+                val taskType = if (currentNote.rawText.length > 600) MixTask.LONG_TEXT else MixTask.SHORT_TEXT
+                val preferred = pickPreferredProvider(provider, taskType)
+
+                val processedText = router.generateTextWithFallback(
+                    capability = ProviderCapability.QUALITY,
+                    apiKeys = apiKeys,
+                    systemPrompt = systemPrompt + "\n" + com.obinot.app.utils.ColorSpans.PROMPT_HINT,
+                    userPrompt = userContent,
+                    preferredProviderId = preferred
+                )
 
                 launch(Dispatchers.Main) {
                     if (processedText != null) {
                         val cleanedText = processedText.trim().removeSurrounding("'", "'").removeSurrounding("\"", "\"")
-                        val finalOutput = cleanedText + "\n\n" + metaTag
+                        // Los colores {c:rol}...{/c} se extraen a metadata; el summary queda limpio.
+                        val (colorlessText, colorJson) = com.obinot.app.utils.ColorSpans.extract(cleanedText)
+                        val finalOutput = colorlessText + "\n\n" + metaTag
 
-                        val updatedNote = currentNote.copy(summary = finalOutput, timestamp = System.currentTimeMillis())
+                        val updatedNote = currentNote.copy(summary = finalOutput, colorSpans = colorJson, timestamp = System.currentTimeMillis())
                         _note.value = updatedNote
                         noteRepository.update(updatedNote)
                     } else {
@@ -1196,19 +1098,62 @@ class ResultViewModel(
     }
 
     private fun handleExceptionError(e: Exception): String {
-        return if (e is HttpException) {
-            when (e.code()) {
+        if (e is HttpException) {
+            // Prioridad 1: mensaje del servidor. Suele ser específico (quota
+            // de modelo, país bloqueado, key deshabilitada, etc.) y nos da
+            // contexto que un código numérico no da. Si el server no manda
+            // nada, caemos al fallback por código.
+            val serverMsg = extractServerErrorMessage(e)
+            if (!serverMsg.isNullOrBlank()) {
+                return serverMsg
+            }
+            return when (e.code()) {
                 400 -> appContext.getString(R.string.http_400)
                 401 -> appContext.getString(R.string.http_401)
+                402 -> appContext.getString(R.string.http_402)
                 403 -> appContext.getString(R.string.http_403)
+                404 -> appContext.getString(R.string.http_404)
+                408 -> appContext.getString(R.string.http_408)
                 413 -> appContext.getString(R.string.http_413)
+                415 -> appContext.getString(R.string.http_415)
+                422 -> appContext.getString(R.string.http_422)
                 429 -> appContext.getString(R.string.http_429)
                 500 -> appContext.getString(R.string.http_500)
+                502 -> appContext.getString(R.string.http_502)
                 503 -> appContext.getString(R.string.http_503)
+                504 -> appContext.getString(R.string.http_504)
                 else -> appContext.getString(R.string.http_generic, e.code())
             }
-        } else {
-            appContext.getString(R.string.processing_failed, e.message ?: "")
+        }
+        return appContext.getString(R.string.processing_failed, e.message ?: "")
+    }
+
+    /**
+     * Extrae el mensaje de error del body de la respuesta HTTP.
+     *
+     * Gemini, Groq y OpenAI comparten el patrón: {"error": {"message": "..."}}.
+     * Algunos APIs mandan {"message": "..."} o {"detail": "..."} plano.
+     * Como último recurso, si el body es corto y no es HTML, lo usamos tal cual.
+     *
+     * El mensaje se trunca a 300 chars por si algún server manda algo enorme
+     * (una HTML de error, un stacktrace, etc.). El stream del errorBody se
+     * consume una sola vez, así que la llamada se hace desde acá sin riesgo.
+     */
+    private fun extractServerErrorMessage(e: HttpException): String? {
+        return try {
+            val body = e.response()?.errorBody()?.string() ?: return null
+            if (body.isBlank()) return null
+            val parsed = try {
+                val json = JSONObject(body)
+                json.optJSONObject("error")?.optString("message")?.takeIf { it.isNotBlank() }
+                    ?: json.optString("message").takeIf { it.isNotBlank() }
+                    ?: json.optString("detail").takeIf { it.isNotBlank() }
+            } catch (ex: Exception) {
+                body.takeIf { it.length < 200 && !it.trimStart().startsWith("<") }
+            }
+            parsed?.trim()?.take(300)
+        } catch (ex: Exception) {
+            null
         }
     }
 
@@ -1217,11 +1162,6 @@ class ResultViewModel(
     // ============================================================
 
     /**
-     * Envía un mensaje del usuario al chat y agrega la respuesta del modelo
-     * al historial. Si el historial ya llegó al límite (20 mensajes), ignora
-     * el envío. No hace nada si el texto está vacío o si ya hay un envío en curso.
-     */
-        /**
      * Envía un mensaje del usuario al chat y agrega la respuesta del modelo
      * al historial. Si el historial ya llegó al límite (40 mensajes), ignora
      * el envío. No hace nada si el texto está vacío o si ya hay un envío en curso.
@@ -1244,16 +1184,9 @@ class ResultViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val provider = settingsRepository.aiProviderFlow.first()
-                val geminiKey = settingsRepository.geminiApiKeyFlow.first()
-                val groqKey = settingsRepository.groqApiKeyFlow.first()
-                val targetLanguage = settingsRepository.aiLanguageFlow.first()
+                val apiKeys = buildApiKeysMap(provider)
 
-                val effectiveProvider = if (provider == 2) {
-                    pickProviderForMix(MixTask.CHAT)
-                } else provider
-
-                val apiKey = if (effectiveProvider == 1) groqKey else geminiKey
-                if (apiKey.isBlank()) {
+                if (apiKeys.isEmpty()) {
                     launch(Dispatchers.Main) {
                         _chatMessages.value = _chatMessages.value + ChatMessage(
                             "assistant",
@@ -1265,22 +1198,58 @@ class ResultViewModel(
                     return@launch
                 }
 
+                val targetLanguage = com.obinot.app.data.SettingsRepository.resolveAiLanguage(settingsRepository.aiLanguageFlow.first())
+
                 val cleanSummary = currentNote.summary
                     ?.replace(Regex("<!--BINOT_META:.*?-->"), "")
                     ?.trimEnd()
 
-                // Truncados para evitar 413 Payload Too Large en Groq (y otros
-                // providers con límites estrictos de body). Los límites están
-                // calibrados para que notas típicas entren sin truncar, y notas
-                // largas se corten con un marcador explícito que el modelo ve.
-                val rawTextForContext = truncateForContext(
-                    currentNote.rawText,
-                    maxChars = MAX_CHAT_RAW_TEXT_CHARS,
-                    marker = "\n\n[... note truncated for context, ask about specific sections ...]\n"
-                )
-                val summaryForContext = cleanSummary?.let {
-                    truncateForContext(it, maxChars = MAX_CHAT_SUMMARY_CHARS, marker = "\n[... summary truncated ...]\n")
-                } ?: "(no summary yet)"
+                // Chunks relevantes por BM25 en vez de truncado por chars.
+                //
+                // Por qué: el truncado lineal (tomar los primeros 10k chars)
+                // cortaba el final de la nota, justo donde suele estar la
+                // información más específica (conclusiones, action items).
+                // BM25 rankea por relevancia contra el último mensaje del
+                // user y devuelve los fragmentos que más probablemente
+                // contengan la respuesta.
+                //
+                // Si el rawText es corto (< 1 chunk), no hay nada que rankear
+                // y se manda entero. Si es largo, se mandan los top-N chunks
+                // (N=5) más relevantes, con sus offsets para que el modelo
+                // sepa de dónde vienen.
+                //
+                // El summary se sigue mandando completo. Es corto por diseño
+                // (la AI lo genera resumido) y siempre es contexto útil.
+                val rawChunks = TextChunker.chunk(currentNote.rawText)
+                val relevantChunks = if (rawChunks.size <= 1) {
+                    rawChunks
+                } else {
+                    TextChunker.topChunksByBm25(
+                        chunks = rawChunks,
+                        query = trimmed,
+                        topN = MAX_CHAT_TOP_CHUNKS
+                    ).sortedBy { it.startChar } // reordenar por posición en el doc
+                }
+
+                val rawTextForContext = if (relevantChunks.isEmpty()) {
+                    "(empty note)"
+                } else if (relevantChunks.size == 1 && rawChunks.size <= 1) {
+                    // Nota corta: se manda entera sin marcadores de chunk.
+                    relevantChunks.first().text
+                } else {
+                    // Nota larga: se mandan los chunks relevantes con offsets
+                    // para que el modelo sepa que no es el texto completo.
+                    buildString {
+                        appendLine("[... note is long; showing the ${relevantChunks.size} most relevant excerpt(s) ...]")
+                        relevantChunks.forEachIndexed { idx, chunk ->
+                            appendLine()
+                            appendLine("--- excerpt ${idx + 1} (chars ${chunk.startChar}-${chunk.endChar}) ---")
+                            appendLine(chunk.text)
+                        }
+                    }
+                }
+
+                val summaryForContext = cleanSummary ?: "(no summary yet)"
 
                 val systemPrompt = """
                     You are an AI assistant helping the user understand their own note.
@@ -1311,9 +1280,7 @@ class ResultViewModel(
                 """.trimIndent()
 
                 // Historial: solo los últimos N mensajes, con cap total de
-                // caracteres por si los mensajes son inusualmente largos. Esto
-                // complementa el truncado del rawText/summary y evita que el
-                // body del POST crezca sin límite en conversaciones largas.
+                // caracteres por si los mensajes son inusualmente largos.
                 val recentMessages = _chatMessages.value.takeLast(MAX_CHAT_HISTORY_MESSAGES)
                 val conversationHistory = recentMessages
                     .joinToString("\n\n") { msg ->
@@ -1330,27 +1297,15 @@ class ResultViewModel(
                         }
                     }
 
-                val responseText = if (effectiveProvider == 1) {
-                    val request = GroqChatRequest(
-                        model = GroqModels.GPT_OSS_20B,
-                        messages = listOf(
-                            GroqMessage(role = "system", content = systemPrompt),
-                            GroqMessage(role = "user", content = conversationHistory)
-                        )
-                    )
-                    RetrofitClient.groqService.generateContent("Bearer $apiKey", request)
-                        .choices?.firstOrNull()?.message?.content?.trim()
-                } else {
-                    val request = GenerateContentRequest(
-                        systemInstruction = Content(parts = listOf(Part(text = systemPrompt))),
-                        contents = listOf(Content(parts = listOf(Part(text = conversationHistory))))
-                    )
-                    RetrofitClient.service.generateContent(
-                        model = GeminiModels.FLASH_LITE,
-                        apiKey = apiKey,
-                        request = request
-                    ).candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
-                }
+                val preferred = pickPreferredProvider(provider, MixTask.CHAT)
+
+                val responseText = router.generateTextWithFallback(
+                    capability = ProviderCapability.CHAT,
+                    apiKeys = apiKeys,
+                    systemPrompt = systemPrompt,
+                    userPrompt = conversationHistory,
+                    preferredProviderId = preferred
+                )
 
                 launch(Dispatchers.Main) {
                     val reply = if (responseText.isNullOrBlank()) {
@@ -1419,6 +1374,8 @@ class ResultViewModel(
         progressJob?.cancel()
     }
 
+
+
     companion object {
         /** Cap total de mensajes persistidos por nota. Más allá de esto, el
          *  usuario debe limpiar el chat. 40 = 20 turnos. */
@@ -1430,27 +1387,19 @@ class ResultViewModel(
          * (y de cualquier provider con límite estricto de body). Notas típicas
          * entran sin truncar; notas largas se cortan con un marcador explícito.
          */
-        private const val MAX_CHAT_RAW_TEXT_CHARS = 10_000
-        private const val MAX_CHAT_SUMMARY_CHARS = 4_000
+
+
+        /** Cantidad de chunks del rawText que se mandan al modelo en el chat.
+         *  Con notas típicas (5-30 chunks de 800 chars), 5 cubre ~4000 chars
+         *  de contexto relevante. Subirlo aumenta tokens y latencia sin
+         *  beneficio claro en la mayoría de las preguntas. */
+        private const val MAX_CHAT_TOP_CHUNKS = 5
+
+        /** Cap total de mensajes del historial que se mandan al modelo.
+         *  El resto se descarta (pero sigue persistido en la nota). */
         private const val MAX_CHAT_HISTORY_MESSAGES = 12
         private const val MAX_CHAT_HISTORY_CHARS = 12_000
 
-        /**
-         * Trunca un string a [maxChars]. Si se trunca, agrega [marker] al
-         * final para que el modelo sepa que el contexto fue recortado y no
-         * alucine sobre "el final del texto".
-         */
-        private fun truncateForContext(
-            text: String,
-            maxChars: Int,
-            marker: String
-        ): String {
-            return if (text.length <= maxChars) {
-                text
-            } else {
-                text.take(maxChars) + marker
-            }
-        }
         /** Parsea el JSON de chatHistory a la lista de mensajes. Devuelve lista
          *  vacía si el JSON está ausente o malformado. */
         private fun parseChatHistory(json: String?): List<ChatMessage> {

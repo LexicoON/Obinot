@@ -73,6 +73,7 @@ import com.obinot.app.ui.components.BouncyButton
 import com.obinot.app.ui.components.observeBouncyPress
 import com.obinot.app.viewmodel.RecordViewModel
 import com.obinot.app.ui.components.AudioWaveform
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -143,61 +144,30 @@ fun RecordScreen(
         hasPermission = granted
     }
 
-    val morningGreetings = remember(context) {
-        listOf(
-            context.getString(R.string.record_greeting_morning_1),
-            context.getString(R.string.record_greeting_morning_2),
-            context.getString(R.string.record_greeting_morning_3),
-            context.getString(R.string.record_greeting_morning_4),
-            context.getString(R.string.record_greeting_morning_5),
-        )
-    }
-    val afternoonGreetings = remember(context) {
-        listOf(
-            context.getString(R.string.record_greeting_afternoon_1),
-            context.getString(R.string.record_greeting_afternoon_2),
-            context.getString(R.string.record_greeting_afternoon_3),
-            context.getString(R.string.record_greeting_afternoon_4),
-            context.getString(R.string.record_greeting_afternoon_5),
-        )
-    }
-    val eveningGreetings = remember(context) {
-        listOf(
-            context.getString(R.string.record_greeting_evening_1),
-            context.getString(R.string.record_greeting_evening_2),
-            context.getString(R.string.record_greeting_evening_3),
-            context.getString(R.string.record_greeting_evening_4),
-            context.getString(R.string.record_greeting_evening_5),
-        )
-    }
-    val nightGreetings = remember(context) {
-        listOf(
-            context.getString(R.string.record_greeting_night_1),
-            context.getString(R.string.record_greeting_night_2),
-            context.getString(R.string.record_greeting_night_3),
-            context.getString(R.string.record_greeting_night_4),
-            context.getString(R.string.record_greeting_night_5),
-        )
-    }
+    val calendar = remember { Calendar.getInstance() }
+    val hour = calendar.get(Calendar.HOUR_OF_DAY)
+    val month = calendar.get(Calendar.MONTH)
+    val day = calendar.get(Calendar.DAY_OF_MONTH)
+    val year = calendar.get(Calendar.YEAR)
 
-    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-    val greetings = remember(hour, morningGreetings, afternoonGreetings, eveningGreetings, nightGreetings) {
-        when (hour) {
-            in 5..11 -> morningGreetings
-            in 12..16 -> afternoonGreetings
-            in 17..20 -> eveningGreetings
-            else -> nightGreetings
-        }
+    // Saludos nativos por idioma → mes → franja horaria, más días especiales
+    // (GTA VI, fiestas). Ver Greetings.kt. El nombre se coloca donde cada
+    // idioma lo prefiere mediante el hueco "{n}".
+    val appLanguage = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]?.language ?: "en"
+    val greetingTemplate = remember(appLanguage, hour, month, day, year) {
+        com.obinot.app.ui.components.Greetings.pick(appLanguage, year, month, day, hour)
     }
-    val randomGreeting = remember(hour, greetings) { greetings.random() }
 
     val guestFallback = stringResource(R.string.record_guest)
     val greetingText = buildAnnotatedString {
-        append("$randomGreeting\n")
-        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-            append(if (userName.isNotBlank()) userName else guestFallback)
+        val nameText = if (userName.isNotBlank()) userName else guestFallback
+        val parts = greetingTemplate.split(com.obinot.app.ui.components.Greetings.NAME)
+        parts.forEachIndexed { i, part ->
+            append(part)
+            if (i < parts.lastIndex) {
+                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { append(nameText) }
+            }
         }
-        append(".")
     }
 
     val minutes = (recordingSeconds / 60).toString().padStart(2, '0')
@@ -341,7 +311,6 @@ fun RecordScreen(
 
                         Spacer(modifier = Modifier.weight(0.3f))
 
-                        // Botones de acción: reutilizamos el bloque existente
                         RecordScreenActionButtons(
                             isRecording = isRecording,
                             isPaused = isPaused,
@@ -370,7 +339,7 @@ fun RecordScreen(
                             onImportClick = { showAudioPicker = true }
                         )
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(24.dp + com.obinot.app.ui.components.LocalBottomBarInset.current))
                     }
 
                     // --- Columna derecha: notas recientes ---
@@ -445,7 +414,7 @@ fun RecordScreen(
                         } else {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text(
-                                    text = stringResource(R.string.history_no_notes),
+                                    text = stringResource(R.string.history_empty_title),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                     textAlign = TextAlign.Center,
@@ -525,50 +494,21 @@ fun RecordScreen(
                                 .animateEnterExit(enter = slideInVertically { -50 } + fadeIn()),
                             horizontalAlignment = Alignment.Start
                         ) {
-                            Text(
-                                text = greetingText,
-                                style = MaterialTheme.typography.displaySmall,
-                                color = MaterialTheme.colorScheme.onBackground,
-                                textAlign = TextAlign.Start,
-                                modifier = Modifier
-                                    .padding(horizontal = 24.dp)
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onTap = {
-                                                greetingTapCount++
-                                                if (greetingTapCount > 4) {
-                                                    greetingTapCount = 0
-                                                    showEasterEggDialog = true
-                                                    easterEggAnswer = ""
-                                                }
-                                            }
-                                        )
+                            RecordScreenGreetingBlock(
+                                greetingText = greetingText,
+                                timeString = timeString,
+                                isRecording = isRecording,
+                                isPaused = isPaused,
+                                onGreetingTap = {
+                                    greetingTapCount++
+                                    if (greetingTapCount > 4) {
+                                        greetingTapCount = 0
+                                        showEasterEggDialog = true
+                                        easterEggAnswer = ""
                                     }
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Surface(
-                                shape = CircleShape,
-                                color = when {
-                                    isPaused -> MaterialTheme.colorScheme.tertiaryContainer
-                                    isRecording -> MaterialTheme.colorScheme.primaryContainer
-                                    else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                                 },
-                                modifier = Modifier.padding(start = 24.dp, bottom = 16.dp)
-                            ) {
-                                AnimatedContent(targetState = timeString, label = "timeAnimation") { time ->
-                                    Text(
-                                        text = time,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = when {
-                                            isPaused -> MaterialTheme.colorScheme.onTertiaryContainer
-                                            isRecording -> MaterialTheme.colorScheme.onPrimaryContainer
-                                            else -> MaterialTheme.colorScheme.onSecondaryContainer
-                                        },
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                                    )
-                                }
-                            }
+                                horizontalPadding = 24.dp
+                            )
 
                             Spacer(modifier = Modifier.weight(1f))
 
@@ -803,7 +743,7 @@ fun RecordScreen(
                         onImportClick = { showAudioPicker = true }
                     )
 
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(32.dp + com.obinot.app.ui.components.LocalBottomBarInset.current))
                 }
             }
 
@@ -942,7 +882,7 @@ fun RecordScreen(
             confirmButton = {
                 FilledTonalButton(
                     onClick = {
-                        if (easterEggAnswer.trim().equals("dinda", ignoreCase = true)) {
+                        if (easterEggAnswer.trim().equals("smarky", ignoreCase = true)) {
                             showEasterEggDialog = false
                             showLovePopup = true
                         }
@@ -1018,6 +958,11 @@ fun RecordScreen(
 
 /**
  * Bloque de saludo + timer. Se usa en landscape y en portrait.
+ *
+ * Animación pasiva:
+ *   - Fade-in + slide-in al aparecer (una sola vez, vía `visible`).
+ *   - Cuando isRecording && !isPaused, el timer pill hace un pulse muy sutil
+ *     (~1.4s, ±3% de escala) para dar feedback de "está vivo" sin ser molesto.
  */
 @Composable
 private fun RecordScreenGreetingBlock(
@@ -1028,7 +973,42 @@ private fun RecordScreenGreetingBlock(
     onGreetingTap: () -> Unit,
     horizontalPadding: Dp = 24.dp
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(60)
+        visible = true
+    }
+
+    val greetingAlpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(700, easing = FastOutSlowInEasing),
+        label = "greetingAlpha"
+    )
+    val greetingOffset by animateFloatAsState(
+        targetValue = if (visible) 0f else -16f,
+        animationSpec = tween(700, easing = FastOutSlowInEasing),
+        label = "greetingOffset"
+    )
+
+    val infinite = rememberInfiniteTransition(label = "greeting_pulse")
+    val timerPulseScale by infinite.animateFloat(
+        initialValue = 1f,
+        targetValue = if (isRecording && !isPaused) 1.03f else 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "timerPulseScale"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = greetingAlpha
+                translationY = greetingOffset
+            }
+    ) {
         Text(
             text = greetingText,
             style = MaterialTheme.typography.displaySmall,
@@ -1049,7 +1029,12 @@ private fun RecordScreenGreetingBlock(
                 isRecording -> MaterialTheme.colorScheme.primaryContainer
                 else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
             },
-            modifier = Modifier.padding(start = horizontalPadding, bottom = 16.dp)
+            modifier = Modifier
+                .padding(start = horizontalPadding, bottom = 16.dp)
+                .graphicsLayer {
+                    scaleX = timerPulseScale
+                    scaleY = timerPulseScale
+                }
         ) {
             AnimatedContent(targetState = timeString, label = "timeAnimation") { time ->
                 Text(
@@ -1070,6 +1055,11 @@ private fun RecordScreenGreetingBlock(
 /**
  * Bloque de botones de acción (record/pause/resume/stop/import).
  * Se usa en landscape y en portrait.
+ *
+ * Animación pasiva:
+ *   - Cuando el botón principal está en estado "Record" (idle), hace un
+ *     breathing muy sutil (~2.4s, ±1.5%) para llamar la atención sin ser
+ *     invasivo. Se apaga apenas el usuario toca o empieza a grabar.
  */
 @Composable
 private fun RecordScreenActionButtons(
@@ -1268,33 +1258,181 @@ private fun RecordScreenActionButtons(
     }
 }
 
+/**
+ * Fondo con dos círculos radiales (primary + secondary).
+ *
+ * Animación pasiva: un drift lento (~14s, ida y vuelta) desplaza sutilmente
+ * los centros de los círculos. Esto da una sensación de "respiración" muy
+ * tenue que evita que la pantalla se vea estática cuando el usuario no
+ * interactúa. El desplazamiento es de ~5% del tamaño de la pantalla, muy
+ * sutil para no distraer.
+ */
+/**
+ * Fondo con dos burbujas de color (primary + tertiary) que driftean
+ * lentamente.
+ *
+ * Alphas por modo: dark mode necesita un valor mucho más alto porque la
+ * superficie base es oscura y el contraste entre primary y surface es
+ * bajo — con alpha chica el tinte se pierde completamente.
+ *
+ * El radio es 1.0w (el ancho completo de la pantalla) para que cada
+ * burbuja cubra una zona amplia. Con radios más chicos quedaba un borde
+ * "limpio" visible entre burbuja y burbuja que se veía raro.
+ *
+ * El drift horizontal es ±15% del ancho (antes era ±4%), así el
+ * movimiento se percibe aunque el usuario no mire fijo. El vertical es
+ * más sutil para no marear.
+ */
+/**
+ * Fondo con dos burbujas de color que driftean lentamente.
+ *
+ * Decisión de diseño:
+ *   - Los colores son `secondary` y `tertiary`, no `primary`. El surface
+ *     base ya está derivado de primary, así que una burbuja primary casi
+ *     no se distingue del fondo (ese era el bug original: no se veía nada
+ *     porque el color no contrastaba). Secondary/tertiary tienen hue
+ *     distinto al primary → siempre se ven.
+ *   - El radio es 0.5 × min(w, h). Chico a propósito: la burbuja nunca
+ *     llega al borde del canvas, así no hay "corte" visible ni en el nav
+ *     bar inferior ni en landscape. Es un glow contenido, no un wash.
+ *   - El gradiente usa 3 stops (color, color*0.3, transparente) en vez
+ *     de 2. Esto alarga la zona de fade y hace que el borde sea
+ *     imperceptible.
+ *   - Alphas más bajos que la iteración anterior. Los colores correctos
+ *     hacen el trabajo; no hace falta subir la intensidad.
+ *
+ * Animación:
+ *   - Una sola animación continua (0..1) que mapea a un ángulo 0..2π.
+ *   - Cada burbuja recorre un círculo (cos/sin) con radios distintos.
+ *   - Los períodos son 14s y 18s, así las dos burbujas se desincronizan
+ *     solas y el patrón nunca se repite igual.
+ *   - Velocidad percibida: alta al principio/medio/final, baja en los
+ *     extremos del círculo — eso la hace sentir "orgánica" en vez de
+ *     robótica.
+ */
 @Composable
 private fun M3ExpressiveBackground() {
-    val primaryColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
-    val secondaryColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f)
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val secondaryColor = MaterialTheme.colorScheme.secondary
+    val tertiaryColor = MaterialTheme.colorScheme.tertiary
+    val sparkleColor = MaterialTheme.colorScheme.primary
+
+    val blurEnabled = com.obinot.app.ui.components.LocalBlurEnabled.current
+
+    val secondaryAlpha = if (isDark) 0.18f else 0.10f
+    val tertiaryAlpha = if (isDark) 0.14f else 0.08f
+
+    val infinite = rememberInfiniteTransition(label = "bg_drift")
+    val phaseA by infinite.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(14000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "bg_phase_a"
+    )
+    val phaseB by infinite.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(18000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "bg_phase_b"
+    )
 
     Canvas(modifier = Modifier.fillMaxSize()) {
         val w = size.width
         val h = size.height
+        val baseRadius = 0.5f * minOf(w, h)
+
+        val ampAx = w * 0.25f
+        val ampAy = h * 0.15f
+        val baseCxA = w * 0.55f
+        val baseCyA = h * 0.30f
+        val cxA = baseCxA + kotlin.math.cos(phaseA) * ampAx
+        val cyA = baseCyA + kotlin.math.sin(phaseA) * ampAy
+        val radiusA = baseRadius * 1.15f
 
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(primaryColor, Color.Transparent),
-                center = Offset(w * 0.5f, h * 0.2f),
-                radius = w * 0.8f
+                colorStops = arrayOf(
+                    0.0f to secondaryColor.copy(alpha = secondaryAlpha),
+                    0.55f to secondaryColor.copy(alpha = secondaryAlpha * 0.30f),
+                    1.0f to Color.Transparent
+                ),
+                center = Offset(cxA, cyA),
+                radius = radiusA
             ),
-            center = Offset(w * 0.5f, h * 0.2f),
-            radius = w * 0.8f
+            center = Offset(cxA, cyA),
+            radius = radiusA
         )
 
+        val ampBx = w * 0.20f
+        val ampBy = h * 0.18f
+        val baseCxB = w * 0.35f
+        val baseCyB = h * 0.70f
+        val cxB = baseCxB + kotlin.math.cos(phaseB) * ampBx
+        val cyB = baseCyB + kotlin.math.sin(phaseB) * ampBy
+        val radiusB = baseRadius * 1.0f
+
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(secondaryColor, Color.Transparent),
-                center = Offset(w * 0.2f, h * 0.7f),
-                radius = w * 0.7f
+                colorStops = arrayOf(
+                    0.0f to tertiaryColor.copy(alpha = tertiaryAlpha),
+                    0.55f to tertiaryColor.copy(alpha = tertiaryAlpha * 0.30f),
+                    1.0f to Color.Transparent
+                ),
+                center = Offset(cxB, cyB),
+                radius = radiusB
             ),
-            center = Offset(w * 0.2f, h * 0.7f),
-            radius = w * 0.7f
+            center = Offset(cxB, cyB),
+            radius = radiusB
+        )
+
+        // Sparkles sutiles. Solo se activan con blur on, así apagar el blur
+        // para performance también apaga el costo de las partículas.
+        if (blurEnabled) {
+            drawRecordSparkles(
+                color = sparkleColor,
+                count = 30,
+                timePhase = phaseA / (2 * Math.PI).toFloat()
+            )
+        }
+    }
+}
+
+/**
+ * Partículas tipo sparkle para RecordScreen. Menos intensas que las del
+ * final del onboarding (30 vs 60, alpha pico 0.32 vs 0.7, drift más lento)
+ * para que se sientan "vivas" sin distraer del gesto de grabar.
+ */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawRecordSparkles(
+    color: Color,
+    count: Int,
+    timePhase: Float
+) {
+    val w = size.width
+    val h = size.height
+    val rng = kotlin.random.Random(7)
+    val baseRadius = size.minDimension * 0.0018f
+    repeat(count) { i ->
+        val bx = rng.nextFloat()
+        val by = rng.nextFloat()
+        val drift = rng.nextFloat() * 0.03f + 0.01f
+        val twinkleSpeed = 0.4f + rng.nextFloat() * 0.8f
+        val phase = rng.nextFloat()
+
+        val x = ((bx + timePhase * drift) % 1f) * w
+        val y = ((by + timePhase * drift * 0.6f) % 1f) * h
+        val twinkle = (kotlin.math.sin((timePhase * twinkleSpeed + phase) * 2f * Math.PI.toFloat()) + 1f) * 0.5f
+        val alpha = (0.08f + 0.24f * twinkle).coerceIn(0f, 0.32f)
+
+        drawCircle(
+            color = color.copy(alpha = alpha),
+            radius = baseRadius * (0.55f + rng.nextFloat() * 0.9f),
+            center = Offset(x, y)
         )
     }
 }

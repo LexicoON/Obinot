@@ -4,17 +4,11 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.obinot.app.data.Content
-import com.obinot.app.data.GenerateContentRequest
-import com.obinot.app.data.GeminiModels
-import com.obinot.app.data.GroqChatRequest
-import com.obinot.app.data.GroqMessage
-import com.obinot.app.data.GroqModels
 import com.obinot.app.data.NoteEntity
 import com.obinot.app.data.NoteRepository
-import com.obinot.app.data.Part
-import com.obinot.app.data.RetrofitClient
 import com.obinot.app.data.SettingsRepository
+import com.obinot.app.data.providers.ProviderCapability
+import com.obinot.app.data.providers.ProviderRouter
 import com.obinot.app.utils.AudioRecorderManager
 import com.obinot.app.utils.RecordingService
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +31,12 @@ class RecordViewModel(
     private val appContext: Context,
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
+
+    /**
+     * Router de providers. Se instancia una vez por ViewModel; los providers
+     * en sí son stateless, así que no hay costo real más allá de la lista.
+     */
+    private val router: ProviderRouter = ProviderRouter.default()
 
     val isRecording: StateFlow<Boolean> = audioRecorderManager.isRecording
     val amplitude: StateFlow<Float> = audioRecorderManager.amplitude
@@ -205,52 +205,45 @@ class RecordViewModel(
 
         val id = withContext(Dispatchers.IO) { repository.insert(note).toInt() }
 
-        // Dynamic (provider == 2): los títulos se alternan entre Groq y Gemini para
-        // repartir carga. Fuera de Dynamic, se usa el provider directo.
-        if (provider == 2) {
-            val effectiveProvider = if (settingsRepository.incrementMixCounter() % 2 == 0) 0 else 1
-            val apiKey = if (effectiveProvider == 1) groqApiKey else geminiApiKey
-            if (apiKey.isNotBlank() && recordMode == 0) {
-                generateTitleForNote(id, text, effectiveProvider, apiKey)
-            }
-        } else {
-            val apiKey = if (provider == 1) groqApiKey else geminiApiKey
-            if (apiKey.isNotBlank() && recordMode == 0) {
-                generateTitleForNote(id, text, provider, apiKey)
-            }
+        // El título se genera con IA solo si es modo Fast (en Accurate el
+        // texto aún no existe hasta que se transcriba). El router se encarga
+        // de elegir el provider según el modo configurado.
+        if (recordMode == 0) {
+            generateTitleForNote(id, text, provider)
         }
 
         pendingAudioPath = null
         return true
     }
 
-    private fun generateTitleForNote(noteId: Int, text: String, provider: Int, apiKey: String) {
+    /**
+     * Genera un título corto (3-5 palabras) usando el router.
+     *
+     * En modo Dynamic los títulos van primero a Groq (Gemini se reserva
+     * para audio grande y texto largo). En modos explícitos (0 o 1) solo
+     * hay un provider con key configurada.
+     *
+     * Si el router no encuentra candidatos (ninguna key configurada), no
+     * hace nada y la nota se queda con título vacío — la UI ya maneja ese
+     * caso mostrando "Empty Note" o similar.
+     */
+    private fun generateTitleForNote(noteId: Int, text: String, provider: Int) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                val apiKeys = buildApiKeysMap(provider)
+                if (apiKeys.isEmpty()) return@launch
+
                 val systemPrompt = "You are a title generator. Output ONLY a 3-5 word title in the same language as the input. No quotes, no explanation."
                 val userPrompt = "Text:\n${text.take(500)}"
 
-                val aiTitle = if (provider == 1) {
-                    val request = GroqChatRequest(
-                        model = GroqModels.GPT_OSS_20B,
-                        messages = listOf(
-                            GroqMessage(role = "system", content = systemPrompt),
-                            GroqMessage(role = "user", content = userPrompt)
-                        )
-                    )
-                    RetrofitClient.groqService.generateContent("Bearer $apiKey", request)
-                        .choices?.firstOrNull()?.message?.content?.trim()
-                } else {
-                    val request = GenerateContentRequest(
-                        systemInstruction = Content(parts = listOf(Part(text = systemPrompt))),
-                        contents = listOf(Content(parts = listOf(Part(text = userPrompt))))
-                    )
-                    RetrofitClient.service.generateContent(
-                        model = GeminiModels.FLASH_LITE,
-                        apiKey = apiKey,
-                        request = request
-                    ).candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
-                }
+                val aiTitle = router.generateTextWithFallback(
+                    capability = ProviderCapability.TITLE,
+                    apiKeys = apiKeys,
+                    systemPrompt = systemPrompt,
+                    userPrompt = userPrompt,
+                    // Dynamic: los títulos van a Groq para no gastar cuota de Gemini.
+                    preferredProviderId = if (provider == 2 && apiKeys.containsKey("groq")) "groq" else null
+                )
 
                 if (!aiTitle.isNullOrBlank()) {
                     val savedNote = repository.getNoteById(noteId)
@@ -262,6 +255,28 @@ class RecordViewModel(
                 e.printStackTrace()
             }
         }
+    }
+
+    /**
+     * Map de API keys según el modo (0 = Gemini, 1 = Groq, 2 = Dynamic).
+     * Lee las listas completas desde settings para que la rotación de keys
+     * funcione también al generar títulos.
+     */
+    private suspend fun buildApiKeysMap(provider: Int): Map<String, List<String>> {
+        val map = mutableMapOf<String, List<String>>()
+        val gemini = settingsRepository.geminiApiKeysFlow.first().filter { it.isNotBlank() }
+            .ifEmpty { listOf(geminiApiKey).filter { it.isNotBlank() } }
+        val groq = settingsRepository.groqApiKeysFlow.first().filter { it.isNotBlank() }
+            .ifEmpty { listOf(groqApiKey).filter { it.isNotBlank() } }
+        when (provider) {
+            0 -> if (gemini.isNotEmpty()) map["gemini"] = gemini
+            1 -> if (groq.isNotEmpty()) map["groq"] = groq
+            else -> {
+                if (gemini.isNotEmpty()) map["gemini"] = gemini
+                if (groq.isNotEmpty()) map["groq"] = groq
+            }
+        }
+        return map
     }
 
     override fun onCleared() {

@@ -23,6 +23,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import com.obinot.app.ui.components.LocalBlurEnabled
+import com.obinot.app.ui.components.LocalBottomBarInset
+import com.obinot.app.ui.components.LocalFrostedBackdrop
+import com.obinot.app.ui.components.frostedSource
+import com.obinot.app.ui.components.frostedSurface
+import com.obinot.app.ui.components.isLiveBlurSupported
+import com.obinot.app.ui.components.rememberFrostedBackdrop
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Icon
@@ -82,7 +89,27 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // installSplashScreen() DEBE ir antes de super.onCreate().
-        installSplashScreen()
+        val splash = installSplashScreen()
+
+        // Exit animation: el splash no desaparece de golpe cuando la app está
+        // lista, se disuelve en 500ms con un decelerate para que se sienta
+        // como un fade del sistema en vez de un "pop".
+        splash.setOnExitAnimationListener { splashScreenView ->
+            val fadeOut = android.animation.ObjectAnimator.ofFloat(
+                splashScreenView.view,
+                android.view.View.ALPHA,
+                1f,
+                0f
+            )
+            fadeOut.duration = 500L
+            fadeOut.interpolator = android.view.animation.DecelerateInterpolator()
+            fadeOut.addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    splashScreenView.remove()
+                }
+            })
+            fadeOut.start()
+        }
 
         super.onCreate(savedInstanceState)
 
@@ -221,13 +248,29 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
 
     val tabFadeSpec = spring<Float>(dampingRatio = 1.0f, stiffness = 1600f)
 
+    val blurEnabled by settingsViewModel.blurEnabled.collectAsState()
+    val useFrostedBar = blurEnabled && isLiveBlurSupported
+    val frostedBackdrop = rememberFrostedBackdrop()
+
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalBlurEnabled provides blurEnabled,
+        LocalFrostedBackdrop provides (if (useFrostedBar) frostedBackdrop else null)
+    ) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
             if (currentRoute in listOf("record", "history", "settings")) {
-                ShortNavigationBar {
+                ShortNavigationBar(
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                    modifier = Modifier.frostedSurface(
+                        backdrop = frostedBackdrop,
+                        shape = androidx.compose.ui.graphics.RectangleShape,
+                        tint = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.62f),
+                        fallbackColor = MaterialTheme.colorScheme.surfaceContainer
+                    )
+                ) {
                     ShortNavigationBarItem(
                         selected = currentRoute == "record",
                         onClick = {
@@ -271,22 +314,38 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
             }
         }
     ) { innerPadding ->
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalBottomBarInset provides (if (useFrostedBar && currentRoute in listOf("record", "history", "settings")) innerPadding.calculateBottomPadding() else 0.dp)
+        ) {
         SharedTransitionLayout {
             NavHost(
                 navController = navController,
                 startDestination = startDestination,
-                modifier = Modifier.padding(innerPadding),
+                // Con blur activo el contenido llega hasta abajo y se ve borroso
+                // detrás de la barra; sin blur se conserva el layout anterior.
+                modifier = if (useFrostedBar) Modifier.frostedSource(frostedBackdrop)
+                           else Modifier.padding(innerPadding),
                 enterTransition = {
-                    if (targetState.destination.route?.startsWith("result") == true || initialState.destination.route?.startsWith("result") == true)
+                    val fromOnboarding = initialState.destination.route == "onboarding"
+                    val toRecord = targetState.destination.route == "record"
+                    if (fromOnboarding && toRecord) {
+                        fadeIn(tween(700, easing = androidx.compose.animation.core.LinearEasing))
+                    } else if (targetState.destination.route?.startsWith("result") == true || initialState.destination.route?.startsWith("result") == true) {
                         fadeIn(tween(0))
-                    else
+                    } else {
                         fadeIn(tabFadeSpec)
+                    }
                 },
                 exitTransition = {
-                    if (targetState.destination.route?.startsWith("result") == true || initialState.destination.route?.startsWith("result") == true)
+                    val fromOnboarding = initialState.destination.route == "onboarding"
+                    val toRecord = targetState.destination.route == "record"
+                    if (fromOnboarding && toRecord) {
+                        fadeOut(tween(700, easing = androidx.compose.animation.core.LinearEasing))
+                    } else if (targetState.destination.route?.startsWith("result") == true || initialState.destination.route?.startsWith("result") == true) {
                         fadeOut(tween(0))
-                    else
+                    } else {
                         fadeOut(tabFadeSpec)
+                    }
                 },
                 popEnterTransition = {
                     if (targetState.destination.route?.startsWith("result") == true || initialState.destination.route?.startsWith("result") == true)
@@ -304,13 +363,14 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
                 composable("onboarding") {
                     OnboardingScreen(
                         settingsViewModel = settingsViewModel,
-                        onComplete = { name, provider, key, task, format, compression ->
+                        onComplete = { name, provider, key, task, format, compression, aiLanguage ->
                             settingsViewModel.saveUserName(name)
                             settingsViewModel.saveAiProvider(provider)
                             if (provider == 0) settingsViewModel.saveApiKey(key) else settingsViewModel.saveGroqApiKey(key)
                             settingsViewModel.saveAiTask(task)
                             settingsViewModel.saveAiFormat(format)
                             settingsViewModel.saveAutoCompressionMode(compression)
+                            settingsViewModel.saveAiLanguage(aiLanguage)
                             navController.navigate("record") { popUpTo("onboarding") { inclusive = true } }
                         }
                     )
@@ -443,5 +503,7 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
                 }
             }
         }
+        }
+    }
     }
 }
