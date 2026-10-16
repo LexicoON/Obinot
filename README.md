@@ -41,18 +41,28 @@ Obinot is distributed as a **completely independent app** (`com.obinot.app`) so 
 
 - 🎙️ **Voice capture** — Fast mode (on-device) or Accurate mode (full audio + AI transcription). Background recording, live waveform, optional live transcript.
 - 🤖 **Multi-provider AI** — Bring your own Gemini or Groq API key, or use Dynamic mode to route tasks automatically and stretch free quotas.
+- 🔁 **API key rotation (Alpha)** — Add up to 3 keys per provider and Obinot rotates through them automatically when one hits a rate limit. The Alpha unlock raises the ceiling to 6. Supported on both Gemini and Groq.
+- 🧭 **Capability-based routing** — Providers declare what they can do, so a task is never sent somewhere that can't handle it.
 - 🧠 **Tidy · Summary · Analyze** — Clean up rough transcripts, extract key points, or identify sentiments and action items. 23 output languages.
-- 💬 **Chat about any note** — Ask follow-up questions directly from the reader. The conversation is saved with the note and travels in backups.
+- 💬 **Chat about any note** — Long-press the menu to ask follow-up questions. Spring-animated bubbles, a "thinking" indicator, a clear-chat button, and a first-run tooltip. The conversation is saved with the note and travels in backups.
 - 📖 **Custom Markdown reader** — Headers, lists, tables, code blocks, blockquotes, links, and offline RaTeX math (block + inline) + Mermaid diagrams. Long-press any formula block to copy its LaTeX source.
 - ✏️ **Markdown summary editor** — Edit AI-processed summaries in raw Markdown with a live preview toggle.
 - ✅ **Interactive checkboxes** — Tappable Markdown checklists that persist.
 - ✏️ **Highlights with notes** — Select any text to highlight it and attach a personal note.
+- 🎨 **Color spans** — Render Material-role colored text inside a note, for emphasizing specific fragments.
 - 🔍 **Full-text search** — Room FTS4 with prefix matching, instant across the entire database.
 - 🏷️ **Colored labels** — Assign a color to each label for easy scanning.
 - 🗂️ **Local-first organization** — Custom labels, multi-select, pin, duplicate, trash with recovery.
 - 📦 **Export & backup** — `.binot` notes, `.obinotbak` full backups, legacy Binot 1.x backups, Markdown export.
+- 🗓️ **Context-aware greetings** — The home screen picks its greeting from time of day, month, and holiday. Four time windows with five variants each, twelve seasonal month lines, and six holidays (Christmas Eve, Christmas, New Year's Eve, New Year's Day, Halloween, Valentine's).
+- 🧊 **Frosted glass** — Real blur (not a scrim) on modals, sheets, and surfaces, driven by a `GraphicsLayer` backdrop. Toggleable in Settings.
 - ✨ **Material 3 Expressive** — Spring physics, animated bouncy components, wavy audio progress bar, 7 color palettes, dark + AMOLED themes, adaptive layouts for phone and tablet.
-- 🌐 **English + Spanish** — In-app language picker, plus system-level per-app locale on Android 13+.
+- 🌍 **English, Spanish & German** — Language picker in onboarding, plus system-level per-app locale on Android 13+.
+- ⚡ **Fast cold start** — Ships an AndroidX baseline profile, so the first frame lands sooner.
+
+## Onboarding
+
+The first-run flow was rebuilt from scratch in 2.2. It's multi-page, picks your language before anything else, and the background reacts to where you are — calm while you're reading, active while you're making choices, and a different tone if you reach the API key step without one configured. A real introduction to the app instead of a settings form with dropdowns.
 
 ## Migrating from Binot 1.x
 
@@ -72,6 +82,8 @@ Notes, audio, labels, preferences, and any AI chat history saved with notes are 
 
 Latest APK: [github.com/LexicoON/Obinot/releases](https://github.com/LexicoON/Obinot/releases) — ships as `Obinot-vX.Y.Z.apk`.
 
+Website: [lexicoon.github.io/Obinot](https://lexicoon.github.io/Obinot/)
+
 For the original Binot: [DENSLnetion/Binot/releases](https://github.com/DENSLnetion/Binot/releases).
 
 ## Building from source
@@ -82,6 +94,12 @@ Requires JDK 21 and Android SDK with API 37.
 git clone https://github.com/LexicoON/Obinot.git
 cd Obinot
 ./gradlew assembleDebug
+```
+
+The project includes a `baselineprofile` module — generate a profile against a physical device with:
+
+```bash
+./gradlew :baselineprofile:generateBaselineProfile
 ```
 
 Release builds need signing keys via environment variables (`KEYSTORE_PATH`, `STORE_PASSWORD`, `KEY_PASSWORD`). CI injects them from GitHub Secrets.
