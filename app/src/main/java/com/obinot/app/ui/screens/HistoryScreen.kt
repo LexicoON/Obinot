@@ -359,6 +359,7 @@ fun HistoryScreen(
             ) {
                 Column(
                     modifier = Modifier
+                        .padding(bottom = com.obinot.app.ui.components.LocalBottomBarInset.current)
                         .fillMaxHeight()
                         .verticalScroll(rememberScrollState())
                 ) {

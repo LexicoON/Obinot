@@ -532,6 +532,14 @@ document.addEventListener("DOMContentLoaded", function() {
         AndroidView(
             modifier = Modifier
                 .fillMaxSize()
+                .graphicsLayer {
+                    // Aísla el WebView en su propio buffer. Sin esto, cuando el
+                    // sharedBounds / predictiveBack de ResultScreen aplica un
+                    // graphicsLayer al padre, el GLFunctor del WebView queda
+                    // apuntando a un SkSurface inválido y crashea en
+                    // SkSurface::getCanvas()+16.
+                    compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+                }
                 .alpha(webViewAlpha),
             factory = { ctx ->
                 android.webkit.WebView(ctx).apply {
@@ -539,6 +547,10 @@ document.addEventListener("DOMContentLoaded", function() {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
+                    // Red de seguridad: si algún OEM (Samsung One UI 6/7) sigue
+                    // crasheando con el GLFunctor acelerado, forzamos software.
+                    // Los diagramas Mermaid son estáticos, no se nota el costo.
+                    setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
                     setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     isVerticalScrollBarEnabled = false
                     isHorizontalScrollBarEnabled = false

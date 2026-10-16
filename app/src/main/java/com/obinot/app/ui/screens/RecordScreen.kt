@@ -603,7 +603,6 @@ fun RecordScreen(
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
-                                .padding(bottom = com.obinot.app.ui.components.LocalBottomBarInset.current)
                                 .fillMaxWidth()
                                 .height(boxHeight)
                                 .scale(boxScale)
