@@ -143,6 +143,14 @@
     <string name="onboarding_api_key_hint">Füge deinen API-Schlüssel hier ein</string>
     <string name="onboarding_last_thing_title">Eine letzte Sache.</string>
     <string name="onboarding_last_thing_body">Obinot kann lange Aufnahmen verkleinern, damit sie ins Limit passen.</string>
+    <string name="onboarding_ai_language_title">Sprich mit mir auf deine Art.</string>
+    <string name="onboarding_ai_language_body">Die KI antwortet in dieser Sprache. Lass es auf Gerätesprache, um automatisch mit deinem System übereinzustimmen.</string>
+    <string name="onboarding_blur_toggle_title">Wähle deinen Stil.</string>
+    <string name="onboarding_blur_toggle_body">Obinot nutzt Live-Milchglas auf Leisten und Menüs. Sieht großartig aus, kann aber auf älteren Telefonen Akku ziehen. Schalte es für mehr Tempo aus.</string>
+    <string name="onboarding_blur_toggle_hint">Du kannst das jederzeit unter Einstellungen → Erscheinungsbild ändern.</string>
+    <string name="onboarding_final_title">Willkommen bei Obinot.</string>
+    <string name="onboarding_final_slogan">Sprich. Wir erledigen den Rest.</string>
+    <string name="onboarding_final_cta">Loslegen</string>
     <string name="onboarding_compression_label">Automatische Kompression</string>
     <string name="onboarding_compression_off">Aus</string>
     <string name="onboarding_compression_balanced">Ausgewogen</string>
@@ -577,11 +585,18 @@
 
     <string name="http_400">Ungültige Anfrage (400). Dateiformat oder Daten nicht erkannt.</string>
     <string name="http_401">Ungültiger API-Schlüssel (401). Prüfe ihn in den Einstellungen.</string>
+    <string name="http_402">Zahlung erforderlich (402). Überprüfe deine API-Abrechnungsdaten.</string>
     <string name="http_403">Zugriff verweigert (403). Dein Schlüssel hat keine Berechtigung.</string>
+    <string name="http_404">Nicht gefunden (404). Modell oder Endpunkt nicht gefunden. Überprüfe die Provider-Einstellungen.</string>
+    <string name="http_408">Anfrage-Timeout (408). Die Anfrage hat zu lange gedauert. Versuche es erneut.</string>
     <string name="http_413">Nutzlast zu groß (413). Die Datei ist zu groß.</string>
+    <string name="http_415">Nicht unterstützter Medientyp (415). Versuche eine andere Audiodatei.</string>
+    <string name="http_422">Nicht verarbeitbare Entität (422). Der Server konnte die Anfrage nicht verarbeiten. Versuche es erneut oder kürze den Text.</string>
     <string name="http_429">Ratenlimit überschritten (429). Zu viele Anfragen. Bitte warten.</string>
     <string name="http_500">Interner Serverfehler (500). Anbieter hat Probleme. Später erneut versuchen.</string>
+    <string name="http_502">Bad Gateway (502). Versuche es gleich nochmal.</string>
     <string name="http_503">Dienst nicht verfügbar (503). KI-Server überlastet.</string>
+    <string name="http_504">Gateway-Timeout (504). Der Server hat zu lange gebraucht.</string>
     <string name="http_generic">HTTP-Fehler: %1$d — Prüfe deine Verbindung oder den API-Schlüssel.</string>
     <string name="processing_failed">Verarbeitung fehlgeschlagen: %1$s</string>
 

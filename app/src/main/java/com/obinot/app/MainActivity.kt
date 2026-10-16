@@ -333,13 +333,14 @@ fun BinotApp(appContainer: AppContainer, settingsViewModel: SettingsViewModel, m
                 composable("onboarding") {
                     OnboardingScreen(
                         settingsViewModel = settingsViewModel,
-                        onComplete = { name, provider, key, task, format, compression ->
+                        onComplete = { name, provider, key, task, format, compression, aiLanguage ->
                             settingsViewModel.saveUserName(name)
                             settingsViewModel.saveAiProvider(provider)
                             if (provider == 0) settingsViewModel.saveApiKey(key) else settingsViewModel.saveGroqApiKey(key)
                             settingsViewModel.saveAiTask(task)
                             settingsViewModel.saveAiFormat(format)
                             settingsViewModel.saveAutoCompressionMode(compression)
+                            settingsViewModel.saveAiLanguage(aiLanguage)
                             navController.navigate("record") { popUpTo("onboarding") { inclusive = true } }
                         }
                     )

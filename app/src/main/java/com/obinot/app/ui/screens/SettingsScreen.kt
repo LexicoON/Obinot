@@ -641,7 +641,7 @@ fun SettingsScreen(
     var showAppLanguageSheet by remember { mutableStateOf(false) }
 
     val supportedLanguages = remember {
-        listOf(
+        listOf(com.obinot.app.data.SettingsRepository.AI_LANGUAGE_SYSTEM) + listOf(
             "English", "Indonesia", "Spanish", "French", "German", "Chinese (Simplified)",
             "Chinese (Traditional)", "Japanese", "Korean", "Arabic", "Russian", "Portuguese",
             "Italian", "Hindi", "Bengali", "Urdu", "Turkish", "Vietnamese", "Thai",
@@ -1411,6 +1411,15 @@ fun SettingsScreen(
                     value = currentAppLanguage.displayLabel(),
                     onClick = { showAppLanguageSheet = true }
                 )
+
+                SectionRowDivider()
+
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_blur),
+                    description = stringResource(R.string.settings_blur_desc),
+                    checked = blurEnabled,
+                    onCheckedChange = { viewModel.saveBlurEnabled(it) }
+                )
             }
         }
     }
@@ -1593,15 +1602,6 @@ fun SettingsScreen(
                     checked = liveTranscriptEnabled,
                     onCheckedChange = { viewModel.saveLiveTranscript(it) },
                     badge = FeatureBadge.ALPHA
-                )
-
-                SectionRowDivider()
-
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_blur),
-                    description = stringResource(R.string.settings_blur_desc),
-                    checked = blurEnabled,
-                    onCheckedChange = { viewModel.saveBlurEnabled(it) }
                 )
 
                 SectionRowDivider()

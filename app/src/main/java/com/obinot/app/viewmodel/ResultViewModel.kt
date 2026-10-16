@@ -200,7 +200,7 @@ class ResultViewModel(
 
     private fun checkAndTriggerAutoProcess(noteToProcess: NoteEntity) {
         viewModelScope.launch {
-            val lang = settingsRepository.aiLanguageFlow.first()
+            val lang = settingsRepository.resolveAiLanguage(settingsRepository.aiLanguageFlow.first())
             val task = settingsRepository.aiTaskFlow.first()
             val format = settingsRepository.aiFormatFlow.first()
             val currentMeta = "<!--BINOT_META:${lang}_${task}_${format}-->"
@@ -234,7 +234,7 @@ class ResultViewModel(
         if (_isLoading.value) return
 
         viewModelScope.launch {
-            val lang = settingsRepository.aiLanguageFlow.first()
+            val lang = settingsRepository.resolveAiLanguage(settingsRepository.aiLanguageFlow.first())
             val task = settingsRepository.aiTaskFlow.first()
             val format = settingsRepository.aiFormatFlow.first()
             val currentMeta = "<!--BINOT_META:${lang}_${task}_${format}-->"
@@ -664,7 +664,7 @@ class ResultViewModel(
                     return@launch
                 }
 
-                val targetLanguage = settingsRepository.aiLanguageFlow.first()
+                val targetLanguage = settingsRepository.resolveAiLanguage(settingsRepository.aiLanguageFlow.first())
 
                 // Prompt unificado: sirve tanto para Gemini como para Groq.
                 // Los overrides de Groq (math isolation, mermaid explícito) se
@@ -1098,19 +1098,62 @@ class ResultViewModel(
     }
 
     private fun handleExceptionError(e: Exception): String {
-        return if (e is HttpException) {
-            when (e.code()) {
+        if (e is HttpException) {
+            // Prioridad 1: mensaje del servidor. Suele ser específico (quota
+            // de modelo, país bloqueado, key deshabilitada, etc.) y nos da
+            // contexto que un código numérico no da. Si el server no manda
+            // nada, caemos al fallback por código.
+            val serverMsg = extractServerErrorMessage(e)
+            if (!serverMsg.isNullOrBlank()) {
+                return serverMsg
+            }
+            return when (e.code()) {
                 400 -> appContext.getString(R.string.http_400)
                 401 -> appContext.getString(R.string.http_401)
+                402 -> appContext.getString(R.string.http_402)
                 403 -> appContext.getString(R.string.http_403)
+                404 -> appContext.getString(R.string.http_404)
+                408 -> appContext.getString(R.string.http_408)
                 413 -> appContext.getString(R.string.http_413)
+                415 -> appContext.getString(R.string.http_415)
+                422 -> appContext.getString(R.string.http_422)
                 429 -> appContext.getString(R.string.http_429)
                 500 -> appContext.getString(R.string.http_500)
+                502 -> appContext.getString(R.string.http_502)
                 503 -> appContext.getString(R.string.http_503)
+                504 -> appContext.getString(R.string.http_504)
                 else -> appContext.getString(R.string.http_generic, e.code())
             }
-        } else {
-            appContext.getString(R.string.processing_failed, e.message ?: "")
+        }
+        return appContext.getString(R.string.processing_failed, e.message ?: "")
+    }
+
+    /**
+     * Extrae el mensaje de error del body de la respuesta HTTP.
+     *
+     * Gemini, Groq y OpenAI comparten el patrón: {"error": {"message": "..."}}.
+     * Algunos APIs mandan {"message": "..."} o {"detail": "..."} plano.
+     * Como último recurso, si el body es corto y no es HTML, lo usamos tal cual.
+     *
+     * El mensaje se trunca a 300 chars por si algún server manda algo enorme
+     * (una HTML de error, un stacktrace, etc.). El stream del errorBody se
+     * consume una sola vez, así que la llamada se hace desde acá sin riesgo.
+     */
+    private fun extractServerErrorMessage(e: HttpException): String? {
+        return try {
+            val body = e.response()?.errorBody()?.string() ?: return null
+            if (body.isBlank()) return null
+            val parsed = try {
+                val json = JSONObject(body)
+                json.optJSONObject("error")?.optString("message")?.takeIf { it.isNotBlank() }
+                    ?: json.optString("message").takeIf { it.isNotBlank() }
+                    ?: json.optString("detail").takeIf { it.isNotBlank() }
+            } catch (ex: Exception) {
+                body.takeIf { it.length < 200 && !it.trimStart().startsWith("<") }
+            }
+            parsed?.trim()?.take(300)
+        } catch (ex: Exception) {
+            null
         }
     }
 
@@ -1155,7 +1198,7 @@ class ResultViewModel(
                     return@launch
                 }
 
-                val targetLanguage = settingsRepository.aiLanguageFlow.first()
+                val targetLanguage = settingsRepository.resolveAiLanguage(settingsRepository.aiLanguageFlow.first())
 
                 val cleanSummary = currentNote.summary
                     ?.replace(Regex("<!--BINOT_META:.*?-->"), "")

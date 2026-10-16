@@ -12,6 +12,15 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "se
 class SettingsRepository(private val context: Context) {
 
     companion object {
+        /**
+         * Valor especial para el idioma de procesamiento IA: usar el del
+         * sistema en el momento de la request. El nombre se resuelve al
+         * idioma soportado más cercano (ISO code → nombre). Va acá como
+         * constante pública para que el ViewModel y la UI lo usen sin
+         * duplicar el literal.
+         */
+        const val AI_LANGUAGE_SYSTEM = "System"
+
         val USER_NAME_KEY = stringPreferencesKey("user_name")
 
         // --- API KEYS (listas, separadas por \n) ---
@@ -80,6 +89,44 @@ class SettingsRepository(private val context: Context) {
                 ?.map { it.trim() }
                 ?.filter { it.isNotBlank() }
                 ?: emptyList()
+
+        /**
+         * Resuelve el valor almacenado al nombre de idioma real que se manda
+         * al modelo. Si el valor es AI_LANGUAGE_SYSTEM, mapea el locale del
+         * sistema a un idioma soportado. Ej: es-PA → "Spanish", pt-BR →
+         * "Portuguese", de-AT → "German". Si el idioma del sistema no está
+         * en la lista soportada, cae a English.
+         */
+        fun resolveAiLanguage(stored: String): String {
+            if (stored != AI_LANGUAGE_SYSTEM) return stored
+            val iso = java.util.Locale.getDefault().language.lowercase()
+            return ISO_TO_AI_LANGUAGE[iso] ?: "English"
+        }
+
+        private val ISO_TO_AI_LANGUAGE = mapOf(
+            "en" to "English",
+            "es" to "Spanish",
+            "de" to "German",
+            "fr" to "French",
+            "pt" to "Portuguese",
+            "it" to "Italian",
+            "ja" to "Japanese",
+            "ko" to "Korean",
+            "zh" to "Chinese (Simplified)",
+            "ar" to "Arabic",
+            "ru" to "Russian",
+            "hi" to "Hindi",
+            "bn" to "Bengali",
+            "ur" to "Urdu",
+            "tr" to "Turkish",
+            "vi" to "Vietnamese",
+            "th" to "Thai",
+            "nl" to "Dutch",
+            "pl" to "Polish",
+            "sv" to "Swedish",
+            "ms" to "Malay",
+            "id" to "Indonesia"
+        )
     }
 
     // ============================================================
@@ -122,7 +169,7 @@ class SettingsRepository(private val context: Context) {
     val backgroundRecordingFlow: Flow<Boolean> = context.dataStore.data.map { it[BACKGROUND_RECORDING_KEY] ?: false }
     val liveTranscriptFlow: Flow<Boolean> = context.dataStore.data.map { it[LIVE_TRANSCRIPT_KEY] ?: false }
 
-    val aiLanguageFlow: Flow<String> = context.dataStore.data.map { it[AI_LANGUAGE_KEY] ?: "English" }
+    val aiLanguageFlow: Flow<String> = context.dataStore.data.map { it[AI_LANGUAGE_KEY] ?: AI_LANGUAGE_SYSTEM }
     val aiTaskFlow: Flow<Int> = context.dataStore.data.map { it[AI_TASK_KEY] ?: 0 }
     val aiFormatFlow: Flow<Int> = context.dataStore.data.map { it[AI_FORMAT_KEY] ?: 0 }
 

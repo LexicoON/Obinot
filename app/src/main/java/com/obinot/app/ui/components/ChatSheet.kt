@@ -92,6 +92,7 @@ fun ChatSheet(
                 .fillMaxHeight(0.85f)
                 .widthIn(max = 560.dp)
                 .padding(horizontal = 16.dp)
+                .imePadding()
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

@@ -143,6 +143,14 @@
     <string name="onboarding_api_key_hint">Paste your API Key here</string>
     <string name="onboarding_last_thing_title">One last thing.</string>
     <string name="onboarding_last_thing_body">Obinot can shrink long recordings to fit API limits.</string>
+    <string name="onboarding_ai_language_title">Talk to me your way.</string>
+    <string name="onboarding_ai_language_body">AI will respond in this language. Leave it on device language to match your system automatically.</string>
+    <string name="onboarding_blur_toggle_title">Choose your vibe.</string>
+    <string name="onboarding_blur_toggle_body">Obinot uses live frosted glass on bars and menus. It looks amazing, but on older phones it can drain battery. Turn it off for speed.</string>
+    <string name="onboarding_blur_toggle_hint">You can change this anytime in Settings → Appearance.</string>
+    <string name="onboarding_final_title">Welcome to Obinot.</string>
+    <string name="onboarding_final_slogan">Speak. We do the rest.</string>
+    <string name="onboarding_final_cta">Get started</string>
     <string name="onboarding_compression_label">Auto Compression</string>
     <string name="onboarding_compression_off">Off</string>
     <string name="onboarding_compression_balanced">Balanced</string>
@@ -577,11 +585,18 @@
 
     <string name="http_400">Bad Request (400). File format or data is unrecognized.</string>
     <string name="http_401">Invalid API Key (401). Please check your API Key in the Settings.</string>
+    <string name="http_402">Payment Required (402). Check your API billing details.</string>
     <string name="http_403">Access Denied (403). Your API Key does not have permission.</string>
+    <string name="http_404">Not Found (404). Model or endpoint not found. Check your provider settings.</string>
+    <string name="http_408">Request Timeout (408). The request took too long. Try again.</string>
     <string name="http_413">Payload Too Large (413). The file is too big for the server.</string>
+    <string name="http_415">Unsupported Media Type (415). Unsupported file format. Try a different audio file.</string>
+    <string name="http_422">Unprocessable Entity (422). The server couldn\'t process the request. Try again or shorten the text.</string>
     <string name="http_429">API Rate Limit Exceeded (429). You are making too many requests. Please wait.</string>
     <string name="http_500">Internal Server Error (500). Provider is having trouble. Please try again later.</string>
+    <string name="http_502">Bad Gateway (502). Try again in a moment.</string>
     <string name="http_503">Service Unavailable (503). The AI Server is currently overloaded.</string>
+    <string name="http_504">Gateway Timeout (504). The server took too long to respond.</string>
     <string name="http_generic">HTTP Error: %1$d - Please check your connection or API Key.</string>
     <string name="processing_failed">Processing failed: %1$s</string>
 

@@ -143,6 +143,14 @@
     <string name="onboarding_api_key_hint">Pegá tu clave API acá</string>
     <string name="onboarding_last_thing_title">Una última cosa.</string>
     <string name="onboarding_last_thing_body">Obinot puede achicar grabaciones largas para que entren en el límite.</string>
+    <string name="onboarding_ai_language_title">Hablame a tu manera.</string>
+    <string name="onboarding_ai_language_body">La IA responderá en este idioma. Dejalo en el idioma del dispositivo para que coincida con tu sistema automáticamente.</string>
+    <string name="onboarding_blur_toggle_title">Elegí tu estilo.</string>
+    <string name="onboarding_blur_toggle_body">Obinot usa vidrio esmerilado en vivo en barras y menús. Se ve increíble, pero en teléfonos viejos puede gastar batería. Desactivalo para más velocidad.</string>
+    <string name="onboarding_blur_toggle_hint">Podés cambiarlo cuando quieras en Ajustes → Apariencia.</string>
+    <string name="onboarding_final_title">Bienvenido a Obinot.</string>
+    <string name="onboarding_final_slogan">Hablá. Del resto nos encargamos nosotros.</string>
+    <string name="onboarding_final_cta">Empezar</string>
     <string name="onboarding_compression_label">Compresión automática</string>
     <string name="onboarding_compression_off">Apagada</string>
     <string name="onboarding_compression_balanced">Equilibrada</string>
@@ -577,11 +585,18 @@
 
     <string name="http_400">Solicitud incorrecta (400). Formato o datos no reconocidos.</string>
     <string name="http_401">Clave API inválida (401). Verificala en Ajustes.</string>
+    <string name="http_402">Pago requerido (402). Revisá los datos de facturación de tu API.</string>
     <string name="http_403">Acceso denegado (403). Tu clave no tiene permiso.</string>
+    <string name="http_404">No encontrado (404). Modelo o endpoint no encontrado. Revisá la configuración del proveedor.</string>
+    <string name="http_408">Tiempo de espera agotado (408). La solicitud tardó demasiado. Probá de nuevo.</string>
     <string name="http_413">Carga muy grande (413). El archivo es muy grande.</string>
+    <string name="http_415">Tipo de medio no soportado (415). Probá con otro archivo de audio.</string>
+    <string name="http_422">Entidad no procesable (422). El servidor no pudo procesar la solicitud. Probá de nuevo o acortá el texto.</string>
     <string name="http_429">Límite excedido (429). Demasiadas solicitudes. Esperá.</string>
     <string name="http_500">Error del servidor (500). Problema del proveedor. Probá después.</string>
+    <string name="http_502">Bad Gateway (502). Probá de nuevo en un momento.</string>
     <string name="http_503">Servicio no disponible (503). Servidor de IA sobrecargado.</string>
+    <string name="http_504">Timeout del gateway (504). El servidor tardó demasiado en responder.</string>
     <string name="http_generic">Error HTTP: %1$d — Verificá tu conexión o clave API.</string>
     <string name="processing_failed">Falló el procesamiento: %1$s</string>
 
