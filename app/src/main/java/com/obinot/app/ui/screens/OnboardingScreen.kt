@@ -431,6 +431,8 @@ private fun ReactiveBackground(mood: Float, blurEnabled: Boolean) {
     val alphaA = (baseAlphaA * celebrateIntensity).coerceIn(0f, 0.4f)
     val alphaB = (baseAlphaB * celebrateIntensity).coerceIn(0f, 0.35f)
 
+    val sparkleColor = MaterialTheme.colorScheme.primary
+
     val infinite = rememberInfiniteTransition(label = "reactive_bg")
     val phaseA by infinite.animateFloat(
         initialValue = 0f,
@@ -494,10 +496,9 @@ private fun ReactiveBackground(mood: Float, blurEnabled: Boolean) {
             radius = radiusB
         )
 
-        // Sparkles sutiles en el fondo (muy tenues) cuando mood > 0.5.
         if (animatedMood > 0.5f && blurEnabled) {
             drawSparkles(
-                color = MaterialTheme.colorScheme.primary,
+                color = sparkleColor,
                 count = 24,
                 timePhase = phaseA / (2 * PI).toFloat(),
                 intensity = (animatedMood - 0.5f) * 2f
@@ -887,7 +888,7 @@ private fun NamePage(value: String, onValueChange: (String) -> Unit) {
 }
 
 @Composable
-private fun TaskFormatPage(
+private fun ColumnScope.TaskFormatPage(
     aiTask: Int,
     aiFormat: Int,
     onTaskChange: (Int) -> Unit,

@@ -12,15 +12,6 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "se
 class SettingsRepository(private val context: Context) {
 
     companion object {
-        /**
-         * Valor especial para el idioma de procesamiento IA: usar el del
-         * sistema en el momento de la request. El nombre se resuelve al
-         * idioma soportado más cercano (ISO code → nombre). Va acá como
-         * constante pública para que el ViewModel y la UI lo usen sin
-         * duplicar el literal.
-         */
-        const val AI_LANGUAGE_SYSTEM = "System"
-
         val USER_NAME_KEY = stringPreferencesKey("user_name")
 
         // --- API KEYS (listas, separadas por \n) ---
@@ -77,6 +68,15 @@ class SettingsRepository(private val context: Context) {
 
         /** Separator para serializar listas de API keys en DataStore. */
         private const val KEY_LIST_SEPARATOR = "\n"
+
+        /**
+         * Valor especial para el idioma de procesamiento IA: usar el del
+         * sistema en el momento de la request. El nombre se resuelve al
+         * idioma soportado más cercano (ISO code → nombre). Va acá como
+         * constante pública para que el ViewModel y la UI lo usen sin
+         * duplicar el literal.
+         */
+        const val AI_LANGUAGE_SYSTEM = "System"
 
         /** Convierte una lista de keys a string para persistir. */
         fun joinKeys(keys: List<String>): String =
