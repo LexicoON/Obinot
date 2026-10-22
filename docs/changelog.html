@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+(function(){var d=document.documentElement;d.classList.remove('no-js');d.classList.add('js');
+var t=null;try{t=localStorage.getItem('obinot-theme')}catch(e){}
+if(!t){t=(window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark'}
+d.setAttribute('data-theme',t);})();
+</script>
+<title data-i18n="k240">Changelog — Obinot.</title>
+<meta name="description" content="The full release history of Obinot, updated automatically from GitHub." data-i18n-attrs="content:k241">
+<meta name="theme-color" content="#141218">
+<link rel="canonical" href="https://lexicoon.github.io/Obinot/changelog.html">
+<meta property="og:title" content="Changelog — Obinot.">
+<meta property="og:description" content="The full release history of Obinot, updated automatically from GitHub.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://lexicoon.github.io/Obinot/changelog.html">
+<meta property="og:image" content="https://lexicoon.github.io/Obinot/assets/cover.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main"><span data-i18n="k242">Skip to content</span></a>
+<div class="scroll-progress" aria-hidden="true"></div>
+<header class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="brand" aria-label="Obinot home">
+      <img src="assets/icon.png" alt="" width="34" height="34">
+      <span class="brand-word">Obinot<i>.</i></span>
+    </a>
+    <nav class="nav-links" id="navLinks" aria-label="Main"><a href="index.html#features"><span data-i18n="k80">Features</span></a><a href="index.html#how"><span data-i18n="k81">How it works</span></a><a href="guide.html"><span data-i18n="k82">Guide</span></a><a href="changelog.html" aria-current="page"><span data-i18n="k83">Changelog</span></a><a href="faq.html"><span data-i18n="k84">FAQ</span></a></nav>
+    <div class="nav-actions">
+      <div class="seg" role="group" aria-label="Language" data-i18n-attrs="aria-label:k85">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="es" aria-pressed="false">ES</button>
+      </div>
+      <button class="icon-btn" id="themeToggle" type="button" aria-label="Toggle theme" data-i18n-attrs="aria-label:k86">
+        <svg class="i-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 0 0 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg><svg class="i-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M21.64 13a9 9 0 1 1-10.63-10.6 1 1 0 0 1 1.05 1.37 7 7 0 0 0 8.21 8.21 1 1 0 0 1 1.37 1.02z"/></svg>
+      </button>
+      <a href="https://github.com/LexicoON/Obinot/releases/latest" class="btn btn-filled btn-sm nav-dl" data-download><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg><span data-i18n="k87">Download</span></a>
+      <button class="icon-btn nav-burger" id="navBurger" type="button" aria-expanded="false" aria-controls="navLinks" aria-label="Menu" data-i18n-attrs="aria-label:k88">
+        <svg class="i-menu" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg><svg class="i-close" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+<main id="main">
+<section class="page-hero">
+  <div class="hero-bg" aria-hidden="true"><span class="orb o1" data-parallax="0.1"></span></div>
+  <div class="container narrow">
+    <p class="eyebrow intro-1" data-i18n="k231">Changelog</p>
+    <h1 class="intro-2" data-i18n="k232">What's new in Obinot.</h1>
+    <p class="lead intro-3" data-i18n="k233">Always up to date: this list is read live from the project's GitHub releases.</p>
+  </div>
+</section>
+<section class="g-section">
+  <div class="container narrow">
+    <div class="cl-actions reveal">
+      <a href="https://github.com/LexicoON/Obinot/releases/latest" class="btn btn-filled" data-download><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg><span data-i18n="k234">Download latest</span> <span data-version></span></a>
+      <a href="https://github.com/LexicoON/Obinot/releases" class="btn btn-tonal" rel="noopener"><span data-i18n="k235">All releases on GitHub</span> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg></a>
+      <a href="https://github.com/LexicoON/Obinot" class="btn btn-text" rel="noopener"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57v-2c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.3 3.5 1 .11-.78.42-1.31.76-1.61-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.11-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.62-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .31.22.7.83.58A12 12 0 0 0 12 .3"/></svg><span><span data-i18n="k236">View the repository</span></span></a>
+    </div>
+    <p class="muted small" id="clLangNote" hidden><span data-i18n="k237">Release notes are written in English.</span></p>
+    <div id="clList" class="cl-list" aria-live="polite">
+      <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+    </div>
+    <p class="muted" id="clError" hidden><span data-i18n="k238">We couldn't load the releases right now (GitHub may be rate-limiting). You can read them directly on GitHub.</span></p>
+    <noscript><p><span data-i18n="k239">Enable JavaScript to see the changelog here, or read it on GitHub.</span></p></noscript>
+  </div>
+</section>
+</main>
+<footer class="footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="index.html" class="brand"><img src="assets/icon.png" alt="" width="40" height="40"><span class="brand-word">Obinot<i>.</i></span></a>
+        <p class="pixel" data-i18n="k89">Speak, We do the rest.</p>
+        <p class="muted" data-i18n="k90">AI voice notes for Android. Free and open source.</p>
+      </div>
+      <div class="footer-col">
+        <h4 data-i18n="k91">Project</h4>
+        <a href="https://github.com/LexicoON/Obinot" rel="noopener">GitHub</a>
+        <a href="https://github.com/LexicoON/Obinot/releases" rel="noopener">Releases</a>
+        <a href="changelog.html"><span data-i18n="k92">Changelog</span></a>
+        <a href="https://github.com/LexicoON/Obinot/issues" rel="noopener"><span data-i18n="k93">Report an issue</span></a>
+      </div>
+      <div class="footer-col">
+        <h4 data-i18n="k94">Learn</h4>
+        <a href="guide.html"><span data-i18n="k95">Get started guide</span></a>
+        <a href="faq.html">FAQ</a>
+        <a href="privacy.html"><span data-i18n="k96">Privacy policy</span></a>
+      </div>
+      <div class="footer-col">
+        <h4 data-i18n="k97">Built on</h4>
+        <a href="https://github.com/DENSLnetion/Binot" rel="noopener">Binot</a>
+        <a href="https://m3.material.io/" rel="noopener">Material 3</a>
+        <a href="https://ai.google.dev/" rel="noopener">Gemini</a>
+        <a href="https://groq.com/" rel="noopener">Groq</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p data-i18n="k98" data-i18n-html>Licensed under MIT + Apache 2.0. Obinot is a community fork of <a href="https://github.com/DENSLnetion/Binot" rel="noopener">Binot</a> by DENSLnetion.</p>
+      <p class="muted">Obinot. · <span data-version>v2.2</span></p>
+    </div>
+  </div>
+</footer>
+
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
