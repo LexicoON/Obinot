@@ -1,247 +1,332 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" class="no-js">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0F0F1A" />
-  <meta name="description" content="Obinot is a community-maintained fork of Binot. AI voice notes for Android: record, transcribe, and turn audio into clean Markdown. Material 3 Expressive, offline-first, open source." />
-  <meta name="keywords" content="Obinot, Binot, AI voice notes, voice transcription, markdown notes, Android, Material 3 Expressive, Gemini, Groq, offline, open source" />
-  <meta property="og:title" content="Obinot — AI voice notes for Android" />
-  <meta property="og:description" content="Speak naturally. Get clean Markdown notes. Powered by Gemini or Groq, rendered offline with Material 3 Expressive." />
-  <meta property="og:image" content="assets/cover.png" />
-  <meta property="og:type" content="website" />
-  <link rel="icon" type="image/png" href="assets/icon.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
-  <title>Obinot — AI voice notes for Android</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+(function(){var d=document.documentElement;d.classList.remove('no-js');d.classList.add('js');
+var t=null;try{t=localStorage.getItem('obinot-theme')}catch(e){}
+if(!t){t=(window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark'}
+d.setAttribute('data-theme',t);})();
+</script>
+<title data-i18n="k77">Obinot. — AI voice notes for Android</title>
+<meta name="description" content="Speak, We do the rest. Obinot turns your voice into clean Markdown notes on Android. Free, open source, local-first, with Gemini or Groq." data-i18n-attrs="content:k78">
+<meta name="theme-color" content="#141218">
+<link rel="canonical" href="https://lexicoon.github.io/Obinot/">
+<meta property="og:title" content="Obinot. — AI voice notes for Android">
+<meta property="og:description" content="Speak, We do the rest. Obinot turns your voice into clean Markdown notes on Android. Free, open source, local-first, with Gemini or Groq.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://lexicoon.github.io/Obinot/">
+<meta property="og:image" content="https://lexicoon.github.io/Obinot/assets/cover.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-
-  <!-- Animated background blobs -->
-  <div class="bg-blobs" aria-hidden="true">
-    <div class="blob blob-1"></div>
-    <div class="blob blob-2"></div>
-    <div class="blob blob-3"></div>
+<a class="skip" href="#main"><span data-i18n="k79">Skip to content</span></a>
+<div class="scroll-progress" aria-hidden="true"></div>
+<header class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="brand" aria-label="Obinot home">
+      <img src="assets/icon.png" alt="" width="34" height="34">
+      <span class="brand-word">Obinot<i>.</i></span>
+    </a>
+    <nav class="nav-links" id="navLinks" aria-label="Main"><a href="index.html#features"><span data-i18n="k80">Features</span></a><a href="index.html#how"><span data-i18n="k81">How it works</span></a><a href="guide.html"><span data-i18n="k82">Guide</span></a><a href="changelog.html"><span data-i18n="k83">Changelog</span></a><a href="faq.html"><span data-i18n="k84">FAQ</span></a></nav>
+    <div class="nav-actions">
+      <div class="seg" role="group" aria-label="Language" data-i18n-attrs="aria-label:k85">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="es" aria-pressed="false">ES</button>
+      </div>
+      <button class="icon-btn" id="themeToggle" type="button" aria-label="Toggle theme" data-i18n-attrs="aria-label:k86">
+        <svg class="i-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 0 0 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg><svg class="i-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M21.64 13a9 9 0 1 1-10.63-10.6 1 1 0 0 1 1.05 1.37 7 7 0 0 0 8.21 8.21 1 1 0 0 1 1.37 1.02z"/></svg>
+      </button>
+      <a href="https://github.com/LexicoON/Obinot/releases/latest" class="btn btn-filled btn-sm nav-dl" data-download><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg><span data-i18n="k87">Download</span></a>
+      <button class="icon-btn nav-burger" id="navBurger" type="button" aria-expanded="false" aria-controls="navLinks" aria-label="Menu" data-i18n-attrs="aria-label:k88">
+        <svg class="i-menu" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg><svg class="i-close" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
   </div>
+</header>
+<main id="main">
 
-  <!-- Theme toggle (floating) -->
-  <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
-    <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 0 0 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
-    <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M21.64 13a9 9 0 1 1-10.63-10.6 1 1 0 0 1 1.05 1.37 7 7 0 0 0 8.21 8.21 1 1 0 0 1 1.37 1.02z"/></svg>
-  </button>
-
-  <!-- ===== HERO ===== -->
-  <section class="hero">
-    <div class="container">
-      <div class="hero-icon" data-float>
-        <div class="hero-icon-glow"></div>
-        <img src="assets/icon.png" alt="Obinot icon" />
+<section class="hero" id="top">
+  <div class="hero-bg" aria-hidden="true"><span class="orb o1" data-parallax="0.12"></span><span class="orb o2" data-parallax="-0.08"></span></div>
+  <div class="container hero-grid">
+    <div class="hero-copy">
+      <p class="pill-tag intro-1" data-i18n="k1">Free · Open source · Android</p>
+      <h1 class="wordmark intro-2">Obinot<span class="dot">.</span></h1>
+      <p class="slogan intro-3"><span>Speak,</span> <span>We do the rest.</span></p>
+      <p class="lead intro-4" data-i18n="k2">Record a meeting, a class or a passing idea. Obinot turns your voice into clean, structured Markdown notes you can search, edit and even chat with.</p>
+      <div class="cta-row intro-5">
+        <a href="https://github.com/LexicoON/Obinot/releases/latest" class="btn btn-filled btn-lg" data-download><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg><span data-i18n="k3">Download APK</span></a>
+        <a href="guide.html" class="btn btn-tonal btn-lg"><span data-i18n="k4">How to get started</span></a>
       </div>
-
-      <h1 class="hero-title">
-        <span class="word" data-reveal>Obinot</span>
-      </h1>
-
-      <p class="hero-tagline" data-reveal>
-        Speak naturally. Get clean <span class="text-gradient">Markdown</span> notes.
-      </p>
-
-      <p class="hero-sub" data-reveal>
-        Community-maintained fork of Binot — rebuilt for the Material 3 Expressive + AI era.
-      </p>
-
-      <div class="hero-cta" data-reveal>
-        <a href="https://github.com/LexicoON/Obinot/releases" class="btn btn-primary">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-          Download APK
-        </a>
-        <a href="https://github.com/LexicoON/Obinot" class="btn btn-secondary">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57v-2c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.3 3.5 1 .11-.78.42-1.31.76-1.61-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.11-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.62-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .31.22.7.83.58A12 12 0 0 0 12 .3"/></svg>
-          View on GitHub
-        </a>
-      </div>
-
-      <!-- Scroll hint -->
-      <a href="#features" class="scroll-hint" aria-label="Scroll to features">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
-      </a>
+      <p class="muted small intro-6"><span data-version>Latest release</span><span data-size></span> · <span data-i18n="k5">Android 7.0 or newer</span></p>
     </div>
 
-    <!-- Wave divider -->
-    <svg class="wave-divider" viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true">
-      <path d="M0,40 C320,100 720,0 1440,60 L1440,100 L0,100 Z" fill="currentColor"></path>
-    </svg>
-  </section>
-
-  <!-- ===== FEATURES ===== -->
-  <section class="features" id="features">
-    <div class="container">
-      <div class="section-head">
-        <span class="eyebrow" data-reveal>What it does</span>
-        <h2 data-reveal>Voice in, Markdown out.</h2>
-        <p data-reveal>No friction between thought and note. Hit record, talk, done.</p>
-      </div>
-
-      <div class="features-grid">
-        <article class="feature-card" data-lift>
-          <div class="feature-icon icon-violet">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
-          </div>
-          <h3>Voice capture</h3>
-          <p>Fast mode for on-device transcription or Accurate mode for full audio + AI transcription. Background recording with live waveform.</p>
-        </article>
-
-        <article class="feature-card" data-lift>
-          <div class="feature-icon icon-cyan">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>
-          </div>
-          <h3>Multi-provider AI</h3>
-          <p>Bring your own Gemini or Groq API key. Dynamic mode routes tasks across providers to stretch free quotas.</p>
-        </article>
-
-        <article class="feature-card" data-lift>
-          <div class="feature-icon icon-coral">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14H6v-2h4v2zm0-4H6v-2h4v2zm0-4H6V7h4v2zm6 8h-4v-2h4v2zm0-4h-4v-2h4v2zm0-4h-4V7h4v2z"/></svg>
-          </div>
-          <h3>Markdown reader</h3>
-          <p>Headers, tables, code blocks. Native LaTeX via RaTeX (offline, no WebView). Mermaid diagrams rendered with one tap.</p>
-        </article>
-
-        <article class="feature-card" data-lift>
-          <div class="feature-icon icon-amber">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
-          </div>
-          <h3>Chat with your notes</h3>
-          <p>Long-press the menu to ask follow-up questions about any note. Conversation saves with the note itself.</p>
-        </article>
-
-        <article class="feature-card" data-lift>
-          <div class="feature-icon icon-mint">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 3H5c-1.11 0-2 .89-2 2v14c0 1.11.89 2 2 2h14c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-          </div>
-          <h3>Local-first</h3>
-          <p>Notes, audio, and settings live on your device. No account. No telemetry. AI features call your provider directly with your key.</p>
-        </article>
-
-        <article class="feature-card" data-lift>
-          <div class="feature-icon icon-rose">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-          </div>
-          <h3>Material 3 Expressive</h3>
-          <p>Spring physics on every button, animated bouncy components, wavy audio progress bar, 7 color palettes, dark + AMOLED themes.</p>
-        </article>
+    <div class="hero-visual intro-visual" aria-hidden="false">
+      <div class="hv-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="hv-phone hv-left" data-parallax="0.06"><div class="phone "><div class="phone-screen"><img src="assets/shots/history.webp" alt="" decoding="async" class="" width="640" height="1387"></div></div></div>
+      <div class="hv-phone hv-main" data-parallax="-0.04"><div class="phone "><div class="phone-screen"><img src="assets/shots/record-dark.webp" alt="Obinot record screen" decoding="async" class="only-dark" width="640" height="1387"><img src="assets/shots/record-light.webp" alt="Obinot record screen" decoding="async" class="only-light" width="640" height="1387"></div></div></div>
+      <div class="hv-phone hv-right" data-parallax="0.1"><div class="phone "><div class="phone-screen"><img src="assets/shots/summary-en.webp" alt="A structured note in Obinot" decoding="async" class="only-en" width="640" height="1387"><img src="assets/shots/summary-es.webp" alt="A structured note in Obinot" decoding="async" class="only-es" width="640" height="1387"></div></div></div>
+      <div class="float-chips" aria-hidden="true">
+        <span class="lchip c-green fc1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/></svg>Biología</span>
+        <span class="lchip c-purple fc2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/></svg>School</span>
+        <span class="lchip c-amber fc3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/></svg>Familia</span>
+        <span class="ask-pill fc4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span data-i18n="k6">Ask AI about this note</span></span>
       </div>
     </div>
-  </section>
-
-  <!-- ===== SCREENSHOTS ===== -->
-  <section class="screenshots">
-    <div class="container">
-      <div class="section-head">
-        <span class="eyebrow" data-reveal>Look &amp; feel</span>
-        <h2 data-reveal>Modern, expressive, native.</h2>
+  </div>
+</section>
+<div class="marquee" aria-label="Highlights">
+  <ul class="marquee-track"><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span data-i18n="k7">No account needed</span></li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span data-i18n="k8">No telemetry</span></li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span data-i18n="k9">Notes stay on your phone</span></li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span data-i18n="k10">Open source</span></li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span data-i18n="k11">Gemini · Groq</span></li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span data-i18n="k12">Markdown, math &amp; diagrams</span></li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span data-i18n="k13">English · Español · Deutsch</span></li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span data-i18n="k14">Material 3 Expressive</span></li></ul>
+  <ul class="marquee-track" aria-hidden="true"><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span data-i18n="k7">No account needed</span></li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span data-i18n="k8">No telemetry</span></li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span data-i18n="k9">Notes stay on your phone</span></li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span data-i18n="k10">Open source</span></li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span data-i18n="k11">Gemini · Groq</span></li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span data-i18n="k12">Markdown, math &amp; diagrams</span></li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span data-i18n="k13">English · Español · Deutsch</span></li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span data-i18n="k14">Material 3 Expressive</span></li></ul>
+</div>
+<section class="section how" id="how">
+  <div class="container">
+    <div class="section-head reveal">
+      <p class="eyebrow" data-i18n="k21">How it works</p>
+      <h2 data-i18n="k22">From voice to notes in three steps.</h2>
+    </div>
+    <div class="how-grid">
+      <div class="steps">
+      <article class="step active" data-step="0">
+        <div class="step-num">01</div>
+        <div class="step-ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg></div>
+        <h3 data-i18n="k15">Record</h3>
+        <p data-i18n="k16">Hit record and talk — or import an audio file you already have. It keeps recording in the background with the screen off.</p>
+        <div class="step-shot"><div class="phone "><div class="phone-screen"><img src="assets/shots/record-dark.webp" alt="" loading=lazy decoding="async" class="only-dark" width="640" height="1387"><img src="assets/shots/record-light.webp" alt="" loading=lazy decoding="async" class="only-light" width="640" height="1387"></div></div></div>
+      </article>
+      <article class="step" data-step="1">
+        <div class="step-num">02</div>
+        <div class="step-ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg></div>
+        <h3 data-i18n="k17">Read</h3>
+        <p data-i18n="k18">AI transcribes and structures it into a tidy Markdown note: headings, lists, tables, formulas and diagrams. Tidy it up, summarize it or analyze it.</p>
+        <div class="step-shot"><div class="phone "><div class="phone-screen"><img src="assets/shots/summary-en.webp" alt="" loading=lazy decoding="async" class="only-en" width="640" height="1387"><img src="assets/shots/summary-es.webp" alt="" loading=lazy decoding="async" class="only-es" width="640" height="1387"></div></div></div>
+      </article>
+      <article class="step" data-step="2">
+        <div class="step-num">03</div>
+        <div class="step-ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></div>
+        <h3 data-i18n="k19">Ask</h3>
+        <p data-i18n="k20">Chat with any note. Ask follow-ups or have a passage explained. The conversation is saved with the note itself.</p>
+        <div class="step-shot"><div class="phone "><div class="phone-screen"><img src="assets/shots/chat-en.webp" alt="" loading=lazy decoding="async" class="only-en" width="640" height="1387"><img src="assets/shots/chat-es.webp" alt="" loading=lazy decoding="async" class="only-es" width="640" height="1387"></div></div></div>
+      </article>
       </div>
-
-      <div class="shot-grid">
-        <figure class="shot" data-reveal>
-          <div class="shot-frame">
-            <img src="assets/cover.png" alt="Obinot — voice notes, structured by AI" loading="lazy" />
-          </div>
-          <figcaption>Voice notes, structured by AI.</figcaption>
-        </figure>
-
-        <figure class="shot" data-reveal>
-          <div class="shot-frame">
-            <img src="assets/features.png" alt="Dark mode, colored labels, offline diagrams" loading="lazy" />
-          </div>
-          <figcaption>Dark mode, colored labels, offline diagrams.</figcaption>
-        </figure>
+      <div class="how-visual" aria-hidden="true">
+        <div class="phone phone-big"><div class="phone-screen"><div class="screen active" data-screen="0"><img src="assets/shots/record-dark.webp" alt="" loading="lazy" decoding="async" class="only-dark" width="640" height="1387"><img src="assets/shots/record-light.webp" alt="" loading="lazy" decoding="async" class="only-light" width="640" height="1387"></div><div class="screen" data-screen="1"><img src="assets/shots/summary-en.webp" alt="" loading="lazy" decoding="async" class="only-en" width="640" height="1387"><img src="assets/shots/summary-es.webp" alt="" loading="lazy" decoding="async" class="only-es" width="640" height="1387"></div><div class="screen" data-screen="2"><img src="assets/shots/chat-en.webp" alt="" loading="lazy" decoding="async" class="only-en" width="640" height="1387"><img src="assets/shots/chat-es.webp" alt="" loading="lazy" decoding="async" class="only-es" width="640" height="1387"></div></div></div>
+        <div class="how-dots"><i class="on"></i><i class=""></i><i class=""></i></div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
+<section class="section features" id="features">
+  <div class="container">
+    <div class="section-head reveal">
+      <p class="eyebrow" data-i18n="k23">Features</p>
+      <h2 data-i18n="k24">Everything a voice note needs. Nothing it doesn't.</h2>
+    </div>
 
-  <!-- ===== FROM BINOT ===== -->
-  <section class="from-binot">
-    <div class="container">
-      <div class="migration-card" data-reveal>
-        <div class="migration-badge">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M16 1H8C6.34 1 5 2.34 5 4v16c0 1.66 1.34 3 3 3h8c1.66 0 3-1.34 3-3V4c0-1.66-1.34-3-3-3zm-2 20h-4v-1h4v1zm3.25-3H6.75V4h10.5v14z"/></svg>
-          Migrating from Binot
+    <div class="bento">
+      <article class="card b-reader reveal">
+        <div class="card-copy">
+          <div class="card-ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M18 4H6v2l6.5 6L6 18v2h12v-3h-7l5-5-5-5h7z"/></svg></div>
+          <h3 data-i18n="k25">Notes that read like notes</h3>
+          <p data-i18n="k26">A custom Markdown reader with tables, code, checklists you can tick, native math and Mermaid diagrams that render offline. Long-press any formula to copy its LaTeX.</p>
         </div>
+        <div class="card-shot" ><div class="phone "><div class="phone-screen"><img src="assets/shots/reader-diagram.webp" alt="A note with a flow diagram" loading=lazy decoding="async" class="" width="640" height="1387"></div></div></div>
+      </article>
 
-        <h2>Coming from Binot 1.x?</h2>
-        <p>Obinot is a community fork of <a href="https://github.com/DENSLnetion/Binot">Binot</a> by DENSLnetion. Your data moves with you — both apps can read each other's files.</p>
+      <article class="card b-capture reveal" style="--d:.08s">
+        <div class="card-ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg></div>
+        <h3 data-i18n="k27">Capture, your way</h3>
+        <p data-i18n="k28">Fast mode transcribes on-device; Accurate mode sends the full audio to AI. Live waveform, background recording and import for any audio you already have.</p>
+        <div class="mini-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </article>
 
-        <ol class="migration-steps">
-          <li>Open Binot 1.x → <strong>Settings → Data &amp; System → Backup</strong></li>
-          <li>Save the <code>.binotbak</code> file</li>
-          <li>Open Obinot → <strong>Settings → Data &amp; System → Import</strong></li>
-          <li>Select the backup. Done — notes, audio, labels, preferences &amp; chat history restored.</li>
-        </ol>
+      <article class="card b-providers reveal" style="--d:.12s">
+        <div class="card-ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M12.65 10A5.99 5.99 0 0 0 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6a5.99 5.99 0 0 0 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg></div>
+        <h3 data-i18n="k29">Your keys, your providers</h3>
+        <p data-i18n="k30">Use your own Gemini or Groq key, or let Dynamic mode pick the best one per task and stretch free quotas. Rotate several keys when one hits its limit.</p>
+        <ul class="tick-chips alt"><li>Groq</li><li>Gemini</li><li>Dynamic</li></ul>
+        <a class="text-link" href="guide.html"><span data-i18n="k31">Get a free key</span> <svg class="rot-r" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg></a>
+      </article>
+
+      <article class="card b-history reveal" style="--d:.04s">
+        <div class="card-copy">
+          <div class="card-ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></div>
+          <h3 data-i18n="k32">Find anything, instantly</h3>
+          <p data-i18n="k33">Full-text search across every note, colored labels, pins and a trash you can recover from. Organized without effort.</p>
+        </div>
+        <div class="card-shot card-shot-sm"><div class="phone "><div class="phone-screen"><img src="assets/shots/history.webp" alt="Notes history with search and labels" loading=lazy decoding="async" class="" width="640" height="1387"></div></div></div>
+      </article>
+
+      <article class="card b-edit reveal" style="--d:.08s">
+        <div class="card-copy">
+          <div class="card-ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></div>
+          <h3 data-i18n="k34">Edit, format, share</h3>
+          <p data-i18n="k35">Rewrite the summary in Markdown with a live preview, switch the reading font, find a word, replace the audio, copy or export — all from one sheet.</p>
+        </div>
+        <div class="card-shot card-shot-sm"><div class="phone "><div class="phone-screen"><img src="assets/shots/sheet-options.webp" alt="Note options: labels, AI, find and format, export" loading=lazy decoding="async" class="" width="640" height="1387"></div></div></div>
+      </article>
+
+      <article class="card b-lang reveal" style="--d:.12s">
+        <div class="card-ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0 0 14.07 6H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg></div>
+        <h3 data-i18n="k36">Speaks your language</h3>
+        <p data-i18n="k37">The app comes in English, Spanish and German, and the AI answers in 23 languages.</p>
+        <div class="lang-shot">
+          <img src="assets/shots/language.webp" alt="" loading="lazy" decoding="async" width="640" height="551">
+        </div>
+      </article>
+
+      <article class="card b-local reveal" style="--d:.04s">
+        <div class="card-ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
+        <h3 data-i18n="k38">Local-first</h3>
+        <p data-i18n="k39">Notes, audio and settings live on your device. No account, no telemetry. AI requests go straight from your phone to your provider.</p>
+        <ul class="tick-chips">
+          <li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><span data-i18n="k40">No account</span></li>
+          <li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><span data-i18n="k41">No telemetry</span></li>
+          <li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><span data-i18n="k42">Stored on-device</span></li>
+          <li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><span data-i18n="k43">Your own API key</span></li>
+          <li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><span data-i18n="k44">Open source</span></li>
+        </ul>
+      </article>
+
+      <article class="card b-backup reveal" style="--d:.08s">
+        <div class="card-ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z"/></svg></div>
+        <h3 data-i18n="k45">Backup &amp; export</h3>
+        <p data-i18n="k46">Full backups, single-note files and Markdown export. Binot 1.x backups import too.</p>
+      </article>
+    </div>
+  </div>
+</section>
+<section class="section looks">
+  <div class="container looks-grid">
+    <div class="looks-copy reveal">
+      <p class="eyebrow" data-i18n="k47">Look &amp; feel</p>
+      <h2 data-i18n="k48">Light or dark. Your call.</h2>
+      <p class="lead" data-i18n="k49">Material 3 Expressive with springy buttons, a wavy audio progress bar and adaptive layouts for phones and tablets. Pick Auto, Light, Dark or AMOLED, and one of 7 Material You color palettes (tonal spot, vibrant, expressive, fruit salad, neutral, fidelity and monochrome).</p>
+      <div class="swatches" aria-label="Material You palettes"><i style="--c:#6750A4" title="Tonal Spot"></i><i style="--c:#386A20" title="Vibrant"></i><i style="--c:#B3261E" title="Expressive"></i><i style="--c:#00677F" title="Fruit Salad"></i><i style="--c:#8B5000" title="Neutral"></i><i style="--c:#7D5260" title="Fidelity"></i><i style="--c:#4A5C92" title="Monochrome"></i></div>
+    </div>
+    <div class="looks-phones">
+      <div class="lp lp-dark reveal-left"><div class="phone "><div class="phone-screen"><img src="assets/shots/record-dark.webp" alt="Dark theme" loading=lazy decoding="async" class="" width="640" height="1387"></div></div></div>
+      <div class="lp lp-light reveal-right"><div class="phone "><div class="phone-screen"><img src="assets/shots/record-light.webp" alt="Light theme" loading=lazy decoding="async" class="" width="640" height="1387"></div></div></div>
+    </div>
+  </div>
+</section>
+<section class="section start" id="start">
+  <div class="container">
+    <div class="section-head reveal">
+      <p class="eyebrow" data-i18n="k50">Get started</p>
+      <h2 data-i18n="k51">Up and running in five minutes.</h2>
+      <p data-i18n="k52">Obinot is free. The AI part runs on a free key from the provider you choose — we'll walk you through it.</p>
+    </div>
+    <ol class="start-steps">
+      <li class="card reveal"><span class="sn">1</span><h3 data-i18n="k53">Install the APK</h3><p data-i18n="k54">Download it from GitHub and open it. Android will ask you to allow installs from your browser once.</p></li>
+      <li class="card reveal" style="--d:.08s"><span class="sn">2</span><h3 data-i18n="k55">Add a free API key</h3><p data-i18n="k56">Pick Groq, Gemini or both. Creating a key takes about two minutes.</p></li>
+      <li class="card reveal" style="--d:.16s"><span class="sn">3</span><h3 data-i18n="k57">Press record</h3><p data-i18n="k58">Talk. Open the note. That's it.</p></li>
+    </ol>
+    <div class="prov reveal">
+      <div class="prov-card"><strong>Groq</strong><span data-i18n="k59">Recommended for its blazing fast speed.</span></div>
+      <div class="prov-card"><strong>Gemini</strong><span data-i18n="k60">Best for very long audio recordings (not recommended for free API).</span></div>
+      <div class="prov-card"><strong>Dynamic</strong><span data-i18n="k61">Both working together, picking the best for each task.</span></div>
+    </div>
+    <div class="cta-row center reveal">
+      <a href="guide.html" class="btn btn-filled btn-lg"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12.65 10A5.99 5.99 0 0 0 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6a5.99 5.99 0 0 0 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg><span data-i18n="k62">Read the guide</span></a>
+      <a href="faq.html" class="btn btn-tonal btn-lg"><span data-i18n="k63">Read the FAQ</span></a>
+    </div>
+  </div>
+</section>
+<section class="section release-sec">
+  <div class="container">
+    <div class="release-card reveal" id="releaseCard">
+      <div class="rel-head">
+        <p class="eyebrow" data-i18n="k64">Latest release</p>
+        <h2><span data-version>v2.2</span> <span class="badge" id="relBadge" hidden>Latest</span></h2>
+        <p class="muted" id="relDate"></p>
+      </div>
+      <ul class="rel-notes" id="relNotes"></ul>
+      <p class="muted small" id="relFallback"><span data-i18n="k65">Loading release notes…</span></p>
+      <div class="cta-row">
+        <a href="https://github.com/LexicoON/Obinot/releases/latest" class="btn btn-filled" data-download><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg><span data-i18n="k66">Download APK</span></a>
+        <a href="changelog.html" class="btn btn-tonal"><span data-i18n="k67">Full changelog</span></a>
+        <a href="https://github.com/LexicoON/Obinot/releases" class="btn btn-text" rel="noopener"><span data-i18n="k68">All releases on GitHub</span> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg></a>
       </div>
     </div>
-  </section>
-
-  <!-- ===== FINAL CTA ===== -->
-  <section class="final-cta">
-    <div class="container">
-      <h2 data-reveal>Ready to start talking to your notes?</h2>
-      <div class="hero-cta" data-reveal>
-        <a href="https://github.com/LexicoON/Obinot/releases" class="btn btn-primary">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-          Download APK
-        </a>
-        <a href="https://github.com/LexicoON/Obinot" class="btn btn-secondary">
-          Star on GitHub
-        </a>
+  </div>
+</section>
+<section class="section migrate" id="migrate">
+  <div class="container">
+    <div class="card migrate-card reveal">
+      <div>
+        <p class="eyebrow" data-i18n="k69">Coming from Binot 1.x?</p>
+        <h3 data-i18n="k70">Bring your notes along.</h3>
+        <p data-i18n="k71">Obinot installs as a separate app, so both can live on your phone. Your data moves with you — backups work both ways.</p>
+      </div>
+      <ol class="mig-steps">
+        <li><span data-i18n="k72" data-i18n-html>In Binot 1.x: <b>Settings → Data &amp; System → Backup</b></span></li>
+        <li><span data-i18n="k73" data-i18n-html>Save the <code>.binotbak</code> file</span></li>
+        <li><span data-i18n="k74" data-i18n-html>In Obinot: <b>Settings → Data &amp; System → Import</b></span></li>
+        <li><span data-i18n="k75">Done: notes, audio, labels and preferences come over. API keys don't, so add them again once.</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+<section class="final">
+  <div class="container final-grid">
+    <div class="final-copy reveal">
+      <h2 class="wordmark sm">Obinot<span class="dot">.</span></h2>
+      <p class="slogan sm"><span>Speak,</span> <span>We do the rest.</span></p>
+      <div class="cta-row">
+        <a href="https://github.com/LexicoON/Obinot/releases/latest" class="btn btn-filled btn-lg" data-download><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg><span data-i18n="k76">Download APK</span></a>
+        <a href="https://github.com/LexicoON/Obinot" class="btn btn-tonal btn-lg" rel="noopener"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57v-2c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.3 3.5 1 .11-.78.42-1.31.76-1.61-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.11-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.62-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .31.22.7.83.58A12 12 0 0 0 12 .3"/></svg><span>GitHub</span></a>
       </div>
     </div>
-  </section>
-
-  <!-- ===== FOOTER ===== -->
-  <footer class="footer">
-    <div class="container">
-      <div class="footer-grid">
-        <div class="footer-brand">
-          <img src="assets/icon.png" alt="" class="footer-icon" />
-          <div>
-            <strong>Obinot</strong>
-            <span>AI voice notes for Android.</span>
-          </div>
-        </div>
-
-        <div class="footer-links">
-          <h4>Project</h4>
-          <a href="https://github.com/LexicoON/Obinot">GitHub</a>
-          <a href="https://github.com/LexicoON/Obinot/releases">Releases</a>
-          <a href="https://github.com/LexicoON/Obinot/blob/main/CHANGELOG_2.1.md">Changelog</a>
-          <a href="https://github.com/LexicoON/Obinot/issues">Issues</a>
-        </div>
-
-        <div class="footer-links">
-          <h4>Original</h4>
-          <a href="https://github.com/DENSLnetion/Binot">Binot</a>
-          <a href="https://github.com/DENSLnetion/Binot/releases">Binot releases</a>
-        </div>
-
-        <div class="footer-links">
-          <h4>Built with</h4>
-          <a href="https://www.jetbrains.com/lp/compose-multiplatform/">Jetpack Compose</a>
-          <a href="https://m3.material.io/">Material 3</a>
-          <a href="https://ai.google.dev/">Gemini</a>
-          <a href="https://groq.com/">Groq</a>
-        </div>
+    <div class="final-phone reveal-up" aria-hidden="true">
+      <div class="phone "><div class="phone-screen"><img src="assets/shots/welcome.webp" alt="" loading=lazy decoding="async" class="" width="640" height="1387"></div></div>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="index.html" class="brand"><img src="assets/icon.png" alt="" width="40" height="40"><span class="brand-word">Obinot<i>.</i></span></a>
+        <p class="pixel" data-i18n="k89">Speak, We do the rest.</p>
+        <p class="muted" data-i18n="k90">AI voice notes for Android. Free and open source.</p>
       </div>
-
-      <div class="footer-bottom">
-        <p>Licensed under MIT + Apache 2.0. A fork of <a href="https://github.com/DENSLnetion/Binot">Binot</a> by DENSLnetion.</p>
-        <p class="footer-mono">Obinot 2.1 · versionCode 3 · made with care</p>
+      <div class="footer-col">
+        <h4 data-i18n="k91">Project</h4>
+        <a href="https://github.com/LexicoON/Obinot" rel="noopener">GitHub</a>
+        <a href="https://github.com/LexicoON/Obinot/releases" rel="noopener">Releases</a>
+        <a href="changelog.html"><span data-i18n="k92">Changelog</span></a>
+        <a href="https://github.com/LexicoON/Obinot/issues" rel="noopener"><span data-i18n="k93">Report an issue</span></a>
+      </div>
+      <div class="footer-col">
+        <h4 data-i18n="k94">Learn</h4>
+        <a href="guide.html"><span data-i18n="k95">Get started guide</span></a>
+        <a href="faq.html">FAQ</a>
+        <a href="privacy.html"><span data-i18n="k96">Privacy policy</span></a>
+      </div>
+      <div class="footer-col">
+        <h4 data-i18n="k97">Built on</h4>
+        <a href="https://github.com/DENSLnetion/Binot" rel="noopener">Binot</a>
+        <a href="https://m3.material.io/" rel="noopener">Material 3</a>
+        <a href="https://ai.google.dev/" rel="noopener">Gemini</a>
+        <a href="https://groq.com/" rel="noopener">Groq</a>
       </div>
     </div>
-  </footer>
+    <div class="footer-bottom">
+      <p data-i18n="k98" data-i18n-html>Licensed under MIT + Apache 2.0. Obinot is a community fork of <a href="https://github.com/DENSLnetion/Binot" rel="noopener">Binot</a> by DENSLnetion.</p>
+      <p class="muted">Obinot. · <span data-version>v2.2</span></p>
+    </div>
+  </div>
+</footer>
 
-  <script src="script.js"></script>
+<script src="i18n.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

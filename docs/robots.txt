@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://lexicoon.github.io/Obinot/sitemap.xml

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+(function(){var d=document.documentElement;d.classList.remove('no-js');d.classList.add('js');
+var t=null;try{t=localStorage.getItem('obinot-theme')}catch(e){}
+if(!t){t=(window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark'}
+d.setAttribute('data-theme',t);})();
+</script>
+<title data-i18n="k161">Get started guide — Obinot.</title>
+<meta name="description" content="Install Obinot and get a free Groq or Gemini API key in minutes. A step-by-step guide for people who've never made one." data-i18n-attrs="content:k162">
+<meta name="theme-color" content="#141218">
+<link rel="canonical" href="https://lexicoon.github.io/Obinot/guide.html">
+<meta property="og:title" content="Get started guide — Obinot.">
+<meta property="og:description" content="Install Obinot and get a free Groq or Gemini API key in minutes. A step-by-step guide for people who've never made one.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://lexicoon.github.io/Obinot/guide.html">
+<meta property="og:image" content="https://lexicoon.github.io/Obinot/assets/cover.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main"><span data-i18n="k163">Skip to content</span></a>
+<div class="scroll-progress" aria-hidden="true"></div>
+<header class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="brand" aria-label="Obinot home">
+      <img src="assets/icon.png" alt="" width="34" height="34">
+      <span class="brand-word">Obinot<i>.</i></span>
+    </a>
+    <nav class="nav-links" id="navLinks" aria-label="Main"><a href="index.html#features"><span data-i18n="k80">Features</span></a><a href="index.html#how"><span data-i18n="k81">How it works</span></a><a href="guide.html" aria-current="page"><span data-i18n="k82">Guide</span></a><a href="changelog.html"><span data-i18n="k83">Changelog</span></a><a href="faq.html"><span data-i18n="k84">FAQ</span></a></nav>
+    <div class="nav-actions">
+      <div class="seg" role="group" aria-label="Language" data-i18n-attrs="aria-label:k85">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="es" aria-pressed="false">ES</button>
+      </div>
+      <button class="icon-btn" id="themeToggle" type="button" aria-label="Toggle theme" data-i18n-attrs="aria-label:k86">
+        <svg class="i-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 0 0 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg><svg class="i-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M21.64 13a9 9 0 1 1-10.63-10.6 1 1 0 0 1 1.05 1.37 7 7 0 0 0 8.21 8.21 1 1 0 0 1 1.37 1.02z"/></svg>
+      </button>
+      <a href="https://github.com/LexicoON/Obinot/releases/latest" class="btn btn-filled btn-sm nav-dl" data-download><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg><span data-i18n="k87">Download</span></a>
+      <button class="icon-btn nav-burger" id="navBurger" type="button" aria-expanded="false" aria-controls="navLinks" aria-label="Menu" data-i18n-attrs="aria-label:k88">
+        <svg class="i-menu" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg><svg class="i-close" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+<main id="main">
+<section class="page-hero">
+  <div class="hero-bg" aria-hidden="true"><span class="orb o1" data-parallax="0.1"></span></div>
+  <div class="container narrow">
+    <p class="eyebrow intro-1" data-i18n="k99">Guide</p>
+    <h1 class="intro-2" data-i18n="k100">Get started with Obinot</h1>
+    <p class="lead intro-3" data-i18n="k101">Install the app, get a free API key and record your first note. No technical knowledge needed.</p>
+  </div>
+</section><div class="container narrow"><nav class="toc reveal" aria-label="On this page">
+  <a href="#install"><span data-i18n="k102">1 · Install</span></a>
+  <a href="#why-key"><span data-i18n="k103">2 · What is an API key?</span></a>
+  <a href="#groq"><span data-i18n="k104">3a · Groq key</span></a>
+  <a href="#gemini"><span data-i18n="k105">3b · Gemini key</span></a>
+  <a href="#first"><span data-i18n="k106">4 · First note</span></a>
+  <a href="#trouble"><span data-i18n="k107">Troubleshooting</span></a>
+</nav></div>
+<section class="g-section" id="install">
+  <div class="container narrow">
+    <h2 class="reveal" data-i18n="k108">1. Install the app</h2>
+    <ol class="g-steps">
+      <li class="g-step reveal"><span class="sn">1</span><div><h3 data-i18n="k109">Download the APK</h3><p data-i18n="k110" data-i18n-html>Tap <b>Download APK</b> at the top of this page. It comes straight from the project's GitHub releases.</p></div></li>
+      <li class="g-step reveal"><span class="sn">2</span><div><h3 data-i18n="k111">Allow the install</h3><p data-i18n="k112" data-i18n-html>Open the downloaded file. If Android asks, allow installing apps from your browser (or file manager) — you only do this once.</p></div></li>
+      <li class="g-step reveal"><span class="sn">3</span><div><h3 data-i18n="k113">Open Obinot</h3><p data-i18n="k114" data-i18n-html>Follow the short welcome. It will ask for microphone access (to record) and, optionally, notification access (to keep recording in the background).</p></div></li>
+    </ol>
+    <div class="callout reveal"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg><p><span data-i18n="k115">Obinot is not on the Play Store. Download it only from the official GitHub page linked on this site.</span></p></div>
+  </div>
+</section>
+<section class="g-section" id="why-key">
+  <div class="container narrow">
+    <h2 class="reveal" data-i18n="k116">2. What is an API key, and why do I need one?</h2>
+    <p class="reveal" data-i18n="k117" data-i18n-html>Obinot doesn't run its own servers. To turn speech into text and structure it, it asks an AI service — Groq or Google Gemini — directly from your phone. An <b>API key</b> is a long password that tells that service the request is yours. Both offer free tiers that are plenty for personal use.</p>
+    <div class="choose reveal">
+      <div class="card"><h3>Groq</h3><p data-i18n="k118">Very fast. Great for everyday notes and short or medium recordings. Has a 25 MB file limit (Obinot can compress audio to fit).</p></div>
+      <div class="card"><h3>Gemini</h3><p data-i18n="k119">Handles very long recordings, like a full lecture or meeting. Slightly slower (not recommended for free API).</p></div>
+      <div class="card"><h3>Dynamic</h3><p data-i18n="k120">Add both keys and Obinot picks the best provider for each task, saving your free quota.</p></div>
+    </div>
+    <div class="callout warn reveal"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M12.65 10A5.99 5.99 0 0 0 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6a5.99 5.99 0 0 0 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg><p><span data-i18n="k121" data-i18n-html><b>Treat your key like a password.</b> Don't post it in screenshots, chats or public forums. Obinot stores it on your device only.</span></p></div>
+  </div>
+</section>
+<section class="g-section" id="groq">
+  <div class="container narrow">
+    <div class="g-badge reveal"><span data-i18n="k122">Recommended to start</span></div>
+    <h2 class="reveal" data-i18n="k123">3a. Get a free Groq key</h2>
+    <ol class="g-steps">
+      <li class="g-step reveal"><span class="sn">1</span><div><h3 data-i18n="k124">Open the Groq console</h3><p data-i18n="k125" data-i18n-html>Go to <a href="https://console.groq.com/keys" rel="noopener">console.groq.com/keys</a> and sign in (or create a free account).</p></div></li>
+      <li class="g-step reveal"><span class="sn">2</span><div><h3 data-i18n="k126">Create the key</h3><p data-i18n="k127" data-i18n-html>Tap <b>Create API Key</b>, give it any name (for example “Obinot”) and confirm.</p></div></li>
+      <li class="g-step reveal"><span class="sn">3</span><div><h3 data-i18n="k128">Copy it right away</h3><p data-i18n="k129" data-i18n-html>The key is shown only once. Copy it to your clipboard before closing the window.</p></div></li>
+      <li class="g-step reveal"><span class="sn">4</span><div><h3 data-i18n="k130">Paste it in Obinot</h3><p data-i18n="k131" data-i18n-html>During the welcome, choose <b>Groq</b> and paste the key. You can also do it later in <b>Settings</b>.</p></div></li>
+    </ol>
+  </div>
+</section>
+<section class="g-section" id="gemini">
+  <div class="container narrow">
+    <div class="g-badge alt reveal"><span data-i18n="k132">Best for long recordings</span></div>
+    <h2 class="reveal" data-i18n="k133">3b. Get a free Gemini key</h2>
+    <ol class="g-steps">
+      <li class="g-step reveal"><span class="sn">1</span><div><h3 data-i18n="k134">Open Google AI Studio</h3><p data-i18n="k135" data-i18n-html>Go to <a href="https://aistudio.google.com/app/apikey" rel="noopener">aistudio.google.com/app/apikey</a> and sign in with your Google account.</p></div></li>
+      <li class="g-step reveal"><span class="sn">2</span><div><h3 data-i18n="k136">Create the key</h3><p data-i18n="k137" data-i18n-html>Tap <b>Create API key</b>. If it asks for a project, pick the default one or create a new one.</p></div></li>
+      <li class="g-step reveal"><span class="sn">3</span><div><h3 data-i18n="k138">Copy it</h3><p data-i18n="k139" data-i18n-html>Copy the key that appears. You can come back to this page to see it again.</p></div></li>
+      <li class="g-step reveal"><span class="sn">4</span><div><h3 data-i18n="k140">Paste it in Obinot</h3><p data-i18n="k141" data-i18n-html>Choose <b>Gemini</b> in the welcome (or in <b>Settings</b>) and paste it.</p></div></li>
+    </ol>
+    <div class="callout reveal"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg><p><span data-i18n="k142" data-i18n-html>Want both? Add the second key too and switch to <b>Dynamic</b> mode. Providers update their sign-up screens from time to time, so button names may look slightly different.</span></p></div>
+  </div>
+</section>
+<section class="g-section" id="first">
+  <div class="container narrow">
+    <h2 class="reveal" data-i18n="k143">4. Record your first note</h2>
+    <ol class="g-steps">
+      <li class="g-step reveal"><span class="sn">1</span><div><h3 data-i18n="k144">Press Record</h3><p data-i18n="k145" data-i18n-html>On the first tab, tap <b>Record</b> and talk. Pause or stop with the buttons. Already have audio? Use the music-note button to import it.</p></div></li>
+      <li class="g-step reveal"><span class="sn">2</span><div><h3 data-i18n="k146">Open the note</h3><p data-i18n="k147" data-i18n-html>Go to <b>History</b> and open it. Obinot transcribes and structures it, then shows the <b>Summary</b> and the <b>Transcript</b>.</p></div></li>
+      <li class="g-step reveal"><span class="sn">3</span><div><h3 data-i18n="k148">Ask, edit, organize</h3><p data-i18n="k149" data-i18n-html>Long-press the options button to chat about the note, or tap it for labels, editing, export and more.</p></div></li>
+    </ol>
+  </div>
+</section>
+<section class="g-section" id="trouble">
+  <div class="container narrow">
+    <h2 class="reveal" data-i18n="k158">Troubleshooting</h2>
+    <div class="faq-list"><details class="faq-item reveal"><summary><span data-i18n="k150">“API key required”</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg></summary><div class="faq-body"><p data-i18n="k151" data-i18n-html>Add your key in Settings. Recording and reading notes work without it; AI does not.</p></div></details><details class="faq-item reveal"><summary><span data-i18n="k152">“Audio is too long for Groq” / file over 25 MB</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg></summary><div class="faq-body"><p data-i18n="k153" data-i18n-html>Turn on <b>Compression</b>, or switch to <b>Gemini</b> or <b>Dynamic</b>, which handle long audio.</p></div></details><details class="faq-item reveal"><summary><span data-i18n="k154">Rate limit / “try again in a moment”</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg></summary><div class="faq-body"><p data-i18n="k155" data-i18n-html>Free tiers have limits. Wait a bit, add a second key from the other provider, or enable <b>API Key Rotation</b> in Advanced settings.</p></div></details><details class="faq-item reveal"><summary><span data-i18n="k156">“No clear speech detected”</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg></summary><div class="faq-body"><p data-i18n="k157" data-i18n-html>Record closer to the source, or in a quieter place, and try again.</p></div></details></div>
+    <div class="cta-row reveal">
+      <a href="faq.html" class="btn btn-tonal"><span data-i18n="k159">More answers in the FAQ</span></a>
+      <a href="https://github.com/LexicoON/Obinot/issues" class="btn btn-text" rel="noopener"><span data-i18n="k160">Still stuck? Open an issue</span> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg></a>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="index.html" class="brand"><img src="assets/icon.png" alt="" width="40" height="40"><span class="brand-word">Obinot<i>.</i></span></a>
+        <p class="pixel" data-i18n="k89">Speak, We do the rest.</p>
+        <p class="muted" data-i18n="k90">AI voice notes for Android. Free and open source.</p>
+      </div>
+      <div class="footer-col">
+        <h4 data-i18n="k91">Project</h4>
+        <a href="https://github.com/LexicoON/Obinot" rel="noopener">GitHub</a>
+        <a href="https://github.com/LexicoON/Obinot/releases" rel="noopener">Releases</a>
+        <a href="changelog.html"><span data-i18n="k92">Changelog</span></a>
+        <a href="https://github.com/LexicoON/Obinot/issues" rel="noopener"><span data-i18n="k93">Report an issue</span></a>
+      </div>
+      <div class="footer-col">
+        <h4 data-i18n="k94">Learn</h4>
+        <a href="guide.html"><span data-i18n="k95">Get started guide</span></a>
+        <a href="faq.html">FAQ</a>
+        <a href="privacy.html"><span data-i18n="k96">Privacy policy</span></a>
+      </div>
+      <div class="footer-col">
+        <h4 data-i18n="k97">Built on</h4>
+        <a href="https://github.com/DENSLnetion/Binot" rel="noopener">Binot</a>
+        <a href="https://m3.material.io/" rel="noopener">Material 3</a>
+        <a href="https://ai.google.dev/" rel="noopener">Gemini</a>
+        <a href="https://groq.com/" rel="noopener">Groq</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p data-i18n="k98" data-i18n-html>Licensed under MIT + Apache 2.0. Obinot is a community fork of <a href="https://github.com/DENSLnetion/Binot" rel="noopener">Binot</a> by DENSLnetion.</p>
+      <p class="muted">Obinot. · <span data-version>v2.2</span></p>
+    </div>
+  </div>
+</footer>
+
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
